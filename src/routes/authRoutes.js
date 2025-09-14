@@ -19,4 +19,23 @@ router.get('/verify-email', authController.verifyEmail);
 router.post('/get-verification-token', authController.getVerificationToken);
 router.post('/get-reset-token', authController.getResetToken);
 
+
+// Google OAuth routes
+const passport = require('../../passport');
+
+router.get('/google',
+	passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get('/google/callback',
+	passport.authenticate('google', {
+		failureRedirect: '/login',
+		session: true
+	}),
+	(req, res) => {
+		// Successful authentication, redirect or respond as needed
+		res.redirect(process.env.FRONTEND_URL || '/');
+	}
+);
+
 module.exports = router;
