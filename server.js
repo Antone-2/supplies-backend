@@ -112,49 +112,6 @@ app.get('/healthz', (req, res) => {
     res.json({ status: 'ok', message: 'Health alias', time: new Date().toISOString() });
 });
 
-// Temporary debug route to list registered auth router stack
-app.get('/_debug/routes', (req, res) => {
-    try {
-        const authLayer = app._router.stack.filter(l => l?.name === 'router' && l?.regexp?.toString().includes('^\/api\\/v1\\/auth\\/?$'));
-        const routes = [];
-        authLayer.forEach(layer => {
-            if (layer.handle && layer.handle.stack) {
-                layer.handle.stack.forEach(r => {
-                    if (r.route) {
-                        const methods = Object.keys(r.route.methods).join(',');
-                        routes.push(methods.toUpperCase() + ' ' + r.route.path);
-                    }
-                });
-            }
-        });
-        res.json({ routes });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// Global route inventory (debug – remove in production later)
-app.get('/_debug/all', (req, res) => {
-    try {
-        const out = [];
-        app._router.stack.forEach(layer => {
-            if (layer.route) {
-                const methods = Object.keys(layer.route.methods).join(',').toUpperCase();
-                out.push(methods + ' ' + layer.route.path);
-            } else if (layer.name === 'router' && layer.handle?.stack) {
-                layer.handle.stack.forEach(r => {
-                    if (r.route) {
-                        const methods = Object.keys(r.route.methods).join(',').toUpperCase();
-                        out.push(methods + ' ' + r.route.path);
-                    }
-                });
-            }
-        });
-        res.json({ routes: out });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
 
 // 404 handler
 app.use((req, res, next) => {
