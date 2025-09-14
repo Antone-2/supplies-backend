@@ -104,8 +104,12 @@ app.use('/api/v1/wishlist', wishlistRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/users', userRoutes);
 
+// Health endpoints (primary + alias) placed early to guarantee availability
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Backend is running!' });
+    res.json({ status: 'ok', message: 'Backend is running!', time: new Date().toISOString() });
+});
+app.get('/healthz', (req, res) => {
+    res.json({ status: 'ok', message: 'Health alias', time: new Date().toISOString() });
 });
 
 // Temporary debug route to list registered auth router stack
@@ -124,6 +128,29 @@ app.get('/_debug/routes', (req, res) => {
             }
         });
         res.json({ routes });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Global route inventory (debug – remove in production later)
+app.get('/_debug/all', (req, res) => {
+    try {
+        const out = [];
+        app._router.stack.forEach(layer => {
+            if (layer.route) {
+                const methods = Object.keys(layer.route.methods).join(',').toUpperCase();
+                out.push(methods + ' ' + layer.route.path);
+            } else if (layer.name === 'router' && layer.handle?.stack) {
+                layer.handle.stack.forEach(r => {
+                    if (r.route) {
+                        const methods = Object.keys(r.route.methods).join(',').toUpperCase();
+                        out.push(methods + ' ' + r.route.path);
+                    }
+                });
+            }
+        });
+        res.json({ routes: out });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
