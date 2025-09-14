@@ -91,7 +91,6 @@ app.use((req, _res, next) => {
 const authRoutes = require('./src/routes/authRoutes');
 const productRoutes = require('./src/modules/product/product.routes');
 const categoryRoutes = require('./src/modules/category/category.routes');
-const socialAuthRoutes = require('./src/routes/socialAuthRoutes');
 const cartRoutes = require('./src/routes/cartRoutes');
 const wishlistRoutes = require('./src/routes/wishlistRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
@@ -99,7 +98,7 @@ const userRoutes = require('./src/routes/userRoutes');
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/categories', categoryRoutes);
-app.use('/api/v1/auth', socialAuthRoutes);
+// Removed socialAuthRoutes to avoid overriding Google OAuth routes
 app.use('/api/v1/cart', cartRoutes);
 app.use('/api/v1/wishlist', wishlistRoutes);
 app.use('/api/v1/orders', orderRoutes);
@@ -107,6 +106,27 @@ app.use('/api/v1/users', userRoutes);
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'Backend is running!' });
+});
+
+// Temporary debug route to list registered auth router stack
+app.get('/_debug/routes', (req, res) => {
+    try {
+        const authLayer = app._router.stack.filter(l => l?.name === 'router' && l?.regexp?.toString().includes('^\/api\\/v1\\/auth\\/?$'));
+        const routes = [];
+        authLayer.forEach(layer => {
+            if (layer.handle && layer.handle.stack) {
+                layer.handle.stack.forEach(r => {
+                    if (r.route) {
+                        const methods = Object.keys(r.route.methods).join(',');
+                        routes.push(methods.toUpperCase() + ' ' + r.route.path);
+                    }
+                });
+            }
+        });
+        res.json({ routes });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // 404 handler
