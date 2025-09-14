@@ -23,6 +23,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                         email: profile.emails[0].value,
                         name: profile.displayName,
                         avatar: profile.photos[0].value,
+                        // Set default role for Google OAuth users
+                        role: 'customer',
+                        // Mark email as verified since it's from Google
+                        isEmailVerified: true,
                     });
                 }
                 return done(null, user);

@@ -24,18 +24,32 @@ router.post('/get-reset-token', authController.getResetToken);
 const passport = require('../../passport');
 
 router.get('/google',
-	passport.authenticate('google', { scope: ['profile', 'email'] })
+    passport.authenticate('google', { scope: ['profile', 'email'] })
 );
 
 router.get('/google/callback',
-	passport.authenticate('google', {
-		failureRedirect: '/login',
-		session: true
-	}),
-	(req, res) => {
-		// Successful authentication, redirect or respond as needed
-		res.redirect(process.env.FRONTEND_URL || '/');
-	}
+    passport.authenticate('google', {
+        failureRedirect: process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/auth' : '/auth',
+        session: true
+    }),
+    async (req, res) => {
+        try {
+            // Generate JWT token for the authenticated user
+            const jwt = require('jsonwebtoken');
+            const token = jwt.sign(
+                { userId: req.user._id, email: req.user.email, role: req.user.role },
+                process.env.JWT_SECRET || 'your-secret-key',
+                { expiresIn: '7d' }
+            );
+
+            // Redirect to frontend with token
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+            res.redirect(`${frontendUrl}/auth?token=${token}&provider=google`);
+        } catch (error) {
+            console.error('Google OAuth callback error:', error);
+            res.redirect(process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/auth' : '/auth');
+        }
+    }
 );
 
 module.exports = router;
