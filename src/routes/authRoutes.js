@@ -15,9 +15,7 @@ router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 router.get('/verify-email', authController.verifyEmail);
 
-// Helper endpoints for Cypress testing
-router.post('/get-verification-token', authController.getVerificationToken);
-router.post('/get-reset-token', authController.getResetToken);
+
 
 
 // Google OAuth routes
@@ -38,15 +36,17 @@ router.get('/google/callback',
             const jwt = require('jsonwebtoken');
             const token = jwt.sign(
                 { userId: req.user._id, email: req.user.email, role: req.user.role },
-                process.env.JWT_SECRET || 'your-secret-key',
+                process.env.JWT_SECRET,
                 { expiresIn: '7d' }
             );
 
             // Redirect to frontend with token
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+            const frontendUrl = process.env.FRONTEND_URL;
             res.redirect(`${frontendUrl}/auth?token=${token}&provider=google`);
         } catch (error) {
-            console.error('Google OAuth callback error:', error);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('Google OAuth callback error:', error);
+            }
             res.redirect(process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/auth' : '/auth');
         }
     }

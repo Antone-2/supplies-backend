@@ -37,11 +37,6 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 //     app.use(Sentry.Handlers.tracingHandler());
 //   }
 // ...existing code...
-// Test endpoint to confirm backend receives POST requests
-app.post('/api/v1/test', (req, res) => {
-    console.log('Test endpoint hit', req.body);
-    res.json({ message: 'Test endpoint received', data: req.body });
-});
 // Preferred port
 const PREFERRED_PORT = parseInt(process.env.PORT || '5000', 10);
 let PORT = PREFERRED_PORT;
@@ -76,13 +71,6 @@ app.use(passport.session());
 // Structured request logging
 app.use(pinoHttp({ logger }));
 
-// Helper debug logs for sensitive helper endpoints (kept minimal)
-app.use((req, _res, next) => {
-    if (req.path.includes('get-verification-token') || req.path.includes('get-reset-token')) {
-        logger.debug({ path: req.path, body: req.body }, 'Helper endpoint invoked');
-    }
-    next();
-});
 
 
 

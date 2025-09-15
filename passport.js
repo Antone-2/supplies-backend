@@ -9,9 +9,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.use(new GoogleStrategy({
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.BACKEND_URL
-            ? process.env.BACKEND_URL + '/api/v1/auth/google/callback'
-            : 'http://localhost:5000/api/v1/auth/google/callback',
+        callbackURL: process.env.BACKEND_URL + '/api/v1/auth/google/callback',
     },
         async (accessToken, refreshToken, profile, done) => {
             try {
@@ -35,8 +33,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             }
         }
     ));
-} else {
-    console.log('Google OAuth credentials not found, skipping Google strategy initialization');
 }
 
 passport.serializeUser((user, done) => {

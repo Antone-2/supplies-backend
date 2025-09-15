@@ -9,7 +9,7 @@ exports.googleAuth = passport.authenticate('google', {
 exports.googleCallback = passport.authenticate('google', { failureRedirect: '/login' }),
     (req, res) => {
         // Successful authentication, redirect to frontend
-        res.redirect(process.env.FRONTEND_URL || 'http://localhost:3000');
+        res.redirect(process.env.FRONTEND_URL);
     };
 
 // Get current user

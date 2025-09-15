@@ -2,7 +2,7 @@
 const pesaPalConfig = {
     // API Configuration
     api: {
-        baseUrl: process.env.PESAPAL_BASE_URL || 'https://pay.pesapal.com/v3',
+        baseUrl: process.env.PESAPAL_BASE_URL,
         consumerKey: process.env.PESAPAL_CONSUMER_KEY,
         consumerSecret: process.env.PESAPAL_CONSUMER_SECRET
     },
@@ -11,9 +11,9 @@ const pesaPalConfig = {
     payment: {
         currency: 'KES',
         country: 'KE',
-        callbackUrl: process.env.PESAPAL_CALLBACK_URL || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/checkout`,
-        notificationUrl: process.env.PESAPAL_NOTIFICATION_URL || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/v1/orders/pesapal-ipn`,
-        redirectUrl: process.env.PESAPAL_REDIRECT_URL || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/complete`
+        callbackUrl: process.env.PESAPAL_CALLBACK_URL,
+        notificationUrl: process.env.PESAPAL_NOTIFICATION_URL,
+        redirectUrl: process.env.PESAPAL_REDIRECT_URL
     },
 
     // Order Configuration
@@ -29,24 +29,21 @@ const pesaPalConfig = {
     // Validation helper
     validateConfig: function () {
         const errors = [];
-
         if (!this.api.consumerKey) {
             errors.push('PESAPAL_CONSUMER_KEY environment variable is required');
         }
-
         if (!this.api.consumerSecret) {
             errors.push('PESAPAL_CONSUMER_SECRET environment variable is required');
         }
-
         if (!this.api.baseUrl) {
             errors.push('PESAPAL_BASE_URL environment variable is required');
         }
-
         if (errors.length > 0) {
-            console.error('Pesapal Configuration Errors:', errors);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('Pesapal Configuration Errors:', errors);
+            }
             return false;
         }
-
         return true;
     }
 };

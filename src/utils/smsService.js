@@ -1,5 +1,3 @@
-// utils/smsService.js
-// Sends SMS using Brevo API
 const axios = require('axios');
 
 const sendSMS = async (to, message) => {

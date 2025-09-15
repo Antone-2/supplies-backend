@@ -21,9 +21,9 @@ function getClient() {
 
 async function get(key) {
   try {
-  const client = getClient();
-  if (!client) return null;
-  const data = await client.get(key);
+    const client = getClient();
+    if (!client) return null;
+    const data = await client.get(key);
     return data ? JSON.parse(data) : null;
   } catch (err) {
     return null; // Silent fail (avoid taking down request path)
@@ -32,9 +32,9 @@ async function get(key) {
 
 async function set(key, value, ttlSeconds = 60) {
   try {
-  const client = getClient();
-  if (!client) return;
-  await client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+    const client = getClient();
+    if (!client) return;
+    await client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
   } catch (err) {
     // ignore cache write failures
   }
