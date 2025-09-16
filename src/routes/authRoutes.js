@@ -42,12 +42,12 @@ router.get('/google/callback',
 
             // Redirect to frontend with token
             const frontendUrl = process.env.FRONTEND_URL;
-            res.redirect(`${frontendUrl}/auth?token=${token}&provider=google`);
+            res.redirect(`${frontendUrl}/oauth-callback?token=${token}&provider=google`);
         } catch (error) {
             if (process.env.NODE_ENV !== 'production') {
                 console.error('Google OAuth callback error:', error);
             }
-            res.redirect(process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/auth' : '/auth');
+            res.redirect(process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/oauth-callback' : '/oauth-callback');
         }
     }
 );

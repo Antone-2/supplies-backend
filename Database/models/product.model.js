@@ -31,7 +31,11 @@ const productSchema = new mongoose.Schema(
         manufacturer: { type: String },
         expiryDate: { type: Date },
         batchNumber: { type: String },
-        isActive: { type: Boolean, default: true }
+        isActive: { type: Boolean, default: true },
+        isNew: { type: Boolean, default: false },
+        isOnSale: { type: Boolean, default: false },
+        isOutOfStock: { type: Boolean, default: false },
+        isLowStock: { type: Boolean, default: false }
     },
     { timestamps: true }
 );
