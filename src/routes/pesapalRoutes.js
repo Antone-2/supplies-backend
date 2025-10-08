@@ -1,4 +1,3 @@
-// pesapalRoutes.js
 const express = require('express');
 const router = express.Router();
 const pesapalController = require('../modules/payment/payment.controller');

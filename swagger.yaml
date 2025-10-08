@@ -1,0 +1,125 @@
+openapi: 3.0.0
+info:
+  title: Medhelm Supplies API
+  version: 1.0.0
+  description: API documentation for Medhelm Supplies backend
+servers:
+  - url: https://supplies-backend.onrender.com
+paths:
+  /products:
+    get:
+      summary: Get all products
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Items per page
+      responses:
+        '200':
+          description: List of products
+    post:
+      summary: Create a new product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '201':
+          description: Product created
+  /orders:
+    get:
+      summary: Get all orders
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Items per page
+      responses:
+        '200':
+          description: List of orders
+    post:
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '201':
+          description: Order created
+  /users:
+    get:
+      summary: Get all users (admin)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Items per page
+      responses:
+        '200':
+          description: List of users
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        category:
+          type: string
+        stock:
+          type: integer
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+    Order:
+      type: object
+      properties:
+        user:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+        total:
+          type: number
+        address:
+          type: string
+        paymentMethod:
+          type: string
+        note:
+          type: string

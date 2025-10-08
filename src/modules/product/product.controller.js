@@ -1,279 +1,285 @@
-const { get: cacheGet, set: cacheSet, del: cacheDel } = require('../../utils/cache');
-
-// Get all unique categories (legacy - use category module instead)
-exports.getCategories = async (req, res) => {
-    try {
-        const categories = await Category.find({ isActive: true })
-            .select('name slug description')
-            .sort({ displayOrder: 1, name: 1 });
-        res.json({ success: true, data: categories });
-    } catch (err) {
-        res.status(500).json({ message: 'Failed to fetch categories' });
-    }
-};
-
-// Get all categories with product counts (legacy - use category module instead)
-exports.getCategoriesWithCounts = async (req, res) => {
-    try {
-        const cacheKey = 'categories:withCounts:v1';
-        const cached = await cacheGet(cacheKey);
-        if (cached) return res.json({ success: true, data: cached, cached: true });
-
-        const categories = await Category.find({ isActive: true })
-            .select('name slug description image icon color')
-            .sort({ displayOrder: 1, name: 1 });
-        const categoriesWithCounts = await Promise.all(
-            categories.map(async (category) => {
-                const productCount = await Product.countDocuments({ category: category._id, isActive: true });
-                return {
-                    _id: category._id,
-                    name: category.name,
-                    slug: category.slug,
-                    description: category.description,
-                    image: category.image,
-                    icon: category.icon,
-                    color: category.color,
-                    productCount
-                };
-            })
-        );
-        cacheSet(cacheKey, categoriesWithCounts, 300); // 5 min TTL
-        res.json({ success: true, data: categoriesWithCounts });
-    } catch (err) {
-        res.status(500).json({ message: 'Failed to fetch categories' });
-    }
-};
-// product.controller.js
 const Product = require('../../../Database/models/product.model');
 const Category = require('../../../Database/models/category.model');
+const redisClient = require('../../lib/redisClient');
 
 // Get all products
-exports.getProducts = async (req, res) => {
+const getProducts = async (req, res) => {
     try {
+        console.log('getProducts called with query:', req.query);
         const { page = 1, limit = 12, category, sortBy = 'name', sortOrder = 'asc', inStock } = req.query;
-
-        let query = {};
-        if (category && category !== 'all') {
-            // Find category by slug or id
-            const categoryDoc = await Category.findOne({
-                $or: [{ _id: category }, { slug: category }]
-            });
-            if (categoryDoc) {
-                query.category = categoryDoc._id;
-            } else {
-                // If category not found, return empty result
-                return res.json({
-                    success: true,
-                    data: {
-                        products: [],
-                        pagination: {
-                            totalProducts: 0,
-                            totalPages: 0,
-                            currentPage: 1,
-                            hasNext: false,
-                            hasPrev: false
-                        }
-                    }
-                });
-            }
-        }
-        if (inStock === 'true') {
-            query.countInStock = { $gt: 0 };
-        }
+        const cacheKey = `products:${page}:${limit}:${category || ''}:${sortBy}:${sortOrder}:${inStock || ''}`;
+        // Temporarily skip Redis
+        // const cached = await redisClient.get(cacheKey);
+        // if (cached) {
+        //     return res.json(JSON.parse(cached));
+        // }
+        const query = {};
+        if (category) query.category = category;
+        if (inStock) query.countInStock = { $gt: 0 };
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-        const cacheKey = `products:all:${JSON.stringify({ page, limit, category: query.category || 'all', sortBy, sortOrder, inStock })}`;
-        const cached = await cacheGet(cacheKey);
-        if (cached) return res.json(cached);
+        const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        const totalProducts = await Product.countDocuments(query);
-        const totalPages = Math.ceil(totalProducts / limit);
-        const skip = (page - 1) * limit;
+        // Run both queries in parallel for better performance
+        const [products, total] = await Promise.all([
+            Product.find(query, {
+                // Only select necessary fields
+                name: 1,
+                price: 1,
+                image: 1,
+                images: 1,
+                category: 1,
+                countInStock: 1,
+                rating: 1,
+                numReviews: 1,
+                isFeatured: 1,
+                featured: 1,
+                discount: 1,
+                description: 1,
+                brand: 1,
+                sku: 1
+            })
+                .sort(sortOptions)
+                .skip(skip)
+                .limit(parseInt(limit))
+                .lean(),
+            Product.countDocuments(query)
+        ]);
 
-        const products = await Product.find(query)
-            .sort(sortOptions)
-            .skip(skip)
-            .limit(parseInt(limit))
-            .populate('category', 'name slug');
-
-        const responsePayload = {
-            success: true,
-            data: {
-                products: products.map(p => {
-                    const obj = p.toObject();
-                    let images = [];
-                    if (Array.isArray(obj.images) && obj.images.length > 0) images = obj.images;
-                    else if (typeof obj.image === 'string' && obj.image.length > 0) images = [{ url: obj.image, alt: obj.name }];
-                    return { ...obj, stock: p.countInStock, images };
-                }),
-                pagination: {
-                    totalProducts,
-                    totalPages,
-                    currentPage: parseInt(page),
-                    hasNext: page < totalPages,
-                    hasPrev: page > 1
-                }
-            }
+        console.log('Products found:', products.length);
+        const response = {
+            products,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / parseInt(limit))
         };
-        cacheSet(cacheKey, responsePayload, 120); // 2 min TTL
-        res.json(responsePayload);
+        // Temporarily skip Redis caching for debugging
+        // await redisClient.setEx(cacheKey, 60, JSON.stringify(response)); // cache for 60 seconds
+        res.json(response);
     } catch (err) {
         console.error('Error fetching products:', err);
-        res.status(500).json({ message: 'Failed to fetch products' });
+        res.status(500).json({ message: 'Failed to fetch products', details: err.message });
     }
 };
 
-exports.getProductsByCategory = async (req, res) => {
+// Import validation
+const { validateProduct } = require('./product.validation');
+
+// Get categories with counts
+const getCategoriesWithCounts = async (req, res) => {
+    try {
+        const categories = await Product.aggregate([
+            { $group: { _id: '$category', count: { $sum: 1 } } },
+            { $lookup: { from: 'categories', localField: '_id', foreignField: '_id', as: 'category' } },
+            { $unwind: '$category' },
+            { $project: { name: '$category.name', count: 1 } }
+        ]);
+        res.json({ categories });
+    } catch (err) {
+        console.error('Error fetching categories with counts:', err);
+        res.status(500).json({ message: 'Failed to fetch categories', details: err.message });
+    }
+};
+
+// Get all unique categories
+const getCategories = async (req, res) => {
+    try {
+        const categories = await Product.distinct('category');
+        res.json({ categories });
+    } catch (err) {
+        console.error('Error fetching categories:', err);
+        res.status(500).json({ message: 'Failed to fetch categories', details: err.message });
+    }
+};
+
+// Get products by category
+const getProductsByCategory = async (req, res) => {
     try {
         const { category } = req.params;
-        const { page = 1, limit = 12, sortBy = 'name', sortOrder = 'asc', inStock } = req.query;
-
-        let query = {};
-        // Only filter by category if it's not 'all'
-        if (category && category !== 'all') {
-            // Find category by slug or id
-            const categoryDoc = await Category.findOne({
-                $or: [{ _id: category }, { slug: category }]
-            });
-            if (categoryDoc) {
-                query.category = categoryDoc._id;
-            } else {
-                // If category not found, return empty result
-                return res.json({
-                    success: true,
-                    data: {
-                        products: [],
-                        pagination: {
-                            totalProducts: 0,
-                            totalPages: 0,
-                            currentPage: 1,
-                            hasNext: false,
-                            hasPrev: false
-                        }
-                    }
-                });
-            }
-        }
-        if (inStock === 'true') {
-            query.countInStock = { $gt: 0 };
-        }
-
-        const sortOptions = {};
-        sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-        const cacheKey = `products:byCategory:${JSON.stringify({ page, limit, category: query.category || 'all', sortBy, sortOrder, inStock })}`;
-        const cached = await cacheGet(cacheKey);
-        if (cached) return res.json(cached);
-
-        const totalProducts = await Product.countDocuments(query);
-        const totalPages = Math.ceil(totalProducts / limit);
-        const skip = (page - 1) * limit;
-
-        const products = await Product.find(query)
-            .sort(sortOptions)
-            .skip(skip)
-            .limit(parseInt(limit))
-            .populate('category', 'name slug');
-
-        const responsePayload = {
-            success: true,
-            data: {
-                products: products.map(p => {
-                    const obj = p.toObject();
-                    let images = [];
-                    if (Array.isArray(obj.images) && obj.images.length > 0) images = obj.images;
-                    else if (typeof obj.image === 'string' && obj.image.length > 0) images = [{ url: obj.image, alt: obj.name }];
-                    return { ...obj, stock: p.countInStock, images };
-                }),
-                pagination: {
-                    totalProducts,
-                    totalPages,
-                    currentPage: parseInt(page),
-                    hasNext: page < totalPages,
-                    hasPrev: page > 1
-                }
-            }
-        };
-        cacheSet(cacheKey, responsePayload, 120);
-        res.json(responsePayload);
-    } catch (err) {
-        res.status(500).json({ message: 'Failed to fetch products by category' });
-    }
-};
-
-// Get all featured products
-exports.getFeaturedProducts = async (req, res) => {
-    try {
-        const products = await Product.find({ featured: true }).populate('category', 'name slug');
-        const mappedProducts = products.map(p => {
-            const obj = p.toObject();
-            // Always provide an images array for frontend compatibility
-            let images = [];
-            if (Array.isArray(obj.images) && obj.images.length > 0) {
-                images = obj.images;
-            } else if (typeof obj.image === 'string' && obj.image.length > 0) {
-                images = [{ url: obj.image, alt: obj.name }];
-            }
-            return {
-                ...obj,
-                stock: p.countInStock,
-                images
-            };
+        const { page = 1, limit = 12 } = req.query;
+        const query = { category };
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const products = await Product.find(query).skip(skip).limit(parseInt(limit));
+        const total = await Product.countDocuments(query);
+        res.json({
+            products,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / parseInt(limit))
         });
-        res.json({ success: true, data: mappedProducts });
     } catch (err) {
-        res.status(500).json({ message: 'Failed to fetch featured products' });
+        console.error('Error fetching products by category:', err);
+        res.status(500).json({ message: 'Failed to fetch products', details: err.message });
     }
 };
 
-// Get single product by ID
-exports.getProductById = async (req, res) => {
+// Get featured products with caching and optimization
+const getFeaturedProducts = async (req, res) => {
     try {
-        const product = await Product.findById(req.params.id);
+        console.log('getFeaturedProducts called with query:', req.query);
+        const { limit = 8 } = req.query;
+        const cacheKey = `featured_products:${limit}`;
+
+        // Temporarily skip Redis to debug the issue
+        // const cached = await redisClient.get(cacheKey);
+        // if (cached) {
+        //     return res.json(JSON.parse(cached));
+        // }
+        console.log('Querying database for featured products...');
+
+        // Optimized query with selected fields only
+        const products = await Product.find(
+            {
+                $or: [
+                    { isFeatured: true },
+                    { featured: true }
+                ]
+            },
+            {
+                // Only select necessary fields to reduce data transfer
+                name: 1,
+                price: 1,
+                image: 1,
+                images: 1,
+                category: 1,
+                countInStock: 1,
+                rating: 1,
+                numReviews: 1,
+                isFeatured: 1,
+                featured: 1,
+                discount: 1,
+                description: 1,
+                brand: 1
+            }
+        )
+            .limit(parseInt(limit))
+            .lean(); // Use lean() for faster queries
+
+        console.log('Featured products found:', products.length);
+        const response = { products };
+
+        // Temporarily skip Redis caching
+        // await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+
+        res.json(response);
+    } catch (err) {
+        console.error('Error fetching featured products:', err);
+        res.status(500).json({ message: 'Failed to fetch featured products', details: err.message });
+    }
+};
+
+// Get product by ID
+const getProductById = async (req, res) => {
+    try {
+        const product = await Product.findById(req.params.id).populate('category');
         if (!product) return res.status(404).json({ message: 'Product not found' });
-        res.json(product);
+        res.json({ product });
     } catch (err) {
-        res.status(500).json({ message: 'Failed to fetch product' });
+        console.error('Error fetching product by ID:', err);
+        res.status(500).json({ message: 'Failed to fetch product', details: err.message });
     }
 };
 
-// Create new product
-exports.createProduct = async (req, res) => {
+// Create product (Admin only)
+const createProduct = async (req, res) => {
     try {
-        const product = new Product(req.body);
+        const productData = req.body;
+
+        // Validate required fields
+        if (!productData.name || !productData.price || !productData.category) {
+            return res.status(400).json({
+                message: 'Missing required fields: name, price, category'
+            });
+        }
+
+        const product = new Product({
+            name: productData.name,
+            description: productData.description || '',
+            price: Number(productData.price),
+            category: productData.category,
+            brand: productData.brand || '',
+            countInStock: Number(productData.countInStock) || 0,
+            image: productData.image || '',
+            images: productData.images || [],
+            isFeatured: productData.isFeatured || false,
+            isActive: true
+        });
+
         await product.save();
-        await cacheDel('products:*');
-        await cacheDel('categories:*');
-        res.status(201).json(product);
+
+        res.status(201).json({
+            success: true,
+            message: 'Product created successfully',
+            product
+        });
     } catch (err) {
-        res.status(400).json({ message: 'Failed to create product' });
+        console.error('Error creating product:', err);
+        res.status(500).json({
+            message: 'Failed to create product',
+            error: err.message
+        });
     }
 };
 
-// Update product
-exports.updateProduct = async (req, res) => {
+// Update product (Admin only)
+const updateProduct = async (req, res) => {
     try {
-        const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!product) return res.status(404).json({ message: 'Product not found' });
-        await cacheDel('products:*');
-        await cacheDel('categories:*');
-        res.json(product);
+        const productId = req.params.id;
+        const updates = req.body;
+
+        const product = await Product.findByIdAndUpdate(
+            productId,
+            { ...updates, updatedAt: new Date() },
+            { new: true, runValidators: true }
+        );
+
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Product updated successfully',
+            product
+        });
     } catch (err) {
-        res.status(400).json({ message: 'Failed to update product' });
+        console.error('Error updating product:', err);
+        res.status(500).json({
+            message: 'Failed to update product',
+            error: err.message
+        });
     }
 };
 
-// Delete product
-exports.deleteProduct = async (req, res) => {
+// Delete product (Admin only)
+const deleteProduct = async (req, res) => {
     try {
-        const product = await Product.findByIdAndDelete(req.params.id);
-        if (!product) return res.status(404).json({ message: 'Product not found' });
-        await cacheDel('products:*');
-        await cacheDel('categories:*');
-        res.json({ message: 'Product deleted' });
+        const productId = req.params.id;
+
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        // Soft delete - set isActive to false instead of deleting
+        product.isActive = false;
+        await product.save();
+
+        res.json({
+            success: true,
+            message: 'Product deleted successfully'
+        });
     } catch (err) {
-        res.status(500).json({ message: 'Failed to delete product' });
+        console.error('Error deleting product:', err);
+        res.status(500).json({
+            message: 'Failed to delete product',
+            error: err.message
+        });
     }
 };
+
+module.exports = { getProducts, createProduct, updateProduct, deleteProduct, getCategoriesWithCounts, getCategories, getProductsByCategory, getFeaturedProducts, getProductById };

@@ -1,47 +1,68 @@
-# Use Node.js 18 LTS Alpine for smaller image size
-FROM node:18-bullseye
+# Production-ready Dockerfile for Medhelm Backend
+FROM node:18-alpine AS base
+
+# Install security updates and create non-root user
+RUN apk update && apk upgrade && \
+    apk add --no-cache dumb-init && \
+    addgroup -g 1001 -S nodejs && \
+    adduser -S medhelm -u 1001
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for native modules
-RUN apt-get update && \
-    apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    sqlite3 \
-    libsqlite3-dev \
-    postgresql \
-    libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
-
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Production dependencies stage
+FROM base AS deps
 RUN npm ci --only=production && npm cache clean --force
 
-# Copy application code
+# Development dependencies stage (for building)
+FROM base AS build-deps
+RUN npm ci
+
+# Build stage
+FROM build-deps AS build
 COPY . .
+# Run any build steps if needed (e.g., TypeScript compilation)
+# RUN npm run build
 
-# Create non-root user
-RUN groupadd -g 1001 nodejs && \
-    useradd -m -u 1001 -g nodejs medhelm
+# Production stage
+FROM base AS production
 
-# Create necessary directories and set permissions
-RUN mkdir -p logs uploads public && \
-    chown -R medhelm:nodejs /app
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy application code with proper ownership
+COPY --chown=medhelm:nodejs . .
+
+# Create necessary directories
+RUN mkdir -p /app/uploads /app/logs && \
+    chown -R medhelm:nodejs /app/uploads /app/logs
+
+# Remove development files
+RUN rm -rf tests/ *.test.js debug-*.js test-*.js
+
+# Security: remove package manager and unnecessary files
+RUN rm -f package-lock.json && \
+    apk del --no-cache apk-tools
 
 # Switch to non-root user
 USER medhelm
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
 # Expose port
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node healthcheck.js
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
+
+# Production optimizations
+ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=512"

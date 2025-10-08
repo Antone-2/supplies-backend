@@ -1,4 +1,3 @@
-// wishlist.validation.js
 const Joi = require('joi');
 
 const wishlistSchema = Joi.object({

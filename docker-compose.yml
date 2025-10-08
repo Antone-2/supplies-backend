@@ -1,0 +1,138 @@
+# Docker Compose for Production Deployment
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: medhelm-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - medhelm-network
+    command: --auth --bind_ip_all
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis Cache (Optional)
+  redis:
+    image: redis:7-alpine
+    container_name: medhelm-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - medhelm-network
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: medhelm-backend
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/${MONGO_DB_NAME}?authSource=admin
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+      PESAPAL_CONSUMER_KEY: ${PESAPAL_CONSUMER_KEY}
+      PESAPAL_CONSUMER_SECRET: ${PESAPAL_CONSUMER_SECRET}
+      PESAPAL_TEST_MODE: ${PESAPAL_TEST_MODE:-false}
+      PESAPAL_CALLBACK_URL: ${BACKEND_URL}/api/v1/payment/callback
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+      BREVO_API_KEY: ${BREVO_API_KEY}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      SENTRY_DSN: ${SENTRY_DSN}
+      BACKEND_URL: ${BACKEND_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "5000:5000"
+    volumes:
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
+    networks:
+      - medhelm-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: medhelm-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    networks:
+      - medhelm-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  medhelm-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+  logs_data:
+    driver: local
+  nginx_cache:
+    driver: local

@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const paymentController = require('./payment.controller');
 
-// Mock payment intent endpoint for testing
-router.post('/intent', (req, res) => {
-    res.status(200).json({ clientSecret: 'mock_client_secret' });
-});
+router.post('/pesapal', paymentController.createPesapalPayment);
+router.post('/mpesa', paymentController.payWithMpesa);
+router.post('/airtel', paymentController.payWithAirtel);
+router.post('/paypal', paymentController.payWithPaypal);
+router.post('/callback', paymentController.paymentCallback);
 
 module.exports = router;

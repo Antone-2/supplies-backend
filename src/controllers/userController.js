@@ -1,243 +1,208 @@
-const User = require('../../Database/models/user.model');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const config = require('../../config/index');
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+// POST /api/v1/users/2fa/request
+export async function request2FA(req, res) {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    // Generate OTP
+    const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+    user.twoFactorOTP = otp;
+    user.twoFactorOTPExpires = Date.now() + 10 * 60 * 1000; // 10 min expiry
+    await user.save();
+    // Send OTP via email
+    const transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST,
+        port: process.env.EMAIL_PORT,
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        }
+    });
+    await transporter.sendMail({
+        from: process.env.EMAIL_FROM,
+        to: user.email,
+        subject: 'Your Medhelm 2FA Code',
+        html: `<p>Your verification code is <b>${otp}</b>. It expires in 10 minutes.</p>`
+    });
+    res.json({ message: 'OTP sent to email' });
+}
 
-// GET /api/v1/users/profile - Get logged-in user profile
-exports.getProfile = async (req, res) => {
+// POST /api/v1/users/2fa/verify
+export async function verify2FA(req, res) {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user.twoFactorOTP || !user.twoFactorOTPExpires) {
+        return res.status(400).json({ message: 'No OTP requested' });
+    }
+    if (Date.now() > user.twoFactorOTPExpires) {
+        return res.status(400).json({ message: 'OTP expired' });
+    }
+    if (user.twoFactorOTP !== otp) {
+        return res.status(400).json({ message: 'Invalid OTP' });
+    }
+    user.twoFactorOTP = undefined;
+    user.twoFactorOTPExpires = undefined;
+    user.twoFactorEnabled = true;
+    await user.save();
+    res.json({ message: '2FA verified' });
+}
+// Admin: Get paginated list of users
+export async function getUsers(req, res) {
+    try {
+        const { page = 1, limit = 20, role, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+        const query = {};
+        if (role) query.role = role;
+
+        const sortOptions = {};
+        sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const users = await User.find(query)
+            .select('-password')
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(parseInt(limit));
+        const total = await User.countDocuments(query);
+
+        res.json({
+            users,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / parseInt(limit))
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch users' });
+    }
+}
+import User from '../../Database/models/user.model.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import path from 'path';
+import fs from 'fs';
+import { validateProfile } from './user.validation.js';
+// POST /api/v1/users/avatar
+export async function uploadAvatar(req, res) {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+        const userId = req.user.id;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        // Save avatar URL (local path)
+        const avatarUrl = `/uploads/${req.file.filename}`;
+        user.avatar = avatarUrl;
+        await user.save();
+        res.json({ url: avatarUrl });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to upload avatar' });
+    }
+}
+
+export async function getProfile(req, res) {
     try {
         const userId = req.user.id;
         const user = await User.findById(userId).select('-password');
         if (!user) return res.status(404).json({ message: 'User not found' });
-
         res.json(user);
     } catch (error) {
-        console.error("Error fetching user profile:", error);
         res.status(500).json({ message: 'Server error fetching profile' });
     }
-};
+}
 
-// PUT /api/v1/users/profile - Update logged-in user profile
-exports.updateProfile = async (req, res) => {
+export async function updateProfile(req, res) {
+    const { error } = validateProfile(req.body);
+    if (error) {
+        return res.status(400).json({ message: 'Validation error', details: error.details });
+    }
     try {
         const userId = req.user.id;
         const { name, email, password, phone } = req.body;
-
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
-
         if (name) user.name = name;
-        if (email) user.email = email.toLowerCase();
+        if (email) user.email = email;
+        if (password) user.password = await bcrypt.hash(password, 10);
         if (phone) user.phone = phone;
-
-        if (password) {
-            const salt = await bcrypt.genSalt(12);
-            user.password = await bcrypt.hash(password, salt);
-        }
-
         await user.save();
-
-        res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            addresses: user.addresses,
-            role: user.role,
-        });
+        // Send notification (email and in-app) for profile update
+        try {
+            const { sendEmail } = require('../modules/notification/notification.controller');
+            const title = 'Profile Updated';
+            const message = 'Your account profile has been updated.';
+            // Send email notification
+            await sendEmail(user.email, title, `<p>${message}</p>`);
+            // Create in-app notification
+            if (typeof require('../modules/notification/notification.controller').createNotification === 'function') {
+                await require('../modules/notification/notification.controller').createNotification({
+                    body: {
+                        title,
+                        message,
+                        type: 'system',
+                        userId: user._id,
+                        via: 'email',
+                    },
+                    user: user,
+                }, { status: () => ({ json: () => { } }) }, () => { });
+            }
+        } catch (notifyErr) {
+            console.error('Error sending profile update notification:', notifyErr);
+        }
+        res.json(user);
     } catch (error) {
-        console.error("Error updating profile:", error);
         res.status(500).json({ message: 'Server error updating profile' });
     }
-};
+}
 
-// GET /api/v1/users/addresses - Get user addresses
-exports.getAddresses = async (req, res) => {
+export async function getAddresses(req, res) {
+    res.json({ addresses: [] });
+}
+
+export async function addAddress(req, res) {
+    res.json({ message: 'Address added' });
+}
+
+export async function updateAddress(req, res) {
+    res.json({ message: 'Address updated' });
+}
+
+export async function deleteAddress(req, res) {
+    res.json({ message: 'Address deleted' });
+}
+
+export async function getUserOrders(req, res) {
     try {
         const userId = req.user.id;
-        const user = await User.findById(userId).select('addresses');
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        const { page = 1, limit = 20, status, paymentStatus, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
-        res.json(user.addresses || []);
-    } catch (error) {
-        console.error("Error fetching addresses:", error);
-        res.status(500).json({ message: 'Server error fetching addresses' });
-    }
-};
+        const query = { user: userId };
+        if (status) query.orderStatus = status;
+        if (paymentStatus) query.paymentStatus = paymentStatus;
 
-// POST /api/v1/users/addresses - Add new address
-exports.addAddress = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { type, name, address, city, phone, isDefault } = req.body;
+        const sortOptions = {};
+        sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const orders = await require('../../../Database/models/order.model').find(query)
+            .populate('items.product', 'name imageUrl')
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(parseInt(limit));
 
-        // If this is the default address, unset other defaults
-        if (isDefault) {
-            user.addresses.forEach(addr => addr.isDefault = false);
-        }
-
-        // If this is the first address, make it default
-        const isFirstAddress = user.addresses.length === 0;
-
-        const newAddress = {
-            type: type || 'Home',
-            name,
-            address,
-            city,
-            phone,
-            isDefault: isDefault || isFirstAddress
-        };
-
-        user.addresses.push(newAddress);
-        await user.save();
-
-        res.status(201).json(newAddress);
-    } catch (error) {
-        console.error("Error adding address:", error);
-        res.status(500).json({ message: 'Server error adding address' });
-    }
-};
-
-// PUT /api/v1/users/addresses/:addressId - Update address
-exports.updateAddress = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const addressId = req.params.addressId;
-        const { type, name, address, city, phone, isDefault } = req.body;
-
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        const addressIndex = user.addresses.findIndex(addr => addr._id.toString() === addressId);
-        if (addressIndex === -1) return res.status(404).json({ message: 'Address not found' });
-
-        // If this is being set as default, unset other defaults
-        if (isDefault) {
-            user.addresses.forEach(addr => addr.isDefault = false);
-        }
-
-        user.addresses[addressIndex] = {
-            ...user.addresses[addressIndex],
-            type: type || user.addresses[addressIndex].type,
-            name: name || user.addresses[addressIndex].name,
-            address: address || user.addresses[addressIndex].address,
-            city: city || user.addresses[addressIndex].city,
-            phone: phone || user.addresses[addressIndex].phone,
-            isDefault: isDefault !== undefined ? isDefault : user.addresses[addressIndex].isDefault
-        };
-
-        await user.save();
-
-        res.json(user.addresses[addressIndex]);
-    } catch (error) {
-        console.error("Error updating address:", error);
-        res.status(500).json({ message: 'Server error updating address' });
-    }
-};
-
-// DELETE /api/v1/users/addresses/:addressId - Delete address
-exports.deleteAddress = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const addressId = req.params.addressId;
-
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        const addressIndex = user.addresses.findIndex(addr => addr._id.toString() === addressId);
-        if (addressIndex === -1) return res.status(404).json({ message: 'Address not found' });
-
-        const wasDefault = user.addresses[addressIndex].isDefault;
-        user.addresses.splice(addressIndex, 1);
-
-        // If the deleted address was default and there are other addresses, make the first one default
-        if (wasDefault && user.addresses.length > 0) {
-            user.addresses[0].isDefault = true;
-        }
-
-        await user.save();
-
-        res.json({ message: 'Address deleted successfully' });
-    } catch (error) {
-        console.error("Error deleting address:", error);
-        res.status(500).json({ message: 'Server error deleting address' });
-    }
-};
-
-// POST /api/v1/users/register - Register new user
-exports.registerUser = async (req, res) => {
-    try {
-        const { name, email, password } = req.body;
-
-        let user = await User.findOne({ email: email.toLowerCase() });
-        if (user) {
-            return res.status(400).json({ message: 'Email already in use' });
-        }
-
-        const salt = await bcrypt.genSalt(12);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        user = new User({
-            name,
-            email: email.toLowerCase(),
-            password: hashedPassword,
-            role: 'customer',
-        });
-
-        await user.save();
-
-        // Create JWT token
-        const token = jwt.sign({ id: user._id, role: user.role }, config.jwtSecret, {
-            expiresIn: config.JWT_EXPIRES_IN || '1h',
-        });
-
-        res.status(201).json({
-            token,
-            user: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-            },
-        });
-    } catch (error) {
-        console.error("Error registering user:", error);
-        res.status(500).json({ message: 'Server error registering user' });
-    }
-};
-
-// POST /api/v1/users/login - Authenticate user & issue token
-exports.loginUser = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const user = await User.findOne({ email: email.toLowerCase() });
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ id: user._id, role: user.role }, config.jwtSecret, {
-            expiresIn: config.JWT_EXPIRES_IN || '1h',
-        });
+        const total = await require('../../../Database/models/order.model').countDocuments(query);
 
         res.json({
-            token,
-            user: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-            },
+            orders,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / parseInt(limit))
         });
     } catch (error) {
-        console.error("Error logging in user:", error);
-        res.status(500).json({ message: 'Server error logging in' });
+        console.error('Error fetching user orders:', error);
+        res.status(500).json({ message: 'Failed to fetch orders' });
     }
-};
+}

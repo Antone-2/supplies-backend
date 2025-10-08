@@ -1,0 +1,65 @@
+Subject: Request to Increase Transaction Limits for Production Merchant Account - Medhelm Supplies
+
+Dear PesaPal Support Team,
+
+I am writing to request an increase in transaction limits for my production merchant account.
+
+**Account Details:**
+- Business Name: Medhelm Supplies
+- Business Type: Medical Supplies E-commerce Platform
+- Website: medhelmsupplies.co.ke
+- Current Status: Production account active with authentication working
+
+**Current Issue:**
+Transactions above 1,000 KES are being rejected with the error "amount_exceeds_default_limit". This is significantly limiting our business operations.
+
+**Requested Limits:**
+- **Per Transaction Limit**: 2,000,000 KES
+- **Daily Transaction Limit**: 10,000,000 KES (to accommodate multiple large institutional orders)
+- **Monthly Limit**: 100,000,000 KES (medical supplies business volume)
+
+**Business Justification:**
+Our medical supplies business serves:
+- Major hospitals and medical centers requiring complete equipment setups
+- Government healthcare institutions with large procurement needs
+- Private clinics and specialized medical facilities
+- Emergency response organizations requiring urgent bulk supplies
+- Medical research institutions with high-value equipment needs
+- International NGOs operating healthcare programs in Kenya
+
+**Typical Transaction Amounts:**
+- Small orders: 5,000 - 50,000 KES (medical consumables, basic devices)
+- Medium orders: 50,000 - 200,000 KES (medical equipment, diagnostic tools)
+- Large orders: 200,000 - 1,000,000 KES (hospital equipment, surgical sets, bulk supplies)
+- Institutional orders: 1,000,000 - 2,000,000 KES (complete medical facility setups, emergency procurement)
+
+**Business Volume Expectations:**
+- Average monthly transactions: 300-800 orders
+- Average order value: 125,000 KES
+- Large institutional clients: 20-50 orders per month (500K-2M KES each)
+- Peak periods: Higher volumes during medical equipment procurement seasons and emergency response situations
+- Target annual revenue: 500M - 1B KES through the platform
+
+**Additional Information:**
+- We have completed PesaPal integration testing successfully
+- Our technical implementation is production-ready
+- We are prepared to provide any additional business documentation required
+- KRA PIN and business registration documents available upon request
+
+We kindly request expedited processing of this limit increase as we have customers waiting to complete their medical supply purchases.
+
+Thank you for your prompt attention to this matter. Please let me know if you need any additional information or documentation.
+
+Best regards,
+
+Medhelm Supplies Team
+Email: info@medhelmsupplies.co.ke
+Website: https://medhelmsupplies.co.ke
+Phone: [Your business phone number]
+
+---
+Technical Details (for reference):
+- Integration: Production API endpoints
+- Merchant Reference Format: order_[timestamp]
+- Callback URL: Configured and tested
+- Test Mode: Disabled (PESAPAL_TEST_MODE=false)

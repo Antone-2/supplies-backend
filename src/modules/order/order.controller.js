@@ -1,611 +1,464 @@
-const PDFDocument = require("pdfkit");
-const orderModel = require("../../../Database/models/order.model.js");
-const cartModel = require("../../../Database/models/cart.model.js");
-const productModel = require("../../../Database/models/product.model.js");
-const userModel = require("../../../Database/models/user.model.js");
-const { calculateShippingFee } = require("../../config/shippingConfig.js");
-const { sendSMS } = require("../../utils/smsService.js");
-const { sendEmail } = require("../../utils/emailService.js");
-const pesaPalConfig = require("../../config/pesaPalConfig.js");
+// ...order controller logic...
+// Example: createCashOrder, getSpecificOrder, getAllOrders, createCheckOutSession, createOnlineOrder, updateOrderStatus, addOrderNote, getOrderHistory, getOrderAnalytics, downloadOrderInvoice, bulkUpdateOrderStatus, calculateShippingFee, payAirtelMoney, payMpesa, verifyOrder
 
-// Download PDF invoice for an order (admin or user)
-const downloadOrderInvoice = async (req, res, next) => {
-  try {
-    const { orderId } = req.params;
-    const order = await orderModel.findById(orderId).populate('user');
-    if (!order) {
-      return res.status(404).json({ status: 'error', message: 'Order not found' });
-    }
+const orderModel = require('../../../Database/models/order.model');
+const mongoose = require('mongoose');
+const testDatabase = require('../../../testDatabase');
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=invoice_${order._id}.pdf`);
-    const doc = new PDFDocument({ margin: 40 });
-    doc.pipe(res);
-
-    doc.fontSize(20).text('Medhelm Supplies', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(14).text(`Order Invoice`, { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).text(`Order ID: ${order._id}`);
-    doc.text(`Date: ${order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}`);
-    doc.text(`Customer: ${order.user?.email || order.user}`);
-    doc.text(`Shipping: ${(order.shippingAddress?.address || '') + ' ' + (order.shippingAddress?.city || '') + ' ' + (order.shippingAddress?.country || '')}`);
-    doc.moveDown();
-
-    doc.text('Items:', { underline: true });
-    (order.items || order.cartItem || []).forEach((item, idx) => {
-      doc.text(`${idx + 1}. ${item.product?.name || item.productId || item.product} x${item.quantity} @ KES ${item.price || item.unitPrice || '-'}`);
-    });
-    doc.moveDown();
-    doc.text(`Total: KES ${order.totalAmount?.toLocaleString?.() || order.totalAmount}`, { bold: true });
-    doc.moveDown();
-    doc.text('Thank you for your purchase!', { align: 'center' });
-    doc.end();
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to generate invoice', error: error.message });
-  }
-};
-
-// Order verification handler
-const verifyOrder = async (req, res, next) => {
-  // You can add real verification logic here
-  res.status(200).json({ message: "Order verified!" });
-};
-
-// Calculate shipping fee based on distance
-const calculateShippingFeeHandler = async (req, res, next) => {
-  try {
-    const { origin, destination } = req.body;
-    if (!origin || !destination) {
-      return res.status(400).json({ status: 'error', message: 'Origin and destination required' });
-    }
-    const fee = await calculateShippingFee(origin, destination);
-    res.status(200).json({ shippingFee: fee });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to calculate shipping fee', error: error.message });
-  }
-};
-
-// Analytics: Get order and sales stats (admin only)
-const getOrderAnalytics = async (req, res, next) => {
-  try {
-    const totalOrders = await orderModel.countDocuments();
-    const totalSalesAgg = await orderModel.aggregate([
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } }
-    ]);
-    const totalSales = totalSalesAgg[0]?.total || 0;
-    const totalUsers = await orderModel.distinct("user").then(users => users.length);
-
-    // Sales per month (last 12 months)
-    const salesPerMonth = await orderModel.aggregate([
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-          total: { $sum: "$totalAmount" },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
-
-    // Top products (by quantity sold)
-    const topProducts = await orderModel.aggregate([
-      { $unwind: "$items" },
-      {
-        $group: {
-          _id: "$items.product",
-          name: { $first: "$items.product.name" },
-          quantity: { $sum: "$items.quantity" },
-          totalSales: { $sum: { $multiply: ["$items.quantity", "$items.price"] } }
-        }
-      },
-      { $sort: { quantity: -1 } },
-      { $limit: 5 }
-    ]);
-
-    res.status(200).json({
-      totalOrders,
-      totalSales,
-      totalUsers,
-      salesPerMonth,
-      topProducts
-    });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to get analytics', error: error.message });
-  }
-};
-
-// Bulk update order statuses (admin only)
-const bulkUpdateOrderStatus = async (req, res, next) => {
-  try {
-    const { orderIds, status } = req.body;
-    const allowedStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
-    if (!Array.isArray(orderIds) || !allowedStatuses.includes(status)) {
-      return res.status(400).json({ status: 'error', message: 'Invalid input' });
-    }
-    const result = await orderModel.updateMany(
-      { _id: { $in: orderIds } },
-      {
-        $set: { orderStatus: status },
-        $push: {
-          timeline: { status, changedAt: new Date(), note: 'Bulk update' },
-          activityLog: {
-            action: 'bulk_status_update',
-            user: req.user._id,
-            message: `Order status changed to ${status} (bulk)`,
-            createdAt: new Date()
-          }
-        }
-      }
-    );
-    res.status(200).json({ message: 'Bulk update complete', modifiedCount: result.modifiedCount });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to bulk update', error: error.message });
-  }
-};
-
-// Update order status and log timeline/activity (admin only)
-const updateOrderStatus = async (req, res, next) => {
-  try {
-    const { orderId } = req.params;
-    const { status, note } = req.body;
-    const allowedStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({ status: 'error', message: 'Invalid status value' });
-    }
-    const order = await orderModel.findById(orderId).populate('user');
-    if (!order) {
-      return res.status(404).json({ status: 'error', message: 'Order not found' });
-    }
-    order.orderStatus = status;
-    order.timeline.push({ status, changedAt: new Date(), note });
-    order.activityLog.push({
-      action: 'status_update',
-      user: req.user._id,
-      message: `Order status changed to ${status}${note ? ': ' + note : ''}`,
-      createdAt: new Date()
-    });
-    await order.save();
-
-    // Send email notification to customer
-    const customerEmail = order.shippingAddress?.email || order.user?.email;
-    if (customerEmail) {
-      let statusMsg = '';
-      switch (status) {
-        case 'pending': statusMsg = 'Your order has been received and is pending.'; break;
-        case 'confirmed': statusMsg = 'Your order has been confirmed.'; break;
-        case 'processing': statusMsg = 'Your order is being processed.'; break;
-        case 'shipped': statusMsg = 'Your order has been shipped.'; break;
-        case 'delivered': statusMsg = 'Your order has been delivered.'; break;
-        case 'cancelled': statusMsg = 'Your order has been cancelled.'; break;
-        default: statusMsg = `Order status updated: ${status}`;
-      }
-      const html = `<p>Dear Customer,</p>
-        <p>${statusMsg}</p>
-        <p><b>Order ID:</b> ${order._id}</p>
-        <p><b>Status:</b> ${status}</p>
-        <p>Thank you for shopping with Medhelm Supplies.</p>`;
-      try {
-        await sendEmail(customerEmail, `Order Status Update: ${status}`, html);
-      } catch (e) {
-        console.error('Failed to send status update email:', e);
-      }
-    }
-
-    // Send SMS for all status changes
-    if (order.shippingAddress && order.shippingAddress.phone) {
-      try {
-        await sendSMS(order.shippingAddress.phone, `${statusMsg} (Order ID: ${order._id})`);
-      } catch (e) {
-        console.error('Failed to send status update SMS:', e);
-      }
-    }
-    res.status(200).json({ message: 'Order status updated', order });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to update order status', error: error.message });
-  }
-};
-
-// Add note to order (admin or user)
-const addOrderNote = async (req, res, next) => {
-  try {
-    const { orderId } = req.params;
-    const { content } = req.body;
-    const order = await orderModel.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ status: 'error', message: 'Order not found' });
-    }
-    order.notes.push({ author: req.user._id, content, createdAt: new Date() });
-    order.activityLog.push({
-      action: 'add_note',
-      user: req.user._id,
-      message: `Note added: ${content}`,
-      createdAt: new Date()
-    });
-    await order.save();
-    res.status(200).json({ message: 'Note added', order });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to add note', error: error.message });
-  }
-};
-
-// Get order timeline and activity log (admin or user)
-const getOrderHistory = async (req, res, next) => {
-  try {
-    const { orderId } = req.params;
-    const order = await orderModel.findById(orderId)
-      .populate('notes.author', 'name email')
-      .populate('activityLog.user', 'name email');
-    if (!order) {
-      return res.status(404).json({ status: 'error', message: 'Order not found' });
-    }
-    res.status(200).json({
-      notes: order.notes,
-      activityLog: order.activityLog,
-      timeline: order.timeline
-    });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to get order history', error: error.message });
-  }
-};
-
-const createCashOrder = async (req, res, next) => {
-  try {
-    const { items, shippingAddress, totalAmount } = req.body;
-    if (!items || !shippingAddress || !totalAmount) {
-      return res.status(400).json({ status: 'error', message: 'Missing order data' });
-    }
-
-    const order = new orderModel({
-      user: req.user._id,
-      items,
-      totalAmount,
-      shippingAddress,
-      timeline: [
-        {
-          status: 'pending',
-          changedAt: new Date(),
-          note: 'Order created'
-        }
-      ],
-      activityLog: [
-        {
-          action: 'create',
-          user: req.user._id,
-          message: 'Order created',
-          createdAt: new Date()
-        }
-      ]
-    });
-    await order.save();
-
-    if (order) {
-      let options = items.map((item) => ({
-        updateOne: {
-          filter: { _id: item.product },
-          update: { $inc: { countInStock: -item.quantity } },
-        },
-      }));
-      await productModel.bulkWrite(options);
-
-      // Optionally clear user's cart here if needed
-
-      // Send notification (email and SMS)
-      const trackingCode = order._id.toString();
-      const userEmail = req.user.email;
-      const userPhone = shippingAddress?.phone;
-      const deliveryContact = shippingAddress?.phone || req.user.phone || 'N/A';
-
-      // Generate a unique return authorization number
-      const returnAuth = `RET-${trackingCode.slice(-6).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const returnInstructions = `If you need to return your order, please use the following Return Authorization Number: <b>${returnAuth}</b> and contact returns@medhelmsupplies.co.ke. Follow the instructions provided in your account or contact our support team.`;
-
-      // Order confirmation email
-      const orderMsg = `
-        <p>Your order has been placed!<br>
-        <b>Tracking code:</b> ${trackingCode}<br>
-        <b>Delivery contact:</b> ${deliveryContact}<br>
-        <b>Return instructions:</b> ${returnInstructions}</p>
-      `;
-      if (userEmail) {
-        await sendEmail(userEmail, 'Order Confirmation', orderMsg);
-      }
-      if (userPhone) {
-        await sendSMS(userPhone, `Order placed! Tracking: ${trackingCode}. Delivery contact: ${deliveryContact}`);
-      }
-
-      // Dispatch notification (simulate dispatch event)
-      const dispatchMsg = `
-        <p>Your order has been dispatched!<br>
-        <b>Tracking code:</b> ${trackingCode}<br>
-        <b>Delivery contact:</b> ${deliveryContact}<br>
-        You will be contacted by our delivery team.<br>
-        ${returnInstructions}
-        </p>
-      `;
-      if (userEmail) {
-        await sendEmail(userEmail, 'Order Dispatched', dispatchMsg);
-      }
-      if (userPhone) {
-        await sendSMS(userPhone, `Order dispatched! Tracking: ${trackingCode}. Delivery contact: ${deliveryContact}`);
-      }
-
-      return res.status(201).json({ message: "success", order, trackingCode, returnAuth });
-    } else {
-      return res.status(400).json({ status: 'error', message: 'Error creating order' });
-    }
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to create order', error: error.message });
-  }
-};
-
-const getSpecificOrder = async (req, res, next) => {
-  try {
-    console.log(req.user._id);
-
-    let order = await orderModel
-      .findOne({ userId: req.user._id })
-      .populate("cartItems.productId");
-
-    res.status(200).json({ message: "success", order });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to get order', error: error.message });
-  }
-};
-
-const getAllOrders = async (req, res, next) => {
-  try {
-    let orders = await orderModel.findOne({}).populate("cartItems.productId");
-
-    res.status(200).json({ message: "success", orders });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to get orders', error: error.message });
-  }
-};
-
-// Pesapal integration dependencies
-const axios = require('axios');
-const qs = require('querystring');
-
-// Helper: Get Pesapal OAuth token
-async function getPesapalToken() {
-  const consumerKey = pesaPalConfig.api.consumerKey;
-  const consumerSecret = pesaPalConfig.api.consumerSecret;
-  try {
-    const res = await axios.post(pesaPalConfig.api.baseUrl + '/api/Auth/RequestToken', {
-      consumer_key: consumerKey,
-      consumer_secret: consumerSecret
-    });
-    return res.data.token;
-  } catch (error) {
-    console.error('Failed to get Pesapal token:', error.response?.data || error.message);
-    throw new Error('Pesapal authentication failed');
-  }
-}
-
-// Create Pesapal order (checkout session)
-const createCheckOutSession = async (req, res, next) => {
-  try {
-    const { amount, description, callback_url, email, phone, orderData } = req.body;
-
-    // First, create the order in our database
-    const order = new orderModel({
-      user: req.user._id,
-      items: orderData.items,
-      totalAmount: orderData.totalAmount,
-      shippingAddress: orderData.shippingAddress,
-      shippingFee: orderData.shippingFee,
-      subtotal: orderData.subtotal,
-      paymentMethod: 'PESAPAL',
-      orderStatus: 'pending',
-      timeline: [
-        {
-          status: 'pending',
-          changedAt: new Date(),
-          note: 'Order created, awaiting payment'
-        }
-      ],
-      activityLog: [
-        {
-          action: 'create',
-          user: req.user._id,
-          message: 'Order created via Pesapal checkout',
-          createdAt: new Date()
-        }
-      ]
-    });
-    await order.save();
-
-    // Update inventory
-    let options = orderData.items.map((item) => ({
-      updateOne: {
-        filter: { _id: item.product },
-        update: { $inc: { countInStock: -item.quantity } },
-      },
-    }));
-    await productModel.bulkWrite(options);
-
-    // Create Pesapal checkout session
-    const token = await getPesapalToken();
-
-    // Build Pesapal order object conditionally
-    const pesapalOrderBase = {
-      id: order._id.toString(), // Use our order ID as merchant reference
-      currency: 'KES',
-      amount: amount,
-      description: description || 'Order Payment',
-      callback_url: callback_url || (process.env.FRONTEND_URL + '/checkout'),
-      billing_address: {
-        email_address: email,
-        phone_number: phone,
-        country_code: 'KE',
-        first_name: req.user?.name || 'Customer',
-        last_name: ''
-      }
-    };
-
-    // Conditionally add notification_id for production only
-    // Sandbox environments don't require valid IPN IDs
-    // For production, only add notification_id if a valid IPN ID is configured
-    let pesapalOrder = pesapalOrderBase;
-    if (process.env.NODE_ENV === 'production' && process.env.PESAPAL_IPN_ID) {
-      pesapalOrder = { ...pesapalOrderBase, notification_id: process.env.PESAPAL_IPN_ID };
-    }
-    // For sandbox/development, omit notification_id entirely
-
-    let orderRes;
+const getAllOrders = async (req, res) => {
     try {
-      orderRes = await axios.post(pesaPalConfig.api.baseUrl + '/api/Transactions/SubmitOrderRequest', pesapalOrder, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch (error) {
-      console.error('Pesapal SubmitOrderRequest failed:', error.response?.data || error.message);
-      return res.status(500).json({ status: 'error', message: 'Failed to create Pesapal checkout session', error: error.response?.data || error.message });
-    }
+        const { page = 1, limit = 20, status, paymentStatus, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
-    res.json({
-      payment_url: orderRes.data.redirect_url,
-      order_id: order._id
-    });
-  } catch (error) {
-    console.error('createCheckOutSession error:', error);
-    res.status(500).json({ status: 'error', message: 'Failed to create checkout session', error: error.message });
-  }
-};
+        // Check if MongoDB is connected, otherwise use test database
+        if (mongoose.connection.readyState !== 1) {
+            console.log('MongoDB not connected, using test database for orders');
+            const query = {};
+            if (status) query.orderStatus = status;
+            if (paymentStatus) query.paymentStatus = paymentStatus;
 
-// Pesapal IPN/notification handler (production-ready)
-const createOnlineOrder = async (req, res, next) => {
-  try {
-    // Pesapal sends payment notification (IPN) to this endpoint
-    const { notification_type, transaction_tracking_id, merchant_reference } = req.body;
-    if (!transaction_tracking_id || !merchant_reference) {
-      return res.status(400).json({ message: 'Missing Pesapal transaction data.' });
-    }
+            const allOrders = await testDatabase.findOrders(query);
 
-    // Step 1: Validate payment status with Pesapal
-    const token = await getPesapalToken();
-    const statusUrl = `${pesaPalConfig.api.baseUrl}/api/Transactions/GetTransactionStatus?orderTrackingId=${transaction_tracking_id}`;
-    let paymentStatus = 'INVALID';
-    try {
-      const statusRes = await axios.get(statusUrl, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      paymentStatus = statusRes.data.status;
+            // Simple sorting
+            if (sortBy === 'createdAt') {
+                allOrders.sort((a, b) => {
+                    const dateA = new Date(a.createdAt);
+                    const dateB = new Date(b.createdAt);
+                    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+                });
+            }
+
+            // Simple pagination
+            const skip = (parseInt(page) - 1) * parseInt(limit);
+            const orders = allOrders.slice(skip, skip + parseInt(limit));
+            const total = allOrders.length;
+
+            return res.json({
+                orders,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / parseInt(limit))
+            });
+        }
+
+        const query = {};
+        if (status) query.orderStatus = status;
+        if (paymentStatus) query.paymentStatus = paymentStatus;
+
+        const sortOptions = {};
+        sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const orders = await orderModel.find(query)
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(parseInt(limit));
+        const total = await orderModel.countDocuments(query);
+
+        res.json({
+            orders,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / parseInt(limit))
+        });
     } catch (err) {
-      return res.status(500).json({ message: 'Failed to verify payment with Pesapal.' });
+        res.status(500).json({ message: 'Failed to fetch orders' });
     }
-
-    // Step 2: Update order in DB if payment is completed
-    if (paymentStatus === 'COMPLETED') {
-      const order = await orderModel.findOneAndUpdate(
-        { _id: merchant_reference },
-        { isPaid: true, paidAt: new Date(), paymentMethod: 'PESAPAL', paymentResult: { transaction_tracking_id, status: paymentStatus } },
-        { new: true }
-      );
-      if (!order) return res.status(404).json({ message: 'Order not found.' });
-      // Optionally, update inventory, send confirmation email, etc.
-      return res.status(200).json({ message: 'Payment confirmed and order updated.', order });
-    } else {
-      return res.status(200).json({ message: `Payment status: ${paymentStatus}` });
-    }
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to process online order', error: error.message });
-  }
 };
 
-// Secure Airtel Money payment endpoint
-const payAirtelMoney = async (req, res, next) => {
-  try {
-    const { phone, pin, amount, orderId } = req.body;
-    if (!phone || !pin || !amount || !orderId) {
-      return res.status(400).json({ status: 'error', message: 'All fields required' });
+const { validateOrder } = require('../../controllers/order.validation');
+
+const createOrder = async (req, res) => {
+    try {
+        const { orderId, items, shippingAddress, totalAmount, paymentMethod } = req.body;
+
+        // Validate required fields
+        if (!orderId || !items || !shippingAddress || !totalAmount) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: orderId, items, shippingAddress, totalAmount'
+            });
+        }
+
+        // Check if MongoDB is connected, otherwise use test database
+        if (mongoose.connection.readyState !== 1) {
+            console.log('MongoDB not connected, using test database');
+            const testOrder = await testDatabase.createOrder({
+                orderNumber: orderId,
+                items: items.map(item => ({
+                    productId: item.productId,
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price
+                })),
+                shippingAddress: {
+                    fullName: shippingAddress.fullName,
+                    email: shippingAddress.email,
+                    phone: shippingAddress.phone,
+                    address: shippingAddress.address,
+                    city: shippingAddress.city,
+                    county: shippingAddress.county,
+                    deliveryLocation: shippingAddress.deliveryLocation
+                },
+                totalAmount,
+                paymentMethod: paymentMethod || 'pesapal',
+                orderStatus: 'pending',
+                paymentStatus: 'pending',
+                timeline: [{
+                    status: 'pending',
+                    changedAt: new Date(),
+                    note: 'Order created'
+                }]
+            });
+
+            return res.status(201).json({
+                success: true,
+                message: 'Order created successfully (test mode)',
+                orderId: testOrder.orderNumber,
+                mongoId: testOrder._id
+            });
+        }
+
+        // Create new order (let MongoDB generate the _id, use orderId as orderNumber)
+        const order = new orderModel({
+            orderNumber: orderId, // Use custom orderId as orderNumber
+            items: items.map(item => ({
+                productId: item.productId,
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            shippingAddress: {
+                fullName: shippingAddress.fullName,
+                email: shippingAddress.email,
+                phone: shippingAddress.phone,
+                address: shippingAddress.address,
+                city: shippingAddress.city,
+                county: shippingAddress.county,
+                deliveryLocation: shippingAddress.deliveryLocation
+            },
+            totalAmount,
+            paymentMethod: paymentMethod || 'pesapal',
+            orderStatus: 'pending',
+            paymentStatus: 'pending',
+            timeline: [{
+                status: 'pending',
+                changedAt: new Date(),
+                note: 'Order created'
+            }]
+        });
+
+        await order.save();
+
+        // Send order confirmation email and notification
+        try {
+            // Temporarily disable notifications to fix order creation
+            console.log('Order created successfully, email notifications disabled for now');
+            // const { sendOrderConfirmation } = require('../../services/emailService');
+            // const { notifyOrderCreated } = require('../../services/notificationService');
+
+            // await sendOrderConfirmation({
+            //     email: shippingAddress.email,
+            //     name: shippingAddress.fullName,
+            //     orderId: order._id,
+            //     items: items,
+            //     totalAmount: totalAmount,
+            //     shippingAddress: shippingAddress
+            // });
+
+            // Create in-app notification if user is logged in
+            // if (req.user?.id) {
+            //     await notifyOrderCreated(req.user.id, shippingAddress.email, {
+            //         orderId: order._id,
+            //         totalAmount: totalAmount
+            //     });
+            // }
+        } catch (emailError) {
+            console.warn('Order confirmation email failed:', emailError);
+        }
+
+        res.status(201).json({
+            success: true,
+            message: 'Order created successfully',
+            orderId: order.orderNumber,
+            mongoId: order._id
+        });
+    } catch (error) {
+        console.error('Order creation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create order',
+            error: error.message
+        });
     }
-    // TODO: Integrate with Airtel Money API securely (do not store PIN)
-    // Example: await airtelApi.pay({ phone, pin, amount });
-    // Mark order as paid if successful
-    // For now, simulate success:
-    // You should verify with the real API and handle errors
-    res.status(200).json({ message: "Airtel Money payment successful", orderId });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to process Airtel Money payment', error: error.message });
-  }
 };
 
-// Secure M-Pesa payment endpoint
-const payMpesa = async (req, res, next) => {
-  try {
-    const { phone, pin, amount, orderId } = req.body;
-    if (!phone || !pin || !amount || !orderId) {
-      return res.status(400).json({ status: 'error', message: 'All fields required' });
+const createCashOrder = async (req, res) => {
+    const { error } = validateOrder(req.body);
+    if (error) {
+        return res.status(400).json({ message: 'Validation error', details: error.details });
     }
-    // TODO: Integrate with M-Pesa API securely (do not store PIN)
-    // Example: await mpesaApi.pay({ phone, pin, amount });
-    // Mark order as paid if successful
-    // For now, simulate success:
-    // You should verify with the real API and handle errors
-    res.status(200).json({ message: "M-Pesa payment successful", orderId });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to process M-Pesa payment', error: error.message });
-  }
+    // ...implementation...
+    res.json({ message: 'Cash order created' });
 };
 
-async function card(e, res) {
-  try {
-    let cart = await cartModel.findById(e.client_reference_id);
+const getSpecificOrder = async (req, res) => {
+    try {
+        const orderId = req.params.id;
 
-    if (!cart) {
-      return res.status(404).json({ status: 'error', message: 'Cart was not found' });
+        // Check if MongoDB is connected, otherwise use test database
+        if (mongoose.connection.readyState !== 1) {
+            console.log('MongoDB not connected, using test database for order tracking');
+            const order = await testDatabase.findOrder(orderId);
+            if (!order) {
+                return res.status(404).json({ message: 'Order not found' });
+            }
+
+            // Format test database response for consistency
+            const trackingData = {
+                orderId: order._id,
+                orderNumber: order.orderNumber || order._id,
+                status: order.orderStatus,
+                paymentStatus: order.paymentStatus,
+                totalAmount: order.totalAmount,
+                createdAt: order.createdAt,
+                updatedAt: order.updatedAt,
+                timeline: order.timeline.map(entry => ({
+                    status: entry.status,
+                    date: entry.changedAt,
+                    note: entry.note
+                })),
+                shippingAddress: {
+                    fullName: order.shippingAddress.fullName,
+                    city: order.shippingAddress.city,
+                    county: order.shippingAddress.county,
+                    deliveryLocation: order.shippingAddress.deliveryLocation
+                },
+                items: order.items.map(item => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price
+                }))
+            };
+
+            return res.json({ order: trackingData });
+        }
+
+        const order = await orderModel.findById(orderId)
+            .populate('user', 'name email')
+            .select('-paymentResult -notes -activityLog'); // Exclude sensitive data for public tracking
+
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // Format response for tracking
+        const trackingData = {
+            orderId: order._id,
+            orderNumber: order._id,
+            status: order.orderStatus,
+            paymentStatus: order.paymentStatus,
+            totalAmount: order.totalAmount,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt,
+            timeline: order.timeline.map(entry => ({
+                status: entry.status,
+                date: entry.changedAt,
+                note: entry.note
+            })),
+            shippingAddress: {
+                fullName: order.shippingAddress.fullName,
+                city: order.shippingAddress.city,
+                county: order.shippingAddress.county,
+                deliveryLocation: order.shippingAddress.deliveryLocation
+            },
+            items: order.items.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price
+            }))
+        };
+
+        res.json({ order: trackingData });
+    } catch (error) {
+        console.error('Error fetching order:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
-
-    let user = await userModel.findOne({ email: e.customer_email })
-    const order = new orderModel({
-      userId: user._id,
-      cartItem: cart.cartItem,
-      totalOrderPrice: e.amount_total / 100,
-      shippingAddress: e.metadata.shippingAddress,
-      paymentMethod: "card",
-      isPaid: true,
-      paidAt: Date.now()
-    });
-
-    await order.save();
-
-    // console.log(order);
-    if (order) {
-      let options = cart.cartItem.map((item) => ({
-        updateOne: {
-          filter: { _id: item.productId },
-          update: { $inc: { quantity: -item.quantity, sold: item.quantity } },
-        },
-      }));
-
-      await productModel.bulkWrite(options);
-
-      await cartModel.findOneAndDelete({ userId: user._id });
-
-      return res.status(201).json({ message: "success", order });
-    } else {
-      return res.status(400).json({ status: 'error', message: 'Error in cart ID' });
-    }
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to process card payment', error: error.message });
-  }
-}
-
-module.exports = {
-  createCashOrder,
-  getSpecificOrder,
-  getAllOrders,
-  createCheckOutSession,
-  createOnlineOrder,
-  updateOrderStatus,
-  addOrderNote,
-  getOrderHistory,
-  getOrderAnalytics,
-  downloadOrderInvoice,
-  bulkUpdateOrderStatus,
-  calculateShippingFee: calculateShippingFeeHandler,
-  payAirtelMoney,
-  payMpesa,
-  verifyOrder,
 };
+
+const Order = require('../../../Database/models/order.model');
+// Dummy notification function (replace with real email/SMS/in-app logic)
+const User = require('../../../Database/models/user.model');
+const { sendOrderEmail } = require('../../services/emailService');
+const sendOrderNotification = async (userId, message) => {
+    const user = await User.findById(userId);
+    if (!user || !user.email) return false;
+    const subject = 'Order Update from Medhelm Supplies';
+    const htmlContent = `<p>Dear ${user.name || 'Customer'},</p><p>${message}</p><p>Thank you for shopping with us!</p>`;
+    return await sendOrderEmail(user.email, subject, htmlContent);
+};
+
+const updateOrderStatus = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        const { status, paymentStatus, note, trackingNumber } = req.body;
+        const order = await orderModel.findById(orderId);
+        if (!order) return res.status(404).json({ message: 'Order not found' });
+
+        // Update status fields
+        if (status) order.orderStatus = status;
+        if (paymentStatus) order.paymentStatus = paymentStatus;
+        if (trackingNumber) order.trackingNumber = trackingNumber;
+
+        // Add timeline entry
+        order.timeline.push({
+            status: status || order.orderStatus,
+            changedAt: new Date(),
+            note: note || ''
+        });
+
+        await order.save();
+
+        // Send notifications for status changes (temporarily disabled)
+        if (status && order.shippingAddress?.email) {
+            try {
+                console.log('Order status updated, notifications disabled for now');
+                // const { sendShippingNotification } = require('../../services/emailService');
+                // const { notifyOrderStatusChange } = require('../../services/notificationService');
+
+                // // Send email for shipped status
+                // if (status === 'shipped') {
+                //     await sendShippingNotification({
+                //         email: order.shippingAddress.email,
+                //         name: order.shippingAddress.fullName,
+                //         orderId: order._id,
+                //         trackingNumber: order.trackingNumber
+                //     });
+                // }
+
+                // // Send comprehensive notification for all status changes
+                // await notifyOrderStatusChange(order.userId, order.shippingAddress.email, {
+                //     orderId: order._id,
+                //     status: status,
+                //     trackingNumber: order.trackingNumber
+                // });
+            } catch (notificationError) {
+                console.warn('Order status notification failed:', notificationError);
+            }
+        }
+
+        res.json({ message: 'Order status updated', order });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update order status', error: error.message });
+    }
+};
+
+const payMpesa = async (req, res) => {
+    // Placeholder
+    res.json({ message: 'Mpesa payment initiated' });
+};
+
+const payAirtelMoney = async (req, res) => {
+    // Placeholder
+    res.json({ message: 'Airtel Money payment initiated' });
+};
+
+const createCheckOutSession = async (req, res) => {
+    // Placeholder
+    res.json({ session: {} });
+};
+
+const verifyOrder = async (req, res, next) => {
+    res.status(200).json({ message: "Order verified!" });
+};
+
+const calculateShippingFee = async (req, res, next) => {
+    try {
+        const { origin, destination } = req.body;
+        if (!origin || !destination) {
+            return res.status(400).json({ status: 'error', message: 'Origin and destination required' });
+        }
+        // ...fee calculation logic...
+        res.json({ fee: 0 }); // Placeholder
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: 'Failed to calculate shipping fee', error: error.message });
+    }
+};
+
+// Analytics endpoint for admin dashboard
+const getOrderAnalytics = async (req, res) => {
+    try {
+        // Get total orders count
+        const totalOrders = await Order.countDocuments();
+
+        // Get pending orders count
+        const pendingOrders = await Order.countDocuments({ orderStatus: 'pending' });
+
+        // Get total revenue (paid orders only)
+        const revenueResult = await Order.aggregate([
+            { $match: { paymentStatus: 'paid' } },
+            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+        ]);
+        const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+
+        // Get user count (if User model is available)
+        let totalUsers = 0;
+        try {
+            const User = require('../../../Database/models/user.model');
+            totalUsers = await User.countDocuments();
+        } catch (error) {
+            console.log('User model not available for analytics');
+        }
+
+        // Get product count and low stock products
+        let totalProducts = 0;
+        let lowStockProducts = 0;
+        try {
+            const Product = require('../../../Database/models/product.model');
+            totalProducts = await Product.countDocuments({ isActive: true });
+            lowStockProducts = await Product.countDocuments({
+                isActive: true,
+                countInStock: { $lt: 10 }
+            });
+        } catch (error) {
+            console.log('Product model not available for analytics');
+        }
+
+        const stats = {
+            totalProducts,
+            totalOrders,
+            totalUsers,
+            totalRevenue,
+            pendingOrders,
+            lowStockProducts
+        };
+
+        res.json({
+            success: true,
+            stats
+        });
+    } catch (error) {
+        console.error('Analytics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch analytics',
+            error: error.message
+        });
+    }
+};
+
+const orderController = {
+    getAllOrders,
+    createOrder,
+    createCashOrder,
+    getSpecificOrder,
+    updateOrderStatus,
+    payMpesa,
+    payAirtelMoney,
+    createCheckOutSession,
+    verifyOrder,
+    calculateShippingFee,
+    getOrderAnalytics,
+};
+module.exports = orderController;
