@@ -13,6 +13,7 @@
         "test:unit": "jest --testPathPattern=src --testTimeout=30000"
     },
     "dependencies": {
+        "@sentry/node": "^10.18.0",
         "@sentry/tracing": "^7.120.4",
         "axios": "^1.12.2",
         "bcrypt": "^6.0.0",
