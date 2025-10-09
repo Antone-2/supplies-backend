@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { sendEmail } from '../../services/emailService.js';
+import * as emailService from '../../services/emailService.js';
 
 const register = async function register(req, res) {
     console.log('Register endpoint hit', req.body);
@@ -36,7 +36,7 @@ const register = async function register(req, res) {
                 <p style="font-size: 12px; color: #888;">Medhelm Supplies &copy; 2025</p>
             </div>
         `;
-        await sendEmail(email, 'Verify your email', html);
+        await emailService.sendEmail(email, 'Verify your email', html);
 
         // Always require email verification - no auto-login
         res.status(201).json({
@@ -169,7 +169,7 @@ const forgotPassword = async function forgotPassword(req, res) {
                 <p style="font-size: 12px; color: #888;">Medhelm Supplies &copy; 2025</p>
             </div>
         `;
-        await sendEmail(email, 'Reset your password', html);
+        await emailService.sendEmail(email, 'Reset your password', html);
         res.json({ message: 'Password reset email sent! Please check your inbox and click the link to reset your password.' });
     } catch (err) {
         res.status(500).json({ message: 'Failed to send password reset email' });
