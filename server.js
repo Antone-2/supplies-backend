@@ -22,7 +22,6 @@ const app = express();
 
 // Observability: Sentry (if DSN provided) & pino logger
 import * as Sentry from '@sentry/node';
-import * as SentryTracing from '@sentry/tracing';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
 
@@ -33,9 +32,11 @@ if (process.env.SENTRY_DSN && process.env.SENTRY_DSN !== 'your_sentry_dsn') {
     Sentry.init({
         dsn: process.env.SENTRY_DSN,
         tracesSampleRate: 1.0,
+        integrations: [
+            new Sentry.Integrations.Http({ tracing: true }),
+            new Sentry.Integrations.Express(),
+        ],
     });
-    app.use(Sentry.Handlers.requestHandler());
-    app.use(Sentry.Handlers.tracingHandler());
 }
 
 // Preferred port

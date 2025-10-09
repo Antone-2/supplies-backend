@@ -1,8 +1,8 @@
 // authRoutes.js
-const express = require('express');
-const { register, login, logout, me, refreshToken, forgotPassword, verifyEmail, resetPassword } = require('../modules/auth/auth.controller');
-const { googleAuth, googleCallback } = require('../modules/auth/socialAuth.controller');
-const auth = require('../middleware/auth');
+import express from 'express';
+import { register, login, logout, me, refreshToken, forgotPassword, verifyEmail, resetPassword } from '../modules/auth/auth.controller.js';
+import { googleAuth, googleCallback } from '../modules/auth/socialAuth.controller.js';
+import auth from '../middleware/auth.js';
 const router = express.Router();
 
 router.post('/register', register);
