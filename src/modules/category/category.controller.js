@@ -1,5 +1,5 @@
-const Category = require('../../../Database/models/category.model');
-const Product = require('../../../Database/models/product.model');
+import Category from '../../../Database/models/category.model.js';
+import Product from '../../../Database/models/product.model.js';
 
 // Get all categories with product counts
 const getCategoriesWithCounts = async (req, res) => {
@@ -95,4 +95,4 @@ const deleteCategory = async (req, res) => {
     }
 };
 
-module.exports = { getCategoriesWithCounts, getCategoryTree, getCategoryById, createCategory, updateCategory, deleteCategory };
+export { getCategoriesWithCounts, getCategoryTree, getCategoryById, createCategory, updateCategory, deleteCategory };
