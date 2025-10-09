@@ -1,10 +1,10 @@
 // reviewController.js
-const Review = require('../../Database/models/review.model');
-const Product = require('../../Database/models/product.model');
-const { sendEmail } = require('../utils/emailService');
+import Review from '../../Database/models/review.model.js';
+import Product from '../../Database/models/product.model.js';
+import { sendEmail } from '../services/emailService.js';
 
 // Create a new review and send notification
-exports.createReview = async (req, res) => {
+export async function createReview(req, res) {
     try {
         const { productId, rating, comment } = req.body;
         const userId = req.user._id;
@@ -85,7 +85,7 @@ exports.createReview = async (req, res) => {
 };
 
 // Get reviews for a specific product
-exports.getProductReviews = async (req, res) => {
+export async function getProductReviews(req, res) {
     try {
         const { productId } = req.params;
         const { page = 1, limit = 10 } = req.query;
@@ -117,7 +117,7 @@ exports.getProductReviews = async (req, res) => {
 };
 
 // Get reviews by current user
-exports.getUserReviews = async (req, res) => {
+export async function getUserReviews(req, res) {
     try {
         const userId = req.user._id;
         const { page = 1, limit = 10 } = req.query;
@@ -149,7 +149,7 @@ exports.getUserReviews = async (req, res) => {
 };
 
 // Update a review
-exports.updateReview = async (req, res) => {
+export async function updateReview(req, res) {
     try {
         const { reviewId } = req.params;
         const { rating, comment } = req.body;
@@ -189,7 +189,7 @@ exports.updateReview = async (req, res) => {
 };
 
 // Delete a review
-exports.deleteReview = async (req, res) => {
+export async function deleteReview(req, res) {
     try {
         const { reviewId } = req.params;
         const userId = req.user._id;

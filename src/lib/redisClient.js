@@ -1,4 +1,4 @@
-const redis = require('redis');
+import redis from 'redis';
 
 // Create a mock Redis client that doesn't fail on import
 let client;
@@ -36,4 +36,4 @@ try {
     };
 }
 
-module.exports = client;
+export default client;

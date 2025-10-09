@@ -1,6 +1,6 @@
-const Product = require('../../../Database/models/product.model');
-const Category = require('../../../Database/models/category.model');
-const redisClient = require('../../lib/redisClient');
+import Product from '../../../Database/models/product.model.js';
+import Category from '../../../Database/models/category.model.js';
+import redisClient from '../../lib/redisClient.js';
 
 // Get all products
 const getProducts = async (req, res) => {
@@ -66,7 +66,7 @@ const getProducts = async (req, res) => {
 };
 
 // Import validation
-const { validateProduct } = require('./product.validation');
+import { validateProduct } from './product.validation.js';
 
 // Get categories with counts
 const getCategoriesWithCounts = async (req, res) => {
@@ -282,4 +282,4 @@ const deleteProduct = async (req, res) => {
     }
 };
 
-module.exports = { getProducts, createProduct, updateProduct, deleteProduct, getCategoriesWithCounts, getCategories, getProductsByCategory, getFeaturedProducts, getProductById };
+export { getProducts, createProduct, updateProduct, deleteProduct, getCategoriesWithCounts, getCategories, getProductsByCategory, getFeaturedProducts, getProductById };

@@ -1,7 +1,7 @@
 import express from 'express';
 import { getCategoriesWithCounts, getCategories, getProductsByCategory, getProducts, getFeaturedProducts, getProductById, createProduct, updateProduct, deleteProduct } from './product.controller.js';
 import auth from '../../middleware/auth.js';
-import admin from '../../middleware/admin.js';
+import { default as admin } from '../../middleware/admin.js';
 const router = express.Router();
 
 // Get all categories with product counts

@@ -1,4 +1,4 @@
-const Joi = require('joi');
+import Joi from 'joi';
 
 const productSchema = Joi.object({
     name: Joi.string().required(),
@@ -32,7 +32,7 @@ function validateProduct(product) {
     return productSchema.validate(product);
 }
 
-module.exports = {
+export {
     productSchema,
     validateProduct
 };

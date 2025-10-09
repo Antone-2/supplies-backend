@@ -1,5 +1,5 @@
-const express = require('express');
-const {
+import express from 'express';
+import {
     getProfile,
     updateProfile,
     getAddresses,
@@ -9,12 +9,18 @@ const {
     getUsers,
     getUserOrders,
     request2FA,
-    verify2FA
-} = require('../controllers/userController');
-const jwtAuthMiddleware = require('../middleware/jwtAuthMiddleware');
-const reviewController = require('../controllers/reviewController');
-const multer = require('multer');
-const path = require('path');
+    verify2FA,
+    uploadAvatar
+} from '../controllers/userController.js';
+import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
+import { createReview, getUserReviews, updateReview, deleteReview } from '../controllers/reviewController.js';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = express.Router();
 
 // Multer setup for avatar uploads
@@ -39,7 +45,6 @@ router.get('/profile', jwtAuthMiddleware, getProfile);
 router.put('/profile', jwtAuthMiddleware, updateProfile);
 
 // POST /api/v1/users/avatar - Upload avatar image
-const { uploadAvatar } = require('../controllers/userController');
 router.post('/avatar', jwtAuthMiddleware, upload.single('file'), uploadAvatar);
 
 // GET /api/v1/users/orders - Get user orders
@@ -58,9 +63,9 @@ router.put('/addresses/:addressId', jwtAuthMiddleware, updateAddress);
 router.delete('/addresses/:addressId', jwtAuthMiddleware, deleteAddress);
 
 // Review routes
-router.post('/reviews', jwtAuthMiddleware, reviewController.createReview);
-router.get('/reviews', jwtAuthMiddleware, reviewController.getUserReviews);
-router.put('/reviews/:reviewId', jwtAuthMiddleware, reviewController.updateReview);
-router.delete('/reviews/:reviewId', jwtAuthMiddleware, reviewController.deleteReview);
+router.post('/reviews', jwtAuthMiddleware, createReview);
+router.get('/reviews', jwtAuthMiddleware, getUserReviews);
+router.put('/reviews/:reviewId', jwtAuthMiddleware, updateReview);
+router.delete('/reviews/:reviewId', jwtAuthMiddleware, deleteReview);
 
-module.exports = router;
+export default router;

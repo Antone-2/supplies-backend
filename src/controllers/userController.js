@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import Order from '../../../Database/models/order.model.js';
 // POST /api/v1/users/2fa/request
 export async function request2FA(req, res) {
     const { email } = req.body;
@@ -130,14 +131,15 @@ export async function updateProfile(req, res) {
         await user.save();
         // Send notification (email and in-app) for profile update
         try {
-            const { sendEmail } = require('../modules/notification/notification.controller');
+            const notificationController = await import('../modules/notification/notification.controller.js');
+            const { sendEmail } = notificationController;
             const title = 'Profile Updated';
             const message = 'Your account profile has been updated.';
             // Send email notification
             await sendEmail(user.email, title, `<p>${message}</p>`);
             // Create in-app notification
-            if (typeof require('../modules/notification/notification.controller').createNotification === 'function') {
-                await require('../modules/notification/notification.controller').createNotification({
+            if (typeof notificationController.createNotification === 'function') {
+                await notificationController.createNotification({
                     body: {
                         title,
                         message,
@@ -186,13 +188,13 @@ export async function getUserOrders(req, res) {
         sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
-        const orders = await require('../../../Database/models/order.model').find(query)
+        const orders = await Order.find(query)
             .populate('items.product', 'name imageUrl')
             .sort(sortOptions)
             .skip(skip)
             .limit(parseInt(limit));
 
-        const total = await require('../../../Database/models/order.model').countDocuments(query);
+        const total = await Order.countDocuments(query);
 
         res.json({
             orders,

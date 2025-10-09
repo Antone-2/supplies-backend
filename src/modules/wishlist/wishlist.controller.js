@@ -10,4 +10,4 @@ const wishlistController = {
     }
 };
 
-module.exports = wishlistController;
+export default wishlistController;
