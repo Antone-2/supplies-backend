@@ -174,7 +174,7 @@ export const getUserGeneralReview = async (req, res) => {
 };
 
 // Update user's general review
-exports.updateGeneralReview = async (req, res) => {
+export const updateGeneralReview = async (req, res) => {
     try {
         const { rating, title, comment } = req.body;
         const userId = req.user._id;
