@@ -138,4 +138,4 @@ class TestDatabase {
     }
 }
 
-module.exports = new TestDatabase();
+export default new TestDatabase();
