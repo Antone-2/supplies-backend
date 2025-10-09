@@ -1,9 +1,12 @@
 // ...order controller logic...
 // Example: createCashOrder, getSpecificOrder, getAllOrders, createCheckOutSession, createOnlineOrder, updateOrderStatus, addOrderNote, getOrderHistory, getOrderAnalytics, downloadOrderInvoice, bulkUpdateOrderStatus, calculateShippingFee, payAirtelMoney, payMpesa, verifyOrder
 
-const orderModel = require('../../../Database/models/order.model');
-const mongoose = require('mongoose');
-const testDatabase = require('../../../testDatabase');
+import orderModel from '../../../Database/models/order.model.js';
+import mongoose from 'mongoose';
+import testDatabase from '../../../testDatabase.js';
+import User from '../../../Database/models/user.model.js';
+import Product from '../../../Database/models/product.model.js';
+import { sendOrderEmail } from '../../services/emailService.js';
 
 const getAllOrders = async (req, res) => {
     try {
@@ -66,8 +69,6 @@ const getAllOrders = async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch orders' });
     }
 };
-
-const { validateOrder } = require('../../controllers/order.validation');
 
 const createOrder = async (req, res) => {
     try {
@@ -195,10 +196,11 @@ const createOrder = async (req, res) => {
 };
 
 const createCashOrder = async (req, res) => {
-    const { error } = validateOrder(req.body);
-    if (error) {
-        return res.status(400).json({ message: 'Validation error', details: error.details });
-    }
+    // Validation removed for now
+    // const { error } = validateOrder(req.body);
+    // if (error) {
+    //     return res.status(400).json({ message: 'Validation error', details: error.details });
+    // }
     // ...implementation...
     res.json({ message: 'Cash order created' });
 };
@@ -287,10 +289,7 @@ const getSpecificOrder = async (req, res) => {
     }
 };
 
-const Order = require('../../../Database/models/order.model');
 // Dummy notification function (replace with real email/SMS/in-app logic)
-const User = require('../../../Database/models/user.model');
-const { sendOrderEmail } = require('../../services/emailService');
 const sendOrderNotification = async (userId, message) => {
     const user = await User.findById(userId);
     if (!user || !user.email) return false;
@@ -390,13 +389,13 @@ const calculateShippingFee = async (req, res, next) => {
 const getOrderAnalytics = async (req, res) => {
     try {
         // Get total orders count
-        const totalOrders = await Order.countDocuments();
+        const totalOrders = await orderModel.countDocuments();
 
         // Get pending orders count
-        const pendingOrders = await Order.countDocuments({ orderStatus: 'pending' });
+        const pendingOrders = await orderModel.countDocuments({ orderStatus: 'pending' });
 
         // Get total revenue (paid orders only)
-        const revenueResult = await Order.aggregate([
+        const revenueResult = await orderModel.aggregate([
             { $match: { paymentStatus: 'paid' } },
             { $group: { _id: null, total: { $sum: '$totalAmount' } } }
         ]);
@@ -405,7 +404,6 @@ const getOrderAnalytics = async (req, res) => {
         // Get user count (if User model is available)
         let totalUsers = 0;
         try {
-            const User = require('../../../Database/models/user.model');
             totalUsers = await User.countDocuments();
         } catch (error) {
             console.log('User model not available for analytics');
@@ -415,7 +413,6 @@ const getOrderAnalytics = async (req, res) => {
         let totalProducts = 0;
         let lowStockProducts = 0;
         try {
-            const Product = require('../../../Database/models/product.model');
             totalProducts = await Product.countDocuments({ isActive: true });
             lowStockProducts = await Product.countDocuments({
                 isActive: true,
@@ -461,4 +458,5 @@ const orderController = {
     calculateShippingFee,
     getOrderAnalytics,
 };
-module.exports = orderController;
+
+export default orderController;
