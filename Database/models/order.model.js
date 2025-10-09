@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema({
     orderNumber: { type: String, unique: true }, // Custom order ID from frontend
@@ -27,4 +27,4 @@ orderSchema.index({ user: 1 });
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ orderStatus: 1 });
 const Order = mongoose.model('Order', orderSchema);
-module.exports = Order;
+export default Order;
