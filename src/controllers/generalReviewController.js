@@ -1,9 +1,9 @@
 // generalReviewController.js
-const GeneralReview = require('../../Database/models/generalReview.model');
-const { sendEmail } = require('../utils/emailService');
+import GeneralReview from '../../Database/models/generalReview.model.js';
+import { sendEmail } from '../services/emailService.js';
 
 // Create a new general review
-exports.createGeneralReview = async (req, res) => {
+export const createGeneralReview = async (req, res) => {
     try {
         const { name, email, rating, title, comment } = req.body;
         const userId = req.user ? req.user._id : null;

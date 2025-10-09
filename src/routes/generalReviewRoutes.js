@@ -1,18 +1,17 @@
-const express = require('express');
+import express from 'express';
+import * as generalReviewController from '../controllers/generalReviewController.js';
+import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
+import jwt from 'jsonwebtoken';
+import config from '../../config/index.js';
+import User from '../../Database/models/user.model.js';
+
 const router = express.Router();
-const generalReviewController = require('../controllers/generalReviewController');
-const jwtAuthMiddleware = require('../middleware/jwtAuthMiddleware');
 
 // Optional JWT middleware - allows both authenticated and unauthenticated users
 const optionalJwtAuth = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
+    const token = req.cookies.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    if (token) {
         try {
-            const jwt = require('jsonwebtoken');
-            const config = require('../../config/index');
-            const User = require('../../Database/models/user.model');
-
             const decoded = jwt.verify(token, config.jwtSecret);
             const user = await User.findById(decoded.id);
             if (user) {
@@ -37,4 +36,4 @@ router.get('/my-review', jwtAuthMiddleware, generalReviewController.getUserGener
 router.put('/my-review', jwtAuthMiddleware, generalReviewController.updateGeneralReview);
 router.delete('/my-review', jwtAuthMiddleware, generalReviewController.deleteGeneralReview);
 
-module.exports = router;
+export default router;
