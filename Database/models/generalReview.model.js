@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 // General reviews schema for homepage testimonials/reviews
 const generalReviewSchema = new mongoose.Schema({
@@ -54,4 +54,4 @@ generalReviewSchema.index({ createdAt: -1 });
 generalReviewSchema.index({ isApproved: 1, isFeatured: 1 });
 
 const GeneralReview = mongoose.model('GeneralReview', generalReviewSchema);
-module.exports = GeneralReview;
+export default GeneralReview;

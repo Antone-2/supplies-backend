@@ -92,7 +92,7 @@ export const createGeneralReview = async (req, res) => {
 };
 
 // Get all approved general reviews (for homepage display)
-exports.getGeneralReviews = async (req, res) => {
+export const getGeneralReviews = async (req, res) => {
     try {
         const { page = 1, limit = 20, featured = false } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -154,7 +154,7 @@ exports.getGeneralReviews = async (req, res) => {
 };
 
 // Get user's own general review
-exports.getUserGeneralReview = async (req, res) => {
+export const getUserGeneralReview = async (req, res) => {
     try {
         const userId = req.user._id;
 
