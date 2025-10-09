@@ -1,7 +1,7 @@
-const passport = require('passport');
-const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
-const User = require('./Database/models/user.model');
-const dotenv = require('dotenv');
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import User from './Database/models/user.model.js';
+import dotenv from 'dotenv';
 dotenv.config({ path: './.env' });
 
 // Only initialize Google strategy if credentials are provided
@@ -62,7 +62,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
                     // Send welcome email to new Google OAuth users
                     try {
-                        const { sendEmail } = require('./src/utils/emailService');
+                        const { sendEmail } = await import('./src/services/emailService.js');
                         const logoUrl = process.env.LOGO_URL;
                         const html = `
                                 <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; border: 1px solid #eee; border-radius: 8px; padding: 24px;">
@@ -136,4 +136,4 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-module.exports = passport;
+export default passport;
