@@ -21,8 +21,8 @@ const createTransporter = () => {
             // Don't fail on invalid certificates (for development)
             rejectUnauthorized: false
         },
-        debug: process.env.NODE_ENV, // Enable debug in development
-        logger: process.env.NODE_ENV  // Enable logging in development
+        debug: process.env.NODE_ENV === 'development', // Enable debug in development
+        logger: process.env.NODE_ENV === 'development'  // Enable logging in development
     });
 };
 
