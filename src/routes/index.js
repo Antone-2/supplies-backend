@@ -23,5 +23,6 @@ router.use('/gdpr', require('./gdprRoutes'));
 router.use('/backup', require('./backupRoutes'));
 router.use('/docs', require('./swaggerRoutes'));
 router.use('/general-reviews', require('./generalReviewRoutes'));
+router.use('/newsletter', require('./newsletterRoutes'));
 
 module.exports = router;
