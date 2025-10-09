@@ -1,6 +1,6 @@
-const express = require('express');
-const orderController = require('../modules/order/order.controller');
-const jwtAuthMiddleware = require('../middleware/jwtAuthMiddleware');
+import express from 'express';
+import orderController from '../modules/order/order.controller.js';
+import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
 const router = express.Router();
 
 router.get('/', orderController.getAllOrders);
@@ -26,4 +26,4 @@ router.get('/analytics', orderController.getOrderAnalytics);
 // Public tracking endpoint (no authentication required)
 router.get('/track/:id', orderController.getSpecificOrder);
 
-module.exports = router;
+export default router;
