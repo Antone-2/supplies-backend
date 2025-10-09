@@ -33,8 +33,8 @@ if (process.env.SENTRY_DSN && process.env.SENTRY_DSN !== 'your_sentry_dsn') {
         dsn: process.env.SENTRY_DSN,
         tracesSampleRate: 1.0,
         integrations: [
-            new Sentry.Integrations.Http({ tracing: true }),
-            new Sentry.Integrations.Express(),
+            Sentry.httpIntegration({ tracing: true }),
+            Sentry.expressIntegration(),
         ],
     });
 }
