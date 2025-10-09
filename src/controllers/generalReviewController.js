@@ -216,8 +216,7 @@ export const updateGeneralReview = async (req, res) => {
     }
 };
 
-// Delete user's general review
-exports.deleteGeneralReview = async (req, res) => {
+export const deleteGeneralReview = async (req, res) => {
     try {
         const userId = req.user._id;
 
