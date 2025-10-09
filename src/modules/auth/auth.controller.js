@@ -38,10 +38,27 @@ const register = async function register(req, res) {
         `;
         await emailService.sendEmail(email, 'Verify your email', html);
 
-        // Always require email verification - no auto-login
+        // Generate token for auto-login after registration
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
+
+        // Set HTTP-only cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 6 * 60 * 60 * 1000, // 6 hours
+            sameSite: 'strict'
+        });
+
         res.status(201).json({
-            message: 'Registration successful! Please check your email to verify your account before logging in.',
-            requiresVerification: true
+            message: 'Registration successful! You are now logged in. Please check your email to verify your account.',
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role || 'user',
+                phone: user.phone,
+                address: user.address
+            }
         });
     } catch (err) {
         console.log('Registration error:', err);
@@ -89,9 +106,17 @@ const login = async function login(req, res) {
         if (!user.isVerified) {
             return res.status(403).json({ message: 'Please verify your email before logging in.' });
         }
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
+
+        // Set HTTP-only cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 6 * 60 * 60 * 1000, // 6 hours
+            sameSite: 'strict'
+        });
+
         res.json({
-            token,
             user: {
                 id: user._id,
                 email: user.email,
@@ -107,13 +132,24 @@ const login = async function login(req, res) {
 };
 
 const logout = async function logout(req, res) {
-    req.logout();
+    // Clear the token cookie
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+    });
     res.json({ message: 'Logged out successfully' });
 };
 
 const me = async function me(req, res) {
     try {
-        const user = await User.findById(req.user.id).select('-password');
+        // Get token from cookie
+        const token = req.cookies.token;
+        if (!token) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id).select('-password');
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }

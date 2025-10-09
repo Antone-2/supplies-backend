@@ -17,13 +17,22 @@ const googleCallback = [
             if (!req.user) throw new Error('No user from Google OAuth');
             if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET not set in environment');
             const token = jwt.sign(
-                { userId: req.user._id, email: req.user.email, role: req.user.role },
+                { id: req.user._id },
                 process.env.JWT_SECRET,
-                { expiresIn: '7d' }
+                { expiresIn: '6h' }
             );
+
+            // Set HTTP-only cookie
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 6 * 60 * 60 * 1000, // 6 hours
+                sameSite: 'strict'
+            });
+
             const frontendUrl = process.env.FRONTEND_URL;
-            // Always redirect to homepage with token and provider info
-            res.redirect(`${frontendUrl}/?token=${token}&provider=google`);
+            // Redirect to homepage
+            res.redirect(`${frontendUrl}/`);
         } catch (error) {
             console.error('Google OAuth callback error:', error);
             res.redirect(process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/auth' : '/auth');
