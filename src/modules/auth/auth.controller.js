@@ -1,9 +1,9 @@
-const User = require('../../../Database/models/user.model');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-const { sendEmail } = require('../../services/emailService');
+import User from '../../../Database/models/user.model.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+import { sendEmail } from '../../services/emailService.js';
 
 const register = async function register(req, res) {
     console.log('Register endpoint hit', req.body);
@@ -205,4 +205,4 @@ const resetPassword = async function resetPassword(req, res) {
     }
 };
 
-module.exports = { register, verifyEmail, login, logout, me, refreshToken, forgotPassword, resetPassword };
+export { register, verifyEmail, login, logout, me, refreshToken, forgotPassword, resetPassword };
