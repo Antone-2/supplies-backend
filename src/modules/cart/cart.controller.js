@@ -1,5 +1,5 @@
-const Cart = require('../../../Database/models/cart.model');
-const Product = require('../../../Database/models/product.model');
+import Cart from '../../../Database/models/cart.model.js';
+import Product from '../../../Database/models/product.model.js';
 
 const getCart = async (req, res) => {
     try {
@@ -72,4 +72,4 @@ const updateCart = async (req, res) => {
     }
 };
 
-module.exports = { getCart, addToCart, removeFromCart, updateCart };
+export default { getCart, addToCart, removeFromCart, updateCart };

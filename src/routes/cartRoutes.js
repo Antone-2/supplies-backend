@@ -1,12 +1,12 @@
 // cartRoutes.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const cartController = require('../modules/cart/cart.controller');
-const jwtAuthMiddleware = require('../middleware/jwtAuthMiddleware');
+import cartController from '../modules/cart/cart.controller.js';
+import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
 
 router.get('/', jwtAuthMiddleware, cartController.getCart);
 router.post('/add', jwtAuthMiddleware, cartController.addToCart);
 router.post('/remove', jwtAuthMiddleware, cartController.removeFromCart);
 router.post('/update', jwtAuthMiddleware, cartController.updateCart);
 
-module.exports = router;
+export default router;
