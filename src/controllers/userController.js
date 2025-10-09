@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import Order from '../../../Database/models/order.model.js';
+import Order from '../../Database/models/order.model.js';
 // POST /api/v1/users/2fa/request
 export async function request2FA(req, res) {
     const { email } = req.body;
