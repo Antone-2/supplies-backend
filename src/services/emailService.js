@@ -1,6 +1,6 @@
 // Enhanced email service with Brevo (Sendinblue) and fallback options
-const SibApiV3Sdk = require('sib-api-v3-sdk');
-const nodemailer = require('nodemailer');
+import SibApiV3Sdk from 'sib-api-v3-sdk';
+import nodemailer from 'nodemailer';
 
 // Brevo setup
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
@@ -191,7 +191,7 @@ const sendOrderEmail = async (toEmail, subject, htmlContent) => {
     return result.success;
 };
 
-module.exports = {
+export {
     sendEmail,
     sendOrderEmail,
     sendOrderConfirmation,
