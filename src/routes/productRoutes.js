@@ -15,6 +15,7 @@ import { getProductReviews } from '../controllers/reviewController.js';
 // Product routes
 router.get('/', getProducts);
 router.get('/featured', getFeaturedProducts);
+router.get('/featured/all', getFeaturedProducts);
 router.get('/categories', getCategories);
 router.get('/category/:category', getProductsByCategory);
 router.post('/', createProduct); // Add create product route
