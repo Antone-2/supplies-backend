@@ -1,5 +1,5 @@
-const passport = require('passport');
-const jwt = require('jsonwebtoken');
+import passport from 'passport';
+import jwt from 'jsonwebtoken';
 
 // Google OAuth authentication
 const googleAuth = passport.authenticate('google', {
@@ -64,4 +64,4 @@ const logout = (req, res) => {
     });
 };
 
-module.exports = { googleAuth, googleCallback, getCurrentUser, logout };
+export { googleAuth, googleCallback, getCurrentUser, logout };
