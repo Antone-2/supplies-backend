@@ -75,6 +75,7 @@ app.use(pinoHttp({ logger }));
 
 // Routes
 import authRoutes from './src/routes/authRoutes.js';
+import passwordRoutes from './src/routes/passwordRoutes.js';
 import productRoutes from './src/modules/product/product.routes.js';
 import categoryRoutes from './src/modules/category/category.routes.js';
 import cartRoutes from './src/routes/cartRoutes.js';
@@ -82,6 +83,7 @@ import wishlistRoutes from './src/routes/wishlistRoutes.js';
 import orderRoutes from './src/routes/orderRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/auth', passwordRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/categories', categoryRoutes);
 // Removed socialAuthRoutes to avoid overriding Google OAuth routes
