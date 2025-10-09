@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken');
-const User = require('../../Database/models/user.model');
-const config = require('../../config/index');
+import jwt from 'jsonwebtoken';
+import User from '../../Database/models/user.model.js';
+import config from '../../config/index.js';
 
 const jwtAuthMiddleware = async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -22,4 +22,4 @@ const jwtAuthMiddleware = async (req, res, next) => {
     }
 };
 
-module.exports = jwtAuthMiddleware;
+export default jwtAuthMiddleware;
