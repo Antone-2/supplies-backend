@@ -1,7 +1,7 @@
-const express = require('express');
-const { getCategoriesWithCounts, getCategories, getProductsByCategory, getProducts, getFeaturedProducts, getProductById, createProduct, updateProduct, deleteProduct } = require('./product.controller');
-const auth = require('../../middleware/auth');
-const admin = require('../../middleware/admin');
+import express from 'express';
+import { getCategoriesWithCounts, getCategories, getProductsByCategory, getProducts, getFeaturedProducts, getProductById, createProduct, updateProduct, deleteProduct } from './product.controller.js';
+import auth from '../../middleware/auth.js';
+import admin from '../../middleware/admin.js';
 const router = express.Router();
 
 // Get all categories with product counts
@@ -30,4 +30,4 @@ router.put('/:id', auth, admin, updateProduct);
 // Delete a product (admin only)
 router.delete('/:id', auth, admin, deleteProduct);
 
-module.exports = router;
+export default router;
