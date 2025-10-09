@@ -1,4 +1,4 @@
-const Joi = require('joi');
+import Joi from 'joi';
 
 const profileSchema = Joi.object({
     name: Joi.string().min(2).max(50).optional(),
@@ -11,4 +11,4 @@ function validateProfile(data) {
     return profileSchema.validate(data);
 }
 
-module.exports = { profileSchema, validateProfile };
+export { profileSchema, validateProfile };
