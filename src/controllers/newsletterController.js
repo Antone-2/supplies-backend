@@ -1,6 +1,6 @@
 // newsletterController.js
 const Newsletter = require('../../Database/models/newsletter.model');
-const { sendEmail } = require('../utils/emailService');
+const { sendEmail } = require('../services/emailService');
 
 exports.subscribe = async (req, res) => {
     try {

@@ -83,6 +83,7 @@ import wishlistRoutes from './src/routes/wishlistRoutes.js';
 import orderRoutes from './src/routes/orderRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import generalReviewRoutes from './src/routes/generalReviewRoutes.js';
+import newsletterRoutes from './src/routes/newsletterRoutes.js';
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/auth', passwordRoutes);
 app.use('/api/v1/products', productRoutes);
@@ -93,6 +94,7 @@ app.use('/api/v1/wishlist', wishlistRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/general-reviews', generalReviewRoutes);
+app.use('/api/v1/newsletter', newsletterRoutes);
 
 // Import passport after routes to avoid circular dependency
 import passport from './passport.js';
