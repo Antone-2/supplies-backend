@@ -1,8 +1,8 @@
 // newsletterController.js
-const Newsletter = require('../../Database/models/newsletter.model');
-const { sendEmail } = require('../services/emailService');
+import Newsletter from '../../Database/models/newsletter.model.js';
+import { sendEmail } from '../services/emailService.js';
 
-exports.subscribe = async (req, res) => {
+const subscribe = async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ message: 'Email is required.' });
@@ -27,7 +27,7 @@ exports.subscribe = async (req, res) => {
     }
 };
 
-exports.unsubscribe = async (req, res) => {
+const unsubscribe = async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ message: 'Email is required.' });
@@ -46,3 +46,5 @@ exports.unsubscribe = async (req, res) => {
         res.status(500).json({ message: 'Failed to unsubscribe.' });
     }
 };
+
+export default { subscribe, unsubscribe };

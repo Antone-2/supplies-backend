@@ -1,8 +1,8 @@
 // newsletterRoutes.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const newsletterController = require('../controllers/newsletterController');
-const { isAdmin } = require('../middleware/auth'); // Admin authentication middleware
+import newsletterController from '../controllers/newsletterController.js';
+import { isAdmin } from '../middleware/auth.js'; // Admin authentication middleware
 
 // Subscribe to newsletter
 router.post('/subscribe', newsletterController.subscribe);
@@ -13,4 +13,4 @@ router.post('/unsubscribe', newsletterController.unsubscribe);
 // Get newsletter analytics (admin only)
 router.get('/analytics', isAdmin, newsletterController.getAnalytics);
 
-module.exports = router;
+export default router;
