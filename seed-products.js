@@ -1,6 +1,8 @@
 // Quick product seeder for testing
 const mongoose = require('mongoose');
 const Product = require('./Database/models/product.model');
+const Category = require('./Database/models/category.model');
+const sampleProducts = require('../Database/adminProducts');
 const config = require('./config');
 
 // Use the same connection logic as the main server
@@ -63,10 +65,38 @@ async function seedProducts() {
         const existingProducts = await Product.countDocuments();
         console.log('Existing products:', existingProducts);
 
+        // First, ensure categories exist
+        const categoriesToCreate = ['Medical Equipment', 'Personal Care'];
+        const existingCategories = await Category.find({ name: { $in: categoriesToCreate } });
+        const existingCategoryNames = existingCategories.map(cat => cat.name);
+
+        const categoriesToInsert = categoriesToCreate
+            .filter(catName => !existingCategoryNames.includes(catName))
+            .map(catName => ({ name: catName, description: `${catName} category` }));
+
+        if (categoriesToInsert.length > 0) {
+            await Category.insertMany(categoriesToInsert);
+            console.log(`Created ${categoriesToInsert.length} categories`);
+        }
+
+        // Get category ObjectIds
+        const medicalEquipment = await Category.findOne({ name: 'Medical Equipment' });
+        const personalCare = await Category.findOne({ name: 'Personal Care' });
+
         if (existingProducts === 0) {
+            // Prepare products with proper category references
+            const productsWithCategories = sampleProducts.map(product => ({
+                ...product,
+                category: product.category === 'Medical Equipment' ? medicalEquipment._id : personalCare._id
+            }));
+
             // Insert sample products
-            const insertedProducts = await Product.insertMany(sampleProducts);
+            const insertedProducts = await Product.insertMany(productsWithCategories);
             console.log(`Successfully inserted ${insertedProducts.length} products`);
+
+            // Log featured products
+            const featuredCount = insertedProducts.filter(p => p.isFeatured).length;
+            console.log(`Featured products created: ${featuredCount}`);
         } else {
             console.log('Products already exist in database');
         }
