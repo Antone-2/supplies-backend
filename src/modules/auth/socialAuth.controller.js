@@ -31,8 +31,8 @@ const googleCallback = [
             });
 
             const frontendUrl = process.env.FRONTEND_URL;
-            // Redirect to profile page
-            res.redirect(`${frontendUrl}/profile`);
+            // Redirect to homepage
+            res.redirect(`${frontendUrl}/`);
         } catch (error) {
             console.error('Google OAuth callback error:', error);
             res.redirect(process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/auth' : '/auth');
