@@ -18,8 +18,9 @@ const subscribe = async (req, res) => {
         } else {
             subscriber = await Newsletter.create({ email });
         }
-        // Send welcome email
-        await sendEmail(email, 'Newsletter Subscription', '<p>Thank you for subscribing to Medhelm Supplies updates!</p>');
+        // Send welcome email (non-blocking)
+        sendEmail(email, 'Newsletter Subscription', '<p>Thank you for subscribing to Medhelm Supplies updates!</p>')
+            .catch(err => console.error('Newsletter welcome email failed:', err));
         res.status(201).json({ message: 'Subscribed successfully.' });
     } catch (error) {
         console.error('Newsletter subscribe error:', error);

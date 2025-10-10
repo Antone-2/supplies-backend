@@ -19,7 +19,7 @@ const register = async function register(req, res) {
         // Debug: Log saved user
         console.log('User saved:', user);
         // In a real app, send verification email here
-        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+        const verificationUrl = `${process.env.BACKEND_URL}/auth/verify-email?token=${verificationToken}`;
         const logoUrl = process.env.LOGO_URL;
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; border: 1px solid #eee; border-radius: 8px; padding: 24px;">
@@ -75,18 +75,19 @@ const verifyEmail = async function verifyEmail(req, res) {
     try {
         const { token } = req.query;
         if (!token) {
-            return res.status(400).json({ message: 'Invalid or missing token' });
+            return res.redirect(`${process.env.FRONTEND_URL}/account-verified?error=missing_token`);
         }
         const user = await User.findOne({ verificationToken: token });
         if (!user) {
-            return res.status(400).json({ message: 'Invalid or expired token' });
+            return res.redirect(`${process.env.FRONTEND_URL}/account-verified?error=invalid_token`);
         }
         user.isVerified = true;
         user.verificationToken = undefined;
         await user.save();
-        res.json({ message: 'Account verified successfully! You can now log in with your credentials.' });
+        res.redirect(`${process.env.FRONTEND_URL}/account-verified?success=true`);
     } catch (err) {
-        res.status(500).json({ message: 'Failed to verify account' });
+        console.error('Verification error:', err);
+        res.redirect(`${process.env.FRONTEND_URL}/account-verified?error=server_error`);
     }
 };
 // Email verification endpoint
