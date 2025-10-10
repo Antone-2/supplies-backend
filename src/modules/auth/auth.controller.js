@@ -104,9 +104,7 @@ const login = async function login(req, res) {
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
-        if (!user.isVerified) {
-            return res.status(403).json({ message: 'Please verify your email before logging in.' });
-        }
+
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
 
         // Set HTTP-only cookie
