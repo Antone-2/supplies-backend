@@ -19,7 +19,7 @@ const register = async function register(req, res) {
         // Debug: Log saved user
         console.log('User saved:', user);
         // In a real app, send verification email here
-        const verificationUrl = `${process.env.BACKEND_URL}/auth/verify-email?token=${verificationToken}`;
+        const verificationUrl = `${process.env.BACKEND_URL}/api/v1/auth/verify-email?token=${verificationToken}`;
         const logoUrl = process.env.LOGO_URL;
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; border: 1px solid #eee; border-radius: 8px; padding: 24px;">
