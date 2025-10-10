@@ -19,9 +19,19 @@ const subscribe = async (req, res) => {
             subscriber = await Newsletter.create({ email });
         }
         // Send welcome email (non-blocking)
-        sendEmail(email, 'Newsletter Subscription', '<p>Thank you for subscribing to Medhelm Supplies updates!</p>')
+        const welcomeText = `Hi,
+
+Thank you for subscribing to the Medhelm Supplies newsletter!
+
+You'll now receive updates on new products, exclusive offers, health tips, and the latest news from our team.
+
+We're excited to have you with us. If you have any questions or suggestions, feel free to reply to this email.
+
+Best regards,
+The Medhelm Supplies Team`;
+        sendEmail(email, 'Welcome to Medhelm Supplies Newsletter!', welcomeText)
             .catch(err => console.error('Newsletter welcome email failed:', err));
-        res.status(201).json({ message: 'Subscribed successfully.' });
+        res.status(201).json({ message: 'Thank you for subscribing! Check your email for a welcome message with exclusive updates.' });
     } catch (error) {
         console.error('Newsletter subscribe error:', error);
         res.status(500).json({ message: 'Failed to subscribe.' });
