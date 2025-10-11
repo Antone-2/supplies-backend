@@ -225,4 +225,4 @@ function initializeConfig() {
     return getEnvironmentConfig();
 }
 
-module.exports = initializeConfig();
+export default initializeConfig();
