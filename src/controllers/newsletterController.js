@@ -19,17 +19,21 @@ const subscribe = async (req, res) => {
             subscriber = await Newsletter.create({ email });
         }
         // Send welcome email (non-blocking)
-        const welcomeText = `Hi,
-
-Thank you for subscribing to the Medhelm Supplies newsletter!
-
-You'll now receive updates on new products, exclusive offers, health tips, and the latest news from our team.
-
-We're excited to have you with us. If you have any questions or suggestions, feel free to reply to this email.
-
-Best regards,
-The Medhelm Supplies Team`;
-        sendEmail(email, 'Welcome to Medhelm Supplies Newsletter!', welcomeText)
+        const logoUrl = process.env.LOGO_URL;
+        const welcomeHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; border: 1px solid #eee; border-radius: 8px; padding: 24px;">
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <img src="${logoUrl}" alt="Medhelm Supplies Logo" style="height: 60px; margin-bottom: 8px;" />
+                    <h2 style="color: #2563eb; margin: 0;">Medhelm Supplies</h2>
+                </div>
+                <p>Hi,</p>
+                <p>Thank you for subscribing to the Medhelm Supplies newsletter!</p>
+                <p>You'll now receive updates on new products, exclusive offers, health tips, and the latest news from our team.</p>
+                <p>We're excited to have you with us. If you have any questions or suggestions, feel free to reply to this email.</p>
+                <p>Best regards,<br>The Medhelm Supplies Team</p>
+            </div>
+        `;
+        sendEmail(email, 'Welcome to Medhelm Supplies Newsletter!', welcomeHtml)
             .catch(err => console.error('Newsletter welcome email failed:', err));
         res.status(201).json({ message: 'Thank you for subscribing! Check your email for a welcome message with exclusive updates.' });
     } catch (error) {
@@ -50,7 +54,19 @@ const unsubscribe = async (req, res) => {
         subscriber.unsubscribedAt = new Date();
         await subscriber.save();
         // Send goodbye email
-        await sendEmail(email, 'Unsubscribed from Newsletter', '<p>You have been unsubscribed from Medhelm Supplies updates.</p>');
+        const logoUrl = process.env.LOGO_URL;
+        const goodbyeHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; border: 1px solid #eee; border-radius: 8px; padding: 24px;">
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <img src="${logoUrl}" alt="Medhelm Supplies Logo" style="height: 60px; margin-bottom: 8px;" />
+                    <h2 style="color: #2563eb; margin: 0;">Medhelm Supplies</h2>
+                </div>
+                <p>You have been unsubscribed from Medhelm Supplies updates.</p>
+                <p>If you change your mind, you can always subscribe again from our website.</p>
+                <p>Best regards,<br>The Medhelm Supplies Team</p>
+            </div>
+        `;
+        await sendEmail(email, 'Unsubscribed from Newsletter', goodbyeHtml);
         res.status(200).json({ message: 'Unsubscribed successfully.' });
     } catch (error) {
         console.error('Newsletter unsubscribe error:', error);
