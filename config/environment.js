@@ -3,10 +3,11 @@
  * Handles environment-specific settings with validation and fallbacks
  */
 
-const path = require('path');
+
 
 // Load environment variables
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
 /**
  * Configuration object with environment-specific settings
