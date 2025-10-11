@@ -46,7 +46,8 @@ const register = async function register(req, res) {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: 6 * 60 * 60 * 1000, // 6 hours
-            sameSite: 'lax'
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+            domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
         });
 
         res.status(201).json({
@@ -112,7 +113,8 @@ const login = async function login(req, res) {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: 6 * 60 * 60 * 1000, // 6 hours
-            sameSite: 'lax'
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+            domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
         });
 
         res.json({
@@ -135,7 +137,8 @@ const logout = async function logout(req, res) {
     res.clearCookie('token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax'
+        sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+        domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
     });
     res.json({ message: 'Logged out successfully' });
 };
@@ -168,8 +171,40 @@ const me = async function me(req, res) {
 };
 
 const refreshToken = async function refreshToken(req, res) {
-    // Implement refresh token logic as needed
-    res.json({ message: 'Refresh token endpoint' });
+    try {
+        // Get token from cookie
+        const token = req.cookies.token;
+        if (!token) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id).select('-password');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        // Generate new token
+        const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
+        // Set new cookie
+        res.cookie('token', newToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 6 * 60 * 60 * 1000, // 6 hours
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+            domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
+        });
+        res.json({
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role || 'user',
+                phone: user.phone,
+                address: user.address
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to refresh token' });
+    }
 };
 
 const forgotPassword = async function forgotPassword(req, res) {

@@ -27,7 +27,8 @@ const googleCallback = [
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 maxAge: 6 * 60 * 60 * 1000, // 6 hours
-                sameSite: 'lax'
+                sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+                domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
             });
 
             const frontendUrl = process.env.FRONTEND_URL;
