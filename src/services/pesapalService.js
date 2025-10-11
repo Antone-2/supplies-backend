@@ -1,5 +1,5 @@
-const axios = require('axios');
-const config = require('../../config/environment');
+import axios from 'axios';
+import config from '../../config/environment.js';
 
 // Use console for logging since utils/logger doesn't exist
 const logger = {
@@ -11,7 +11,6 @@ const logger = {
 
 const PESAPAL_BASE_URL = config.PESAPAL.BASE_URL;
 const CONSUMER_KEY = config.PESAPAL.CONSUMER_KEY;
-const CONSUMER_SECRET = config.PESAPAL.CONSUMER_SECRET;
 
 // Get OAuth token with retry mechanism
 async function getAccessToken(retries = 3) {
@@ -209,4 +208,4 @@ async function initiatePesapalPayment(orderId, amount, phone, email, description
     return await submitOrder(orderId, amount, description, callbackUrl, null, email, phone);
 }
 
-module.exports = { initiatePesapalPayment, getAccessToken, getIPNID, submitOrder };
+export { initiatePesapalPayment, getAccessToken, getIPNID, submitOrder };
