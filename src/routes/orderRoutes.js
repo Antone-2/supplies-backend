@@ -19,6 +19,7 @@ router.post('/calculate-shipping', orderController.calculateShippingFee);
 // Pesapal integration
 router.post('/payments/pesapal', orderController.createCheckOutSession);
 router.post('/create-checkout-session', jwtAuthMiddleware, orderController.createCheckOutSession);
+router.post('/initiate-payment', jwtAuthMiddleware, orderController.initiatePayment);
 
 // Analytics endpoint for admin dashboard
 router.get('/analytics', orderController.getOrderAnalytics);

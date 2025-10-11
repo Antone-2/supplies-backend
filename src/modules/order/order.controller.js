@@ -445,6 +445,91 @@ const getOrderAnalytics = async (req, res) => {
     }
 };
 
+const { initiatePesapalPayment } = require('../../services/pesapalService');
+
+const initiatePayment = async (req, res) => {
+    try {
+        const { items, shippingAddress, totalAmount, paymentMethod } = req.body;
+        const userId = req.user?.id;
+
+        // Validate required fields
+        if (!items || !shippingAddress || !totalAmount) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: items, shippingAddress, totalAmount'
+            });
+        }
+
+        // Generate unique order ID
+        const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Create the order first
+        const orderData = {
+            orderId,
+            items,
+            shippingAddress,
+            totalAmount,
+            paymentMethod: paymentMethod || 'pesapal'
+        };
+
+        // Use the existing createOrder logic but don't send response yet
+        const order = new orderModel({
+            orderNumber: orderId,
+            items: items.map(item => ({
+                productId: item.productId,
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            shippingAddress: {
+                fullName: shippingAddress.fullName,
+                email: shippingAddress.email,
+                phone: shippingAddress.phone,
+                address: shippingAddress.address,
+                city: shippingAddress.city,
+                county: shippingAddress.county,
+                deliveryLocation: shippingAddress.deliveryLocation
+            },
+            totalAmount,
+            paymentMethod: paymentMethod || 'pesapal',
+            orderStatus: 'pending',
+            paymentStatus: 'pending',
+            user: userId, // Associate with user if logged in
+            timeline: [{
+                status: 'pending',
+                changedAt: new Date(),
+                note: 'Order created and payment initiated'
+            }]
+        });
+
+        await order.save();
+
+        // Now initiate PesaPal payment
+        const paymentResult = await initiatePesapalPayment(
+            orderId,
+            totalAmount,
+            shippingAddress.phone,
+            shippingAddress.email,
+            `Order payment for ${orderId}`
+        );
+
+        res.json({
+            success: true,
+            message: 'Payment initiated successfully',
+            paymentUrl: paymentResult.paymentUrl,
+            orderId: orderId
+        });
+
+    } catch (error) {
+        console.error('Payment initiation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to initiate payment',
+            error: error.message
+        });
+    }
+};
+
 const orderController = {
     getAllOrders,
     createOrder,
@@ -457,6 +542,7 @@ const orderController = {
     verifyOrder,
     calculateShippingFee,
     getOrderAnalytics,
+    initiatePayment,
 };
 
 export default orderController;
