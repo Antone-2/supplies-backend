@@ -445,7 +445,7 @@ const getOrderAnalytics = async (req, res) => {
     }
 };
 
-const { initiatePesapalPayment } = require('../../services/pesapalService');
+import { initiatePesapalPayment } from '../../services/pesapalService.js';
 
 const initiatePayment = async (req, res) => {
     try {
