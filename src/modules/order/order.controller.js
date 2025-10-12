@@ -450,7 +450,7 @@ import { initiatePesapalPayment } from '../../services/pesapalService.js';
 const initiatePayment = async (req, res) => {
     try {
         const { items, shippingAddress, totalAmount, paymentMethod } = req.body;
-        const userId = req.user?.id;
+        const userId = req.user?.id || null; // Allow null for guest users
 
         // Validate required fields
         if (!items || !shippingAddress || !totalAmount) {
@@ -591,6 +591,3 @@ const orderController = {
 };
 
 export default orderController;
-
-// Named exports for specific functions
-export { getAllOrders, updateOrder, getOrderAnalytics };
