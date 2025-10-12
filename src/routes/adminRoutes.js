@@ -7,11 +7,7 @@ import {
     updateUser,
     deleteUser
 } from '../controllers/userController.js';
-import {
-    getAllOrders,
-    updateOrder,
-    getOrderAnalytics
-} from '../modules/order/order.controller.js';
+import orderController from '../modules/order/order.controller.js';
 
 const router = express.Router();
 
@@ -26,10 +22,10 @@ router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 
 // Order management
-router.get('/orders', getAllOrders);
-router.put('/orders/:id', updateOrder);
+router.get('/orders', orderController.getAllOrders);
+router.put('/orders/:id', orderController.updateOrder);
 
 // Analytics
-router.get('/analytics', getOrderAnalytics);
+router.get('/analytics', orderController.getOrderAnalytics);
 
 export default router;
