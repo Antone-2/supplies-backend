@@ -3,7 +3,17 @@ import User from '../../Database/models/user.model.js';
 import config from '../../config/environment.js';
 
 const jwtAuthMiddleware = async (req, res, next) => {
-    const token = req.cookies.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    // Check for token in multiple places for cross-domain compatibility
+    let token = req.cookies.token;
+
+    // If no cookie token, check Authorization header
+    if (!token && req.headers.authorization) {
+        const authHeader = req.headers.authorization;
+        if (authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7); // Remove 'Bearer ' prefix
+        }
+    }
+
     if (!token) {
         return res.status(401).json({ message: 'Authorization token missing' });
     }

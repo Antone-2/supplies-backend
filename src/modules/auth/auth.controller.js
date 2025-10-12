@@ -52,6 +52,7 @@ const register = async function register(req, res) {
 
         res.status(201).json({
             message: 'Registration successful! You are now logged in. Please check your email to verify your account.',
+            token: token, // Include token in response for localStorage backup
             user: {
                 id: user._id,
                 email: user.email,
@@ -118,6 +119,7 @@ const login = async function login(req, res) {
         });
 
         res.json({
+            token: token, // Include token in response for localStorage backup
             user: {
                 id: user._id,
                 email: user.email,
