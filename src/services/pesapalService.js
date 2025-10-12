@@ -11,6 +11,7 @@ const logger = {
 
 const PESAPAL_BASE_URL = config.PESAPAL.BASE_URL;
 const CONSUMER_KEY = config.PESAPAL.CONSUMER_KEY;
+const CONSUMER_SECRET = config.PESAPAL.CONSUMER_SECRET;
 
 // Get OAuth token with retry mechanism
 async function getAccessToken(retries = 3) {
