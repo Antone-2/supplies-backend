@@ -1,8 +1,9 @@
-const express = require('express');
+import express from 'express';
+import { createPesapalPayment, paymentCallback } from '../modules/payment/payment.controller.js';
+
 const router = express.Router();
-const pesapalController = require('../modules/payment/payment.controller');
 
-router.post('/initiate', pesapalController.createPesapalPayment);
-router.post('/callback', pesapalController.paymentCallback);
+router.post('/initiate', createPesapalPayment);
+router.post('/callback', paymentCallback);
 
-module.exports = router;
+export default router;

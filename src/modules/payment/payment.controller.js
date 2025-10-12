@@ -1,9 +1,7 @@
-const axios = require('axios');
-const { initiatePesapalPayment, getAccessToken } = require('../../services/pesapalService');
-const Order = require('../../../Database/models/order.model');
-const console = require('console'); // Use console for logging
-
-const { validatePesapalPayment } = require('./payment.validation');
+import axios from 'axios';
+import { initiatePesapalPayment, getAccessToken } from '../../services/pesapalService.js';
+import Order from '../../../Database/models/order.model.js';
+import { validatePesapalPayment } from './payment.validation.js';
 
 // Normalize Kenyan phone numbers to +254 format
 function normalizeKenyanPhone(phone) {
@@ -26,7 +24,7 @@ function normalizeKenyanPhone(phone) {
 }
 
 // Create PesaPal payment
-exports.createPesapalPayment = async (req, res) => {
+export const createPesapalPayment = async (req, res) => {
     const startTime = Date.now();
     let orderId = req.body?.orderId;
 
@@ -153,7 +151,7 @@ exports.createPesapalPayment = async (req, res) => {
 };
 
 // M-Pesa payment (mock for local testing; implement full Daraja API later)
-exports.payWithMpesa = async (req, res) => {
+export const payWithMpesa = async (req, res) => {
     try {
         const { phone, amount, orderId } = req.body;
         if (!phone || !amount || !orderId) {
@@ -177,7 +175,7 @@ exports.payWithMpesa = async (req, res) => {
 };
 
 // Airtel Money payment (mock)
-exports.payWithAirtel = async (req, res) => {
+export const payWithAirtel = async (req, res) => {
     try {
         const { phone, amount, orderId } = req.body;
         if (!phone || !amount || !orderId) {
@@ -200,7 +198,7 @@ exports.payWithAirtel = async (req, res) => {
 };
 
 // PayPal payment (mock)
-exports.payWithPaypal = async (req, res) => {
+export const payWithPaypal = async (req, res) => {
     try {
         const { orderId, amount, email } = req.body;
         if (!orderId || !amount || !email) {
@@ -223,7 +221,7 @@ exports.payWithPaypal = async (req, res) => {
 };
 
 // Payment callback/IPN handler for PesaPal
-exports.paymentCallback = async (req, res) => {
+export const paymentCallback = async (req, res) => {
     try {
         // PesaPal IPN is typically form data, so use req.body or req.query
         const { pesapal_transaction_tracking_id: orderTrackingId, pesapal_merchant_reference: orderId } = req.body || req.query;
@@ -278,7 +276,7 @@ exports.paymentCallback = async (req, res) => {
 };
 
 // Get payment status for an order
-exports.getPaymentStatus = async (req, res) => {
+export const getPaymentStatus = async (req, res) => {
     try {
         const { orderId } = req.params;
 
