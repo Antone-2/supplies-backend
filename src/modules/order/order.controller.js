@@ -591,3 +591,6 @@ const orderController = {
 };
 
 export default orderController;
+
+// Named exports for specific functions
+export { getAllOrders, updateOrder, getOrderAnalytics };
