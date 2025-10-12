@@ -1,4 +1,4 @@
-const Joi = require('joi');
+import Joi from 'joi';
 
 const pesapalPaymentSchema = Joi.object({
     orderId: Joi.string().required(),
@@ -12,7 +12,7 @@ function validatePesapalPayment(data) {
     return pesapalPaymentSchema.validate(data);
 }
 
-module.exports = {
+export {
     pesapalPaymentSchema,
     validatePesapalPayment
 };
