@@ -47,7 +47,7 @@ const register = async function register(req, res) {
             secure: process.env.NODE_ENV === 'production',
             maxAge: 6 * 60 * 60 * 1000, // 6 hours
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
-            domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : 'localhost'
         });
 
         res.status(201).json({
@@ -114,7 +114,7 @@ const login = async function login(req, res) {
             secure: process.env.NODE_ENV === 'production',
             maxAge: 6 * 60 * 60 * 1000, // 6 hours
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
-            domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : 'localhost'
         });
 
         res.json({
@@ -138,7 +138,7 @@ const logout = async function logout(req, res) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
-        domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
+        domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : 'localhost'
     });
     res.json({ message: 'Logged out successfully' });
 };
@@ -190,7 +190,7 @@ const refreshToken = async function refreshToken(req, res) {
             secure: process.env.NODE_ENV === 'production',
             maxAge: 6 * 60 * 60 * 1000, // 6 hours
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
-            domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : 'localhost'
         });
         res.json({
             user: {
