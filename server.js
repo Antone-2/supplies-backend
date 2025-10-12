@@ -49,7 +49,19 @@ const MONGO_URI = process.env.MONGO_URI;
 // Security & parsing middleware
 app.set('trust proxy', 1); // if behind nginx / load balancer
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : true, credentials: true }));
+
+// CORS configuration - include both www and non-www domains for production
+const corsOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()) : [];
+if (process.env.NODE_ENV === 'production') {
+    // Ensure both www and non-www domains are included for production
+    const requiredOrigins = ['https://medhelmsupplies.co.ke', 'https://www.medhelmsupplies.co.ke'];
+    requiredOrigins.forEach(origin => {
+        if (!corsOrigins.includes(origin)) {
+            corsOrigins.push(origin);
+        }
+    });
+}
+app.use(cors({ origin: corsOrigins.length > 0 ? corsOrigins : true, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use(mongoSanitize());
