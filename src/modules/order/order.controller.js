@@ -513,6 +513,16 @@ const initiatePayment = async (req, res) => {
             `Order payment for ${orderId}`
         );
 
+        console.log('PesaPal paymentResult:', paymentResult);
+        if (!paymentResult || !paymentResult.paymentUrl) {
+            console.error('No paymentUrl returned from PesaPal:', paymentResult);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to get payment URL from PesaPal',
+                error: 'No paymentUrl returned'
+            });
+        }
+
         res.json({
             success: true,
             message: 'Payment initiated successfully',
@@ -530,12 +540,47 @@ const initiatePayment = async (req, res) => {
     }
 };
 
+// Admin: Update order
+const updateOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { orderStatus, paymentStatus, trackingNumber, note } = req.body;
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // Update fields
+        if (orderStatus) order.orderStatus = orderStatus;
+        if (paymentStatus) order.paymentStatus = paymentStatus;
+        if (trackingNumber) order.trackingNumber = trackingNumber;
+
+        // Add timeline entry if status changed
+        if (orderStatus || note) {
+            order.timeline.push({
+                status: orderStatus || order.orderStatus,
+                changedAt: new Date(),
+                note: note || 'Order updated by admin'
+            });
+        }
+
+        await order.save();
+
+        res.json({ order });
+    } catch (err) {
+        console.error('Error updating order:', err);
+        res.status(500).json({ message: 'Failed to update order' });
+    }
+};
+
 const orderController = {
     getAllOrders,
     createOrder,
     createCashOrder,
     getSpecificOrder,
     updateOrderStatus,
+    updateOrder,
     payMpesa,
     payAirtelMoney,
     createCheckOutSession,

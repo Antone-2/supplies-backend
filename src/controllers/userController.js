@@ -78,6 +78,108 @@ export async function getUsers(req, res) {
         res.status(500).json({ message: 'Failed to fetch users' });
     }
 }
+
+// Admin: Create new user
+export async function createUser(req, res) {
+    try {
+        const { name, email, password, role = 'user', phone, active = true } = req.body;
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'User with this email already exists' });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create user
+        const user = new User({
+            name,
+            email,
+            password: hashedPassword,
+            role,
+            phone,
+            active
+        });
+
+        await user.save();
+
+        // Return user without password
+        const userResponse = user.toObject();
+        delete userResponse.password;
+
+        res.status(201).json({ user: userResponse });
+    } catch (err) {
+        console.error('Error creating user:', err);
+        res.status(500).json({ message: 'Failed to create user' });
+    }
+}
+
+// Admin: Update user
+export async function updateUser(req, res) {
+    try {
+        const { id } = req.params;
+        const { name, email, role, phone, active, password } = req.body;
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if email is being changed and if it's already taken
+        if (email && email !== user.email) {
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+                return res.status(400).json({ message: 'Email already in use' });
+            }
+            user.email = email;
+        }
+
+        if (name) user.name = name;
+        if (role) user.role = role;
+        if (phone !== undefined) user.phone = phone;
+        if (active !== undefined) user.active = active;
+        if (password) {
+            user.password = await bcrypt.hash(password, 10);
+        }
+
+        await user.save();
+
+        // Return user without password
+        const userResponse = user.toObject();
+        delete userResponse.password;
+
+        res.json({ user: userResponse });
+    } catch (err) {
+        console.error('Error updating user:', err);
+        res.status(500).json({ message: 'Failed to update user' });
+    }
+}
+
+// Admin: Delete user
+export async function deleteUser(req, res) {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Prevent deleting super admin
+        if (user.role === 'super_admin') {
+            return res.status(403).json({ message: 'Cannot delete super admin' });
+        }
+
+        await User.findByIdAndDelete(id);
+
+        res.json({ message: 'User deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting user:', err);
+        res.status(500).json({ message: 'Failed to delete user' });
+    }
+}
 import User from '../../Database/models/user.model.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
