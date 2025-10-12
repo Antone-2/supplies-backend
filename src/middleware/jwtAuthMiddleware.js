@@ -14,6 +14,11 @@ const jwtAuthMiddleware = async (req, res, next) => {
         }
     }
 
+    // If still no token, check for token in request body (for guest checkout)
+    if (!token && req.body && req.body.token) {
+        token = req.body.token;
+    }
+
     if (!token) {
         return res.status(401).json({ message: 'Authorization token missing' });
     }
