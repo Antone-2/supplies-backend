@@ -30,8 +30,8 @@ async function getAccessToken(retries = 3) {
             const response = await axios.post(
                 `${PESAPAL_BASE_URL}/Auth/RequestToken`,
                 {
-                    consumer_key: CONSUMER_KEY,
-                    consumer_secret: CONSUMER_SECRET
+                    consumer_key: config.PESAPAL.CONSUMER_KEY,
+                    consumer_secret: config.PESAPAL.CONSUMER_SECRET
                 },
                 {
                     headers: {
