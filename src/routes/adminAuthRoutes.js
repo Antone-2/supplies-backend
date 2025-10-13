@@ -1,5 +1,8 @@
 import express from 'express';
-import { login, me, refreshToken, forgotPassword, resetPassword } from '../modules/auth/auth.controller.js';
+import User from '../../Database/models/user.model.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { me, refreshToken, forgotPassword, resetPassword } from '../modules/auth/auth.controller.js';
 import admin from '../middleware/admin.js';
 import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
 
@@ -8,19 +11,49 @@ const router = express.Router();
 // Admin login - uses same login logic but validates admin role
 router.post('/login', async (req, res) => {
     try {
-        // Use the regular login function
-        const loginResult = await login(req, res);
+        const { email, password } = req.body;
+        console.log('Admin login attempt:', { email });
 
-        // If login successful, check if user is admin
-        if (res.statusCode === 200) {
-            const { user } = JSON.parse(JSON.stringify(loginResult || {}));
-            if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-                return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
-            }
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        // Check if user has admin role
+        if (user.role !== 'admin' && user.role !== 'super_admin') {
+            return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+        }
+
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
+
+        // Set HTTP-only cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 6 * 60 * 60 * 1000, // 6 hours
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+        });
+
+        res.json({
+            token: token, // Include token in response for localStorage backup
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role || 'user',
+                phone: user.phone,
+                address: user.address
+            }
+        });
     } catch (error) {
-        // Login failed, return error
-        return res.status(error.status || 401).json({ message: error.message || 'Admin login failed' });
+        console.error('Admin login error:', error);
+        return res.status(500).json({ message: 'Admin login failed' });
     }
 });
 
