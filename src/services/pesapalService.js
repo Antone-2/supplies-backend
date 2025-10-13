@@ -1,5 +1,6 @@
 import axios from 'axios';
 import config from '../../config/environment.js';
+import { PESAPAL_ENDPOINTS, PESAPAL_CURRENCY, PESAPAL_NOTIFICATION_TYPES, PESAPAL_ERROR_CODES, PESAPAL_BASE_URLS } from '../constants/pesapalConstants.js';
 
 // Use console for logging since utils/logger doesn't exist
 const logger = {
@@ -9,10 +10,10 @@ const logger = {
     debug: console.debug
 };
 
-const PESAPAL_BASE_URL = config.PESAPAL.BASE_URL;
+const PESAPAL_BASE_URL = config.PESAPAL.TEST_MODE
+    ? PESAPAL_BASE_URLS.SANDBOX
+    : PESAPAL_BASE_URLS.PRODUCTION;
 const CONSUMER_KEY = config.PESAPAL.CONSUMER_KEY;
-
-// Remove /api prefix from endpoints since BASE_URL now includes it
 
 // Get OAuth token with retry mechanism
 async function getAccessToken(retries = 3) {
@@ -26,11 +27,11 @@ async function getAccessToken(retries = 3) {
                 throw new Error('PesaPal credentials not configured. Please check environment variables.');
             }
 
-            logger.info('Making request to:', `${PESAPAL_BASE_URL}/Auth/RequestToken`);
+            logger.info('Making request to:', `${PESAPAL_BASE_URL}${PESAPAL_ENDPOINTS.AUTH}`);
             logger.info('Using base URL:', PESAPAL_BASE_URL);
 
             const response = await axios.post(
-                `${PESAPAL_BASE_URL}/Auth/RequestToken`,
+                `${PESAPAL_BASE_URL}${PESAPAL_ENDPOINTS.AUTH}`,
                 {
                     consumer_key: config.PESAPAL.CONSUMER_KEY,
                     consumer_secret: config.PESAPAL.CONSUMER_SECRET
@@ -96,10 +97,10 @@ async function getIPNID(callbackUrl) {
     try {
         const token = await getAccessToken();
         const response = await axios.post(
-            `${PESAPAL_BASE_URL}/URLSetup/RegisterIPN`,
+            `${PESAPAL_BASE_URL}${PESAPAL_ENDPOINTS.REGISTER_IPN}`,
             {
                 url: callbackUrl,
-                ipn_notification_type: "GET"
+                ipn_notification_type: PESAPAL_NOTIFICATION_TYPES.GET
             },
             {
                 headers: {
@@ -136,7 +137,7 @@ async function submitOrder(orderId, amount, description, callbackUrl, notificati
 
         const orderData = {
             id: orderId,
-            currency: 'KES',
+            currency: PESAPAL_CURRENCY.KES,
             amount: amount,
             description: description,
             callback_url: callbackUrl,
@@ -161,7 +162,7 @@ async function submitOrder(orderId, amount, description, callbackUrl, notificati
         };
 
         const response = await axios.post(
-            `${PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`,
+            `${PESAPAL_BASE_URL}${PESAPAL_ENDPOINTS.SUBMIT_ORDER}`,
             orderData,
             {
                 headers: {
@@ -180,7 +181,7 @@ async function submitOrder(orderId, amount, description, callbackUrl, notificati
             logger.error('PesaPal returned error:', error);
 
             // Handle specific PesaPal error types
-            if (error.code === 'amount_exceeds_default_limit') {
+            if (error.code === PESAPAL_ERROR_CODES.AMOUNT_EXCEEDS_LIMIT) {
                 throw new Error(`Payment amount exceeds your PesaPal account limit. ${error.message}`);
             } else {
                 throw new Error(`PesaPal error: ${error.message || 'Unknown error'}`);
