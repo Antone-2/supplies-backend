@@ -11,13 +11,21 @@ const logger = {
 
 const PESAPAL_BASE_URL = config.PESAPAL.BASE_URL;
 const CONSUMER_KEY = config.PESAPAL.CONSUMER_KEY;
-const CONSUMER_SECRET = config.PESAPAL.CONSUMER_SECRET;
 
 // Get OAuth token with retry mechanism
 async function getAccessToken(retries = 3) {
     for (let i = 0; i < retries; i++) {
         try {
             logger.info(`Attempting PesaPal authentication (attempt ${i + 1}/${retries})`);
+
+            // Check if credentials are available
+            if (!CONSUMER_KEY || !CONSUMER_SECRET) {
+                logger.error('PesaPal credentials not configured');
+                throw new Error('PesaPal credentials not configured. Please check environment variables.');
+            }
+
+            logger.info('Making request to:', `${PESAPAL_BASE_URL}/Auth/RequestToken`);
+            logger.info('Using base URL:', PESAPAL_BASE_URL);
 
             const response = await axios.post(
                 `${PESAPAL_BASE_URL}/Auth/RequestToken`,
@@ -30,12 +38,15 @@ async function getAccessToken(retries = 3) {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    timeout: 10000, // 10 second timeout
+                    timeout: 15000, // 15 second timeout
                     validateStatus: function (status) {
                         return status < 500; // Resolve only if status is less than 500
                     }
                 }
             );
+
+            logger.info('PesaPal auth response status:', response.status);
+            logger.info('PesaPal auth response data:', JSON.stringify(response.data, null, 2));
 
             if (response.data && (response.data.token || response.data.access_token)) {
                 const token = response.data.token || response.data.access_token;
@@ -53,7 +64,8 @@ async function getAccessToken(retries = 3) {
             logger.error(`PesaPal authentication attempt ${i + 1} failed:`, {
                 error: errorMessage,
                 code: error.code,
-                status: error.response?.status
+                status: error.response?.status,
+                url: error.config?.url
             });
 
             if (isLastAttempt) {
