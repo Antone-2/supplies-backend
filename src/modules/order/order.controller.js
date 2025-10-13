@@ -639,6 +639,109 @@ const updateOrder = async (req, res) => {
     }
 };
 
+// Admin dashboard stats endpoint
+const getDashboardStats = async (req, res) => {
+    try {
+        // Get total orders count
+        const totalOrders = await orderModel.countDocuments();
+
+        // Get pending orders count
+        const pendingOrders = await orderModel.countDocuments({ orderStatus: 'pending' });
+
+        // Get total revenue (paid orders only)
+        const revenueResult = await orderModel.aggregate([
+            { $match: { paymentStatus: 'paid' } },
+            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+        ]);
+        const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+
+        // Get user count (if User model is available)
+        let totalUsers = 0;
+        try {
+            totalUsers = await User.countDocuments();
+        } catch (error) {
+            console.log('User model not available for analytics');
+        }
+
+        // Get product count and low stock products
+        let totalProducts = 0;
+        let lowStockProducts = 0;
+        try {
+            totalProducts = await Product.countDocuments({ isActive: true });
+            lowStockProducts = await Product.countDocuments({
+                isActive: true,
+                countInStock: { $lt: 10 }
+            });
+        } catch (error) {
+            console.log('Product model not available for analytics');
+        }
+
+        // Get recent activity (last 10 orders)
+        const recentOrders = await orderModel.find()
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .select('orderNumber orderStatus paymentStatus totalAmount createdAt shippingAddress.fullName')
+            .lean();
+
+        const recentActivity = recentOrders.map(order => ({
+            id: order._id.toString(),
+            type: 'order',
+            message: `New order #${order.orderNumber} from ${order.shippingAddress?.fullName || 'Customer'}`,
+            timestamp: new Date(order.createdAt).toLocaleString()
+        }));
+
+        // Get alerts
+        const alerts = [];
+        if (pendingOrders > 0) {
+            alerts.push({
+                id: 'pending-orders',
+                type: 'warning',
+                message: `${pendingOrders} orders pending approval`,
+                action: 'Review Orders'
+            });
+        }
+        if (lowStockProducts > 0) {
+            alerts.push({
+                id: 'low-stock',
+                type: 'warning',
+                message: `${lowStockProducts} products are low in stock`,
+                action: 'View Inventory'
+            });
+        }
+
+        // Get new users this month
+        let newUsers = 0;
+        try {
+            const startOfMonth = new Date();
+            startOfMonth.setDate(1);
+            startOfMonth.setHours(0, 0, 0, 0);
+            newUsers = await User.countDocuments({ createdAt: { $gte: startOfMonth } });
+        } catch (error) {
+            console.log('Could not fetch new users count');
+        }
+
+        const stats = {
+            totalUsers,
+            totalProducts,
+            totalOrders,
+            totalRevenue,
+            pendingOrders,
+            newUsers,
+            recentActivity,
+            alerts
+        };
+
+        res.json(stats);
+    } catch (error) {
+        console.error('Dashboard stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch dashboard statistics',
+            error: error.message
+        });
+    }
+};
+
 const orderController = {
     getAllOrders,
     createOrder,
@@ -652,6 +755,7 @@ const orderController = {
     verifyOrder,
     calculateShippingFee,
     getOrderAnalytics,
+    getDashboardStats,
     initiatePayment,
 };
 

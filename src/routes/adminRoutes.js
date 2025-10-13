@@ -28,4 +28,7 @@ router.put('/orders/:id', orderController.updateOrder);
 // Analytics
 router.get('/analytics', orderController.getOrderAnalytics);
 
+// Dashboard stats
+router.get('/dashboard/stats', orderController.getDashboardStats);
+
 export default router;
