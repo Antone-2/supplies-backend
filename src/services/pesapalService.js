@@ -28,7 +28,7 @@ async function getAccessToken(retries = 3) {
             logger.info('Using base URL:', PESAPAL_BASE_URL);
 
             const response = await axios.post(
-                `${PESAPAL_BASE_URL}/Auth/RequestToken`,
+                `${PESAPAL_BASE_URL}/api/Auth/RequestToken`,
                 {
                     consumer_key: config.PESAPAL.CONSUMER_KEY,
                     consumer_secret: config.PESAPAL.CONSUMER_SECRET
@@ -94,7 +94,7 @@ async function getIPNID(callbackUrl) {
     try {
         const token = await getAccessToken();
         const response = await axios.post(
-            `${PESAPAL_BASE_URL}/URLSetup/RegisterIPN`,
+            `${PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`,
             {
                 url: callbackUrl,
                 ipn_notification_type: "GET"
@@ -159,7 +159,7 @@ async function submitOrder(orderId, amount, description, callbackUrl, notificati
         };
 
         const response = await axios.post(
-            `${PESAPAL_BASE_URL}/Transactions/SubmitOrderRequest`,
+            `${PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`,
             orderData,
             {
                 headers: {
