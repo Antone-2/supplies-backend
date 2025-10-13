@@ -147,11 +147,21 @@ const logout = async function logout(req, res) {
 
 const me = async function me(req, res) {
     try {
-        // Get token from cookie
-        const token = req.cookies.token;
-        if (!token) {
-            return res.status(401).json({ message: 'Unauthorized' });
+        // Check for token in multiple places for cross-domain compatibility
+        let token = req.cookies.token;
+
+        // If no cookie token, check Authorization header
+        if (!token && req.headers.authorization) {
+            const authHeader = req.headers.authorization;
+            if (authHeader.startsWith('Bearer ')) {
+                token = authHeader.substring(7); // Remove 'Bearer ' prefix
+            }
         }
+
+        if (!token) {
+            return res.status(401).json({ message: 'Authorization token missing' });
+        }
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.id).select('-password');
         if (!user) {
