@@ -1,5 +1,5 @@
 import express from 'express';
-import { login, me, refreshToken } from '../modules/auth/auth.controller.js';
+import { login, me, refreshToken, forgotPassword, resetPassword } from '../modules/auth/auth.controller.js';
 import admin from '../middleware/admin.js';
 import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
 
@@ -29,5 +29,9 @@ router.get('/me', jwtAuthMiddleware, admin, me);
 
 // Admin refresh token - requires admin middleware
 router.post('/refresh', jwtAuthMiddleware, admin, refreshToken);
+
+// Admin password reset routes
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 export default router;
