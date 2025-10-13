@@ -12,6 +12,8 @@ const logger = {
 const PESAPAL_BASE_URL = config.PESAPAL.BASE_URL;
 const CONSUMER_KEY = config.PESAPAL.CONSUMER_KEY;
 
+// Remove /api prefix from endpoints since BASE_URL now includes it
+
 // Get OAuth token with retry mechanism
 async function getAccessToken(retries = 3) {
     for (let i = 0; i < retries; i++) {
@@ -28,7 +30,7 @@ async function getAccessToken(retries = 3) {
             logger.info('Using base URL:', PESAPAL_BASE_URL);
 
             const response = await axios.post(
-                `${PESAPAL_BASE_URL}/api/Auth/RequestToken`,
+                `${PESAPAL_BASE_URL}/Auth/RequestToken`,
                 {
                     consumer_key: config.PESAPAL.CONSUMER_KEY,
                     consumer_secret: config.PESAPAL.CONSUMER_SECRET
@@ -94,7 +96,7 @@ async function getIPNID(callbackUrl) {
     try {
         const token = await getAccessToken();
         const response = await axios.post(
-            `${PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`,
+            `${PESAPAL_BASE_URL}/URLSetup/RegisterIPN`,
             {
                 url: callbackUrl,
                 ipn_notification_type: "GET"
