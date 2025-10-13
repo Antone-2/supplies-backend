@@ -46,7 +46,7 @@ const register = async function register(req, res) {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: 6 * 60 * 60 * 1000, // 6 hours
-            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
             domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
         });
 
@@ -114,7 +114,7 @@ const login = async function login(req, res) {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: 6 * 60 * 60 * 1000, // 6 hours
-            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
             domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
         });
 
