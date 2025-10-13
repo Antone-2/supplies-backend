@@ -10,6 +10,10 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import 'dotenv/config';
 
+// Initialize configuration
+import config from './config/environment.js';
+config; // Ensure config is loaded
+
 // Accept either MONGO_URI or legacy MONGODB_URI
 process.env.MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 if (!process.env.MONGO_URI) {
