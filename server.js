@@ -11,8 +11,8 @@ import { dirname, resolve } from 'path';
 import 'dotenv/config';
 
 // Initialize configuration
-import config from './config/environment.js';
-config; // Ensure config is loaded
+import initializeConfig from './config/environment.js';
+const config = initializeConfig(); // Load and validate configuration
 
 // Accept either MONGO_URI or legacy MONGODB_URI
 process.env.MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
