@@ -19,7 +19,7 @@ async function getAccessToken(retries = 3) {
             logger.info(`Attempting PesaPal authentication (attempt ${i + 1}/${retries})`);
 
             // Check if credentials are available
-            if (!CONSUMER_KEY || !CONSUMER_SECRET) {
+            if (!config.PESAPAL.CONSUMER_KEY || !config.PESAPAL.CONSUMER_SECRET) {
                 logger.error('PesaPal credentials not configured');
                 throw new Error('PesaPal credentials not configured. Please check environment variables.');
             }
