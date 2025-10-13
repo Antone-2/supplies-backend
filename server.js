@@ -101,6 +101,7 @@ import generalReviewRoutes from './src/routes/generalReviewRoutes.js';
 import newsletterRoutes from './src/routes/newsletterRoutes.js';
 import pesapalRoutes from './src/routes/pesapalRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
+import adminAuthRoutes from './src/routes/adminAuthRoutes.js';
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/auth', passwordRoutes);
 app.use('/api/v1/products', productRoutes);
@@ -113,6 +114,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/general-reviews', generalReviewRoutes);
 app.use('/api/v1/newsletter', newsletterRoutes);
 app.use('/api/v1/pesapal', pesapalRoutes);
+app.use('/api/v1/admin/auth', adminAuthRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
 // Import passport after routes to avoid circular dependency
