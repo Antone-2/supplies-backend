@@ -9,7 +9,7 @@ import {
 } from '../controllers/userController.js';
 import orderController from '../modules/order/order.controller.js';
 import productController from '../modules/product/product.controller.js';
-import categoryController from '../modules/category/category.controller.js';
+import { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory } from '../modules/category/category.controller.js';
 
 const router = express.Router();
 
@@ -40,9 +40,9 @@ router.put('/products/:id', productController.updateProduct);
 router.delete('/products/:id', productController.deleteProduct);
 
 // Category management
-router.get('/categories', categoryController.getCategoriesWithCounts);
-router.post('/categories', categoryController.createCategory);
-router.put('/categories/:id', categoryController.updateCategory);
-router.delete('/categories/:id', categoryController.deleteCategory);
+router.get('/categories', getCategoriesWithCounts);
+router.post('/categories', createCategory);
+router.put('/categories/:id', updateCategory);
+router.delete('/categories/:id', deleteCategory);
 
 export default router;
