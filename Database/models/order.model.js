@@ -17,6 +17,7 @@ const orderSchema = new mongoose.Schema({
     orderStatus: { type: String, default: 'pending' },
     paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
     trackingNumber: { type: String },
+    transactionTrackingId: { type: String },
     transactionStatus: { type: String, default: '' },
     timeline: [{ status: String, changedAt: Date, note: String }],
     activityLog: [{ action: String, user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, message: String, createdAt: Date }],

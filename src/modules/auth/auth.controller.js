@@ -184,27 +184,63 @@ const me = async function me(req, res) {
 
 const refreshToken = async function refreshToken(req, res) {
     try {
-        // Get token from cookie
-        const token = req.cookies.token;
-        if (!token) {
-            return res.status(401).json({ message: 'Unauthorized' });
+        // Get refresh token from cookie, Authorization header, or request body
+        let refreshToken = req.cookies.refreshToken;
+
+        // If no cookie refresh token, check Authorization header
+        if (!refreshToken && req.headers.authorization) {
+            const authHeader = req.headers.authorization;
+            if (authHeader.startsWith('Bearer ')) {
+                refreshToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+            }
         }
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // If still no refresh token, check request body (for admin refresh)
+        if (!refreshToken && req.body.refreshToken) {
+            refreshToken = req.body.refreshToken;
+        }
+
+        if (!refreshToken) {
+            return res.status(401).json({ message: 'Refresh token missing' });
+        }
+
+        // Verify refresh token
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
         const user = await User.findById(decoded.id).select('-password');
+
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        // Generate new token
+
+        // Check if user has admin role for admin routes
+        if (req.originalUrl.includes('/admin/') && user.role !== 'admin' && user.role !== 'super_admin') {
+            return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+        }
+
+        // Generate new tokens
         const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
-        // Set new cookie
+        const newRefreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, { expiresIn: '7d' });
+
+        // Set new cookies
         res.cookie('token', newToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: 6 * 60 * 60 * 1000, // 6 hours
-            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
             domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
         });
+
+        res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+        });
+
         res.json({
+            token: newToken, // Include in response for localStorage backup
+            refreshToken: newRefreshToken, // Include in response for localStorage backup
             user: {
                 id: user._id,
                 email: user.email,
@@ -215,6 +251,7 @@ const refreshToken = async function refreshToken(req, res) {
             }
         });
     } catch (err) {
+        console.error('Refresh token error:', err);
         res.status(500).json({ message: 'Failed to refresh token' });
     }
 };

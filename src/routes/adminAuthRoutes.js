@@ -30,8 +30,9 @@ router.post('/login', async (req, res) => {
         }
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
+        const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        // Set HTTP-only cookie
+        // Set HTTP-only cookies
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -40,8 +41,17 @@ router.post('/login', async (req, res) => {
             domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
         });
 
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+        });
+
         res.json({
             token: token, // Include token in response for localStorage backup
+            refreshToken: refreshToken, // Include refresh token for localStorage backup
             user: {
                 id: user._id,
                 email: user.email,
@@ -60,8 +70,8 @@ router.post('/login', async (req, res) => {
 // Admin me - requires admin middleware
 router.get('/me', jwtAuthMiddleware, admin, me);
 
-// Admin refresh token - requires admin middleware
-router.post('/refresh', jwtAuthMiddleware, admin, refreshToken);
+// Admin refresh token - does not require access token, only refresh token
+router.post('/refresh', refreshToken);
 
 // Admin password reset routes
 router.post('/forgot-password', forgotPassword);

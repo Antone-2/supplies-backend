@@ -32,8 +32,8 @@ const googleCallback = [
             });
 
             const frontendUrl = process.env.FRONTEND_URL;
-            // Redirect to homepage
-            res.redirect(`${frontendUrl}/`);
+            // Redirect to Google callback page which will handle localStorage storage
+            res.redirect(`${frontendUrl}/auth/google/callback?token=${token}`);
         } catch (error) {
             console.error('Google OAuth callback error:', error);
             res.redirect(process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/auth' : '/auth');

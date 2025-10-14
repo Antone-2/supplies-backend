@@ -196,20 +196,42 @@ const createProduct = async (req, res) => {
             });
         }
 
+        // Handle category - if it's a string, find the category ObjectId
+        let categoryId = productData.category;
+        if (typeof categoryId === 'string') {
+            const Category = (await import('../../../Database/models/category.model.js')).default;
+            const category = await Category.findOne({ name: categoryId });
+            if (category) {
+                categoryId = category._id;
+            } else {
+                // Create category if it doesn't exist
+                const newCategory = new Category({ name: categoryId });
+                await newCategory.save();
+                categoryId = newCategory._id;
+            }
+        }
+
         const product = new Product({
             name: productData.name,
             description: productData.description || '',
             price: Number(productData.price),
-            category: productData.category,
+            category: categoryId,
             brand: productData.brand || '',
             countInStock: Number(productData.countInStock) || 0,
             image: productData.image || '',
             images: productData.images || [],
             isFeatured: productData.isFeatured || false,
+            featured: productData.featured || false,
+            discount: Number(productData.discount) || 0,
+            rating: Number(productData.rating) || 0,
+            numReviews: Number(productData.numReviews) || 0,
             isActive: true
         });
 
         await product.save();
+
+        // Populate category for response
+        await product.populate('category');
 
         res.status(201).json({
             success: true,
@@ -231,11 +253,25 @@ const updateProduct = async (req, res) => {
         const productId = req.params.id;
         const updates = req.body;
 
+        // Handle category update - if it's a string, find the category ObjectId
+        if (updates.category && typeof updates.category === 'string') {
+            const Category = (await import('../../../Database/models/category.model.js')).default;
+            const category = await Category.findOne({ name: updates.category });
+            if (category) {
+                updates.category = category._id;
+            } else {
+                // Create category if it doesn't exist
+                const newCategory = new Category({ name: updates.category });
+                await newCategory.save();
+                updates.category = newCategory._id;
+            }
+        }
+
         const product = await Product.findByIdAndUpdate(
             productId,
             { ...updates, updatedAt: new Date() },
             { new: true, runValidators: true }
-        );
+        ).populate('category');
 
         if (!product) {
             return res.status(404).json({ message: 'Product not found' });

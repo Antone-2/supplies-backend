@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: false },
     role: { type: String, default: 'user' },
+    active: { type: Boolean, default: true },
     googleId: { type: String },
     avatar: { type: String },
     isVerified: { type: Boolean, default: false },
@@ -14,7 +15,9 @@ const userSchema = new mongoose.Schema({
     phone: { type: String },
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorOTP: { type: String },
-    twoFactorOTPExpires: { type: Date }
+    twoFactorOTPExpires: { type: Date },
+    createdAt: { type: Date, default: Date.now },
+    lastLogin: { type: Date }
 });
 
 userSchema.index({ email: 1 });

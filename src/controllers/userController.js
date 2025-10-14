@@ -61,7 +61,7 @@ export async function getUsers(req, res) {
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const users = await User.find(query)
-            .select('-password')
+            .select('-password -twoFactorOTP -twoFactorOTPExpires -verificationToken -resetPasswordToken -resetPasswordExpires')
             .sort(sortOptions)
             .skip(skip)
             .limit(parseInt(limit));

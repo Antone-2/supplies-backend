@@ -8,6 +8,8 @@ import {
     deleteUser
 } from '../controllers/userController.js';
 import orderController from '../modules/order/order.controller.js';
+import productController from '../modules/product/product.controller.js';
+import categoryController from '../modules/category/category.controller.js';
 
 const router = express.Router();
 
@@ -30,5 +32,17 @@ router.get('/analytics', orderController.getOrderAnalytics);
 
 // Dashboard stats
 router.get('/dashboard/stats', orderController.getDashboardStats);
+
+// Product management
+router.get('/products', productController.getProducts);
+router.post('/products', productController.createProduct);
+router.put('/products/:id', productController.updateProduct);
+router.delete('/products/:id', productController.deleteProduct);
+
+// Category management
+router.get('/categories', categoryController.getCategoriesWithCounts);
+router.post('/categories', categoryController.createCategory);
+router.put('/categories/:id', categoryController.updateCategory);
+router.delete('/categories/:id', categoryController.deleteCategory);
 
 export default router;

@@ -18,8 +18,9 @@ export async function forgotPassword(req, res) {
         user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
         await user.save();
 
-        // Send reset email
-        const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+        // Send reset email - use admin reset URL for admin users
+        const resetPath = (user.role === 'admin' || user.role === 'super_admin') ? '/admin/reset-password' : '/reset-password';
+        const resetUrl = `${process.env.FRONTEND_URL}${resetPath}?token=${resetToken}`;
         const logoUrl = process.env.LOGO_URL;
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; border: 1px solid #eee; border-radius: 8px; padding: 24px;">
