@@ -13,6 +13,7 @@ router.use('/auth', require('./authRoutes'));
 router.use('/cart', require('./cartRoutes'));
 router.use('/orders', require('./orderRoutes'));
 router.use('/products', require('./productRoutes'));
+router.use('/categories', require('./../modules/category/category.routes'));
 router.use('/wishlist', require('./wishlistRoutes'));
 router.use('/payment', require('./paymentRoutes'));
 router.use('/pesapal', require('./pesapalRoutes'));

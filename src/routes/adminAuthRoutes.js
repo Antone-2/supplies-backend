@@ -56,9 +56,10 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 email: user.email,
                 name: user.name,
-                role: user.role || 'user',
-                phone: user.phone,
-                address: user.address
+                role: user.role,
+                permissions: user.permissions || [],
+                lastLogin: user.lastLogin || new Date().toISOString(),
+                active: user.active !== false
             }
         });
     } catch (error) {

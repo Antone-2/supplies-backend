@@ -108,8 +108,9 @@ const login = async function login(req, res) {
         }
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
+        const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        // Set HTTP-only cookie
+        // Set HTTP-only cookies
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -118,8 +119,17 @@ const login = async function login(req, res) {
             domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
         });
 
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+        });
+
         res.json({
             token: token, // Include token in response for localStorage backup
+            refreshToken: refreshToken, // Include refresh token for localStorage backup
             user: {
                 id: user._id,
                 email: user.email,
@@ -252,6 +262,19 @@ const refreshToken = async function refreshToken(req, res) {
         });
     } catch (err) {
         console.error('Refresh token error:', err);
+        // Clear cookies on refresh failure
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+        });
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+        });
         res.status(500).json({ message: 'Failed to refresh token' });
     }
 };
