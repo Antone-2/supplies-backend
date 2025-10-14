@@ -1,25 +1,37 @@
-const AdminSetting = require('../../Database/models/adminSetting.model');
+import Setting from '../models/setting.model.js';
 
-exports.getSettings = async (req, res) => {
+export const getSettings = async (req, res) => {
     try {
-        const settings = await AdminSetting.find();
-        res.json(settings);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+        const settings = await Setting.find({});
+        const settingsMap = {};
+        settings.forEach(setting => {
+            settingsMap[setting.key] = setting.value;
+        });
+        res.json(settingsMap);
+    } catch (error) {
+        console.error('Error fetching settings:', error);
+        res.status(500).json({ error: 'Failed to fetch settings' });
     }
 };
 
-exports.updateSetting = async (req, res) => {
+export const updateSetting = async (req, res) => {
     try {
         const { key } = req.params;
         const { value } = req.body;
-        const setting = await AdminSetting.findOneAndUpdate(
+
+        if (!key || value === undefined) {
+            return res.status(400).json({ error: 'Key and value are required' });
+        }
+
+        const setting = await Setting.findOneAndUpdate(
             { key },
-            { value, updatedAt: Date.now() },
+            { value, updatedAt: new Date() },
             { new: true, upsert: true }
         );
-        res.json(setting);
-    } catch (err) {
-        res.status(400).json({ error: err.message });
+
+        res.json({ message: 'Setting updated successfully', setting });
+    } catch (error) {
+        console.error('Error updating setting:', error);
+        res.status(500).json({ error: 'Failed to update setting' });
     }
 };

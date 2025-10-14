@@ -10,6 +10,7 @@ import {
 import orderController from '../modules/order/order.controller.js';
 import { getProducts, createProduct, updateProduct, deleteProduct } from '../modules/product/product.controller.js';
 import { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory } from '../modules/category/category.controller.js';
+import adminSettingController from '../controllers/adminSettingController.js';
 
 const router = express.Router();
 
@@ -44,5 +45,9 @@ router.get('/categories', getCategoriesWithCounts);
 router.post('/categories', createCategory);
 router.put('/categories/:id', updateCategory);
 router.delete('/categories/:id', deleteCategory);
+
+// Settings management
+router.get('/settings', adminSettingController.getSettings);
+router.put('/settings/:key', adminSettingController.updateSetting);
 
 export default router;
