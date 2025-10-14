@@ -8,7 +8,7 @@ import {
     deleteUser
 } from '../controllers/userController.js';
 import orderController from '../modules/order/order.controller.js';
-import productController from '../modules/product/product.controller.js';
+import { getProducts, createProduct, updateProduct, deleteProduct } from '../modules/product/product.controller.js';
 import { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory } from '../modules/category/category.controller.js';
 
 const router = express.Router();
@@ -34,10 +34,10 @@ router.get('/analytics', orderController.getOrderAnalytics);
 router.get('/dashboard/stats', orderController.getDashboardStats);
 
 // Product management
-router.get('/products', productController.getProducts);
-router.post('/products', productController.createProduct);
-router.put('/products/:id', productController.updateProduct);
-router.delete('/products/:id', productController.deleteProduct);
+router.get('/products', getProducts);
+router.post('/products', createProduct);
+router.put('/products/:id', updateProduct);
+router.delete('/products/:id', deleteProduct);
 
 // Category management
 router.get('/categories', getCategoriesWithCounts);
