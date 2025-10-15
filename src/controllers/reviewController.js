@@ -24,6 +24,19 @@ export async function createReview(req, res) {
             return res.status(404).json({ message: 'Product not found.' });
         }
 
+        // Check if user has successfully placed an order for this product
+        const Order = (await import('../../Database/models/order.model.js')).default;
+        const hasOrderedProduct = await Order.findOne({
+            user: userId,
+            'items.productId': productId,
+            orderStatus: { $in: ['completed', 'shipped', 'delivered'] },
+            paymentStatus: 'paid'
+        });
+
+        if (!hasOrderedProduct) {
+            return res.status(403).json({ message: 'You can only review products you have successfully purchased.' });
+        }
+
         // Check if user already reviewed this product
         const existingReview = await Review.findOne({ product: productId, user: userId });
         if (existingReview) {
