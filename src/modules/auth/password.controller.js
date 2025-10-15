@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import User from '../../../Database/models/user.model.js';
-import * as emailService from '../services/emailService.js';
+import * as emailService from '../../services/emailService.js';
 
 // POST /api/v1/auth/forgot-password
 export async function forgotPassword(req, res) {
