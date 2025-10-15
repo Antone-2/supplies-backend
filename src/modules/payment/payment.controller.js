@@ -2,6 +2,7 @@ import axios from 'axios';
 import { initiatePesapalPayment, getAccessToken } from '../../services/pesapalService.js';
 import Order from '../../../Database/models/order.model.js';
 import { validatePesapalPayment } from './payment.validation.js';
+import { sendPaymentConfirmation } from '../../services/emailService.js';
 
 // Normalize Kenyan phone numbers to +254 format
 function normalizeKenyanPhone(phone) {
@@ -260,10 +261,31 @@ export const paymentCallback = async (req, res) => {
             message = 'pesapal-payment-pending';
         }
 
-        await Order.findOneAndUpdate({ orderNumber: orderId }, {
-            paymentStatus,
-            transactionStatus: transactionStatus
-        });
+        const order = await Order.findOneAndUpdate(
+            { orderNumber: orderId },
+            {
+                paymentStatus,
+                transactionStatus: transactionStatus,
+                paymentCompletedAt: transactionStatus === 'COMPLETED' ? new Date() : undefined
+            },
+            { new: true }
+        );
+
+        // Send payment confirmation email if payment was successful
+        if (transactionStatus === 'COMPLETED' && order?.shippingAddress?.email) {
+            try {
+                await sendPaymentConfirmation({
+                    email: order.shippingAddress.email,
+                    name: order.shippingAddress.fullName,
+                    orderId: order.orderNumber,
+                    totalAmount: order.totalAmount,
+                    paymentMethod: order.paymentMethod || 'pesapal'
+                });
+                console.log(`Payment confirmation email sent for order ${orderId}`);
+            } catch (emailError) {
+                console.warn('Payment confirmation email failed:', emailError);
+            }
+        }
 
         console.log(`Payment callback for order ${orderId}: Status updated to ${paymentStatus}`);
 

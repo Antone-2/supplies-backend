@@ -7,7 +7,8 @@ import testDatabase from '../../../testDatabase.js';
 import User from '../../../Database/models/user.model.js';
 import Product from '../../../Database/models/product.model.js';
 import Category from '../../../Database/models/category.model.js';
-import { sendOrderEmail } from '../../services/emailService.js';
+import { sendOrderEmail, sendOrderConfirmation } from '../../services/emailService.js';
+import { sendOrderConfirmationSMS } from '../../services/smsService.js';
 import { initiatePesapalPayment } from '../../services/pesapalService.js';
 
 const getAllOrders = async (req, res) => {
@@ -205,31 +206,44 @@ const createOrder = async (req, res) => {
 
         await order.save();
 
-        // Send order confirmation email and notification
+        // Send order confirmation email and SMS notification
         try {
-            // Temporarily disable notifications to fix order creation
-            console.log('Order created successfully, email notifications disabled for now');
-            // const { sendOrderConfirmation } = require('../../services/emailService');
-            // const { notifyOrderCreated } = require('../../services/notificationService');
+            const { sendOrderConfirmation } = require('../../services/emailService');
 
-            // await sendOrderConfirmation({
-            //     email: shippingAddress.email,
-            //     name: shippingAddress.fullName,
-            //     orderId: order._id,
-            //     items: items,
-            //     totalAmount: totalAmount,
-            //     shippingAddress: shippingAddress
-            // });
+            await sendOrderConfirmation({
+                email: shippingAddress.email,
+                name: shippingAddress.fullName,
+                orderId: order.orderNumber,
+                items: items,
+                totalAmount: totalAmount,
+                shippingAddress: shippingAddress
+            });
 
-            // Create in-app notification if user is logged in
-            // if (req.user?.id) {
-            //     await notifyOrderCreated(req.user.id, shippingAddress.email, {
-            //         orderId: order._id,
-            //         totalAmount: totalAmount
-            //     });
-            // }
+            console.log('Order confirmation email sent successfully');
         } catch (emailError) {
             console.warn('Order confirmation email failed:', emailError);
+        }
+
+        // Send order confirmation SMS if phone number is provided
+        if (shippingAddress.phone) {
+            try {
+                // Format phone number to international format if needed (assuming Kenyan numbers)
+                let phoneNumber = shippingAddress.phone;
+                if (phoneNumber.startsWith('0')) {
+                    phoneNumber = '+254' + phoneNumber.substring(1);
+                } else if (!phoneNumber.startsWith('+')) {
+                    phoneNumber = '+254' + phoneNumber;
+                }
+
+                await sendOrderConfirmationSMS(phoneNumber, {
+                    name: shippingAddress.fullName,
+                    orderId: order.orderNumber,
+                    totalAmount: totalAmount
+                });
+                console.log('Order confirmation SMS sent successfully');
+            } catch (smsError) {
+                console.warn('Order confirmation SMS failed:', smsError);
+            }
         }
 
         res.status(201).json({
@@ -372,31 +386,81 @@ const updateOrderStatus = async (req, res) => {
 
         await order.save();
 
-        // Send notifications for status changes (temporarily disabled)
+        // Send notifications for status changes
         if (status && order.shippingAddress?.email) {
             try {
-                console.log('Order status updated, notifications disabled for now');
-                // const { sendShippingNotification } = require('../../services/emailService');
-                // const { notifyOrderStatusChange } = require('../../services/notificationService');
+                const { sendOrderStatusUpdate, sendShippingNotification, sendDeliveryNotification } = require('../../services/emailService');
 
-                // // Send email for shipped status
-                // if (status === 'shipped') {
-                //     await sendShippingNotification({
-                //         email: order.shippingAddress.email,
-                //         name: order.shippingAddress.fullName,
-                //         orderId: order._id,
-                //         trackingNumber: order.trackingNumber
-                //     });
-                // }
+                // Send appropriate email based on status
+                if (status === 'shipped') {
+                    await sendShippingNotification({
+                        email: order.shippingAddress.email,
+                        name: order.shippingAddress.fullName,
+                        orderId: order.orderNumber,
+                        trackingNumber: order.trackingNumber
+                    });
+                } else if (status === 'delivered') {
+                    await sendDeliveryNotification({
+                        email: order.shippingAddress.email,
+                        name: order.shippingAddress.fullName,
+                        orderId: order.orderNumber,
+                        deliveryDate: new Date()
+                    });
+                } else {
+                    // Send general status update for other statuses
+                    await sendOrderStatusUpdate({
+                        email: order.shippingAddress.email,
+                        name: order.shippingAddress.fullName,
+                        orderId: order.orderNumber,
+                        status: status,
+                        trackingNumber: order.trackingNumber,
+                        note: note
+                    });
+                }
 
-                // // Send comprehensive notification for all status changes
-                // await notifyOrderStatusChange(order.userId, order.shippingAddress.email, {
-                //     orderId: order._id,
-                //     status: status,
-                //     trackingNumber: order.trackingNumber
-                // });
+                console.log(`Order status update email sent for status: ${status}`);
             } catch (notificationError) {
-                console.warn('Order status notification failed:', notificationError);
+                console.warn('Order status notification email failed:', notificationError);
+            }
+        }
+
+        // Send SMS notifications for status changes if phone number is provided
+        if (status && order.shippingAddress?.phone) {
+            try {
+                const { sendOrderStatusUpdateSMS, sendShippingNotificationSMS, sendDeliveryNotificationSMS } = require('../../services/smsService');
+
+                // Format phone number to international format if needed (assuming Kenyan numbers)
+                let phoneNumber = order.shippingAddress.phone;
+                if (phoneNumber.startsWith('0')) {
+                    phoneNumber = '+254' + phoneNumber.substring(1);
+                } else if (!phoneNumber.startsWith('+')) {
+                    phoneNumber = '+254' + phoneNumber;
+                }
+
+                // Send appropriate SMS based on status
+                if (status === 'shipped') {
+                    await sendShippingNotificationSMS(phoneNumber, {
+                        name: order.shippingAddress.fullName,
+                        orderId: order.orderNumber,
+                        trackingNumber: order.trackingNumber
+                    });
+                } else if (status === 'delivered') {
+                    await sendDeliveryNotificationSMS(phoneNumber, {
+                        name: order.shippingAddress.fullName,
+                        orderId: order.orderNumber
+                    });
+                } else {
+                    // Send general status update SMS for other statuses
+                    await sendOrderStatusUpdateSMS(phoneNumber, {
+                        name: order.shippingAddress.fullName,
+                        orderId: order.orderNumber,
+                        status: status
+                    });
+                }
+
+                console.log(`Order status update SMS sent for status: ${status}`);
+            } catch (smsError) {
+                console.warn('Order status notification SMS failed:', smsError);
             }
         }
 

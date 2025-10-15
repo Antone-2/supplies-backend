@@ -174,15 +174,117 @@ const sendShippingNotification = async (orderData) => {
         <h2>Your Order Has Shipped!</h2>
         <p>Dear ${name},</p>
         <p>Great news! Your order <strong>${orderId}</strong> has been shipped.</p>
-        
+
         ${trackingNumber ? `<p><strong>Tracking Number:</strong> ${trackingNumber}</p>` : ''}
-        
+
         <p>You should receive your order within 2-3 business days.</p>
         <a href="${process.env.FRONTEND_URL}/orders" class="button">Track Order</a>
     `;
 
     const html = getEmailTemplate('Shipping Notification', content);
     return await sendEmail(email, `Your Order Has Shipped - ${orderId}`, html);
+};
+
+// Payment confirmation notification
+const sendPaymentConfirmation = async (orderData) => {
+    const { email, name, orderId, totalAmount, paymentMethod } = orderData;
+
+    const content = `
+        <h2>Payment Confirmed!</h2>
+        <p>Dear ${name},</p>
+        <p>Thank you! Your payment has been successfully processed.</p>
+
+        <h3>Payment Details</h3>
+        <p><strong>Order ID:</strong> ${orderId}</p>
+        <p><strong>Amount Paid:</strong> KES ${totalAmount.toLocaleString()}</p>
+        <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+
+        <p>Your order is now being prepared for shipment. We'll send you another notification when it ships.</p>
+        <a href="${process.env.FRONTEND_URL}/orders" class="button">View Order</a>
+    `;
+
+    const html = getEmailTemplate('Payment Confirmation', content);
+    return await sendEmail(email, `Payment Confirmed - ${orderId}`, html);
+};
+
+// Order status update notification
+const sendOrderStatusUpdate = async (orderData) => {
+    const { email, name, orderId, status, trackingNumber, note } = orderData;
+
+    const statusMessages = {
+        'processing': 'Your order is being processed and prepared for shipment.',
+        'shipped': 'Your order has been shipped and is on its way.',
+        'delivered': 'Your order has been successfully delivered.',
+        'cancelled': 'Your order has been cancelled.',
+        'refunded': 'Your order has been refunded.'
+    };
+
+    const content = `
+        <h2>Order Status Update</h2>
+        <p>Dear ${name},</p>
+        <p>Your order <strong>${orderId}</strong> status has been updated to: <strong>${status.toUpperCase()}</strong></p>
+
+        <p>${statusMessages[status] || 'Your order status has been updated.'}</p>
+
+        ${trackingNumber ? `<p><strong>Tracking Number:</strong> ${trackingNumber}</p>` : ''}
+        ${note ? `<p><strong>Note:</strong> ${note}</p>` : ''}
+
+        <a href="${process.env.FRONTEND_URL}/orders" class="button">Track Order</a>
+    `;
+
+    const html = getEmailTemplate('Order Status Update', content);
+    return await sendEmail(email, `Order Update - ${orderId}`, html);
+};
+
+// Delivery notification
+const sendDeliveryNotification = async (orderData) => {
+    const { email, name, orderId, deliveryDate } = orderData;
+
+    const content = `
+        <h2>Your Order Has Been Delivered!</h2>
+        <p>Dear ${name},</p>
+        <p>Great news! Your order <strong>${orderId}</strong> has been successfully delivered.</p>
+
+        ${deliveryDate ? `<p><strong>Delivery Date:</strong> ${new Date(deliveryDate).toLocaleDateString()}</p>` : ''}
+
+        <p>We hope you are satisfied with your purchase. If you have any questions or concerns, please don't hesitate to contact us.</p>
+
+        <h3>Need Help?</h3>
+        <p>Contact our customer service team at ${process.env.COMPANY_EMAIL} or ${process.env.COMPANY_PHONE}</p>
+
+        <a href="${process.env.FRONTEND_URL}/products" class="button">Shop Again</a>
+    `;
+
+    const html = getEmailTemplate('Delivery Confirmation', content);
+    return await sendEmail(email, `Order Delivered - ${orderId}`, html);
+};
+
+// Issue/delay notification
+const sendIssueNotification = async (orderData) => {
+    const { email, name, orderId, issueType, description, expectedResolution } = orderData;
+
+    const content = `
+        <h2>Important Update About Your Order</h2>
+        <p>Dear ${name},</p>
+        <p>We wanted to inform you about an update regarding your order <strong>${orderId}</strong>.</p>
+
+        <h3>Issue Details</h3>
+        <p><strong>Type:</strong> ${issueType}</p>
+        <p><strong>Description:</strong> ${description}</p>
+        ${expectedResolution ? `<p><strong>Expected Resolution:</strong> ${expectedResolution}</p>` : ''}
+
+        <p>We apologize for any inconvenience this may cause. Our team is working diligently to resolve this matter.</p>
+
+        <h3>Contact Us</h3>
+        <p>If you have any questions, please contact our customer service team:</p>
+        <p>Email: ${process.env.COMPANY_EMAIL}</p>
+        <p>Phone: ${process.env.COMPANY_PHONE}</p>
+
+        <a href="${process.env.FRONTEND_URL}/orders" class="button">View Order</a>
+    `;
+
+    const html = getEmailTemplate('Order Update', content);
+    return await sendEmail(email, `Order Update - ${orderId}`, html);
 };
 
 // Legacy function for backward compatibility
@@ -196,5 +298,9 @@ export {
     sendOrderEmail,
     sendOrderConfirmation,
     sendShippingNotification,
+    sendPaymentConfirmation,
+    sendOrderStatusUpdate,
+    sendDeliveryNotification,
+    sendIssueNotification,
     getEmailTemplate
 };
