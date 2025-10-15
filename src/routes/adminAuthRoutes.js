@@ -3,7 +3,7 @@ import User from '../../Database/models/user.model.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import * as emailService from '../../services/emailService.js';
+import * as emailService from '../services/emailService.js';
 import { me, refreshToken, forgotPassword, resetPassword } from '../modules/auth/auth.controller.js';
 import admin from '../middleware/admin.js';
 import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';

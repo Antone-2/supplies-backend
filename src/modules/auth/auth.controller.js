@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import * as emailService from '../../services/emailService.js';
+import * as emailService from '../services/emailService.js';
 
 const register = async function register(req, res) {
     console.log('Register endpoint hit', req.body);
