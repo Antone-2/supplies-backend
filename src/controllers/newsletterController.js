@@ -1,6 +1,6 @@
 // newsletterController.js
 import Newsletter from '../../Database/models/newsletter.model.js';
-import { sendEmail } from '../../services/emailService.js';
+import { sendEmail } from '../services/emailService.js';
 
 const subscribe = async (req, res) => {
     try {
