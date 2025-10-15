@@ -1,7 +1,7 @@
 // reviewController.js
 import Review from '../../Database/models/review.model.js';
 import Product from '../../Database/models/product.model.js';
-import { sendEmail } from '../services/emailService.js';
+import { sendEmail } from '../../services/emailService.js';
 
 // Create a new review and send notification
 export async function createReview(req, res) {

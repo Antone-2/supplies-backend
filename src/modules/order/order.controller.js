@@ -7,7 +7,7 @@ import testDatabase from '../../../testDatabase.js';
 import User from '../../../Database/models/user.model.js';
 import Product from '../../../Database/models/product.model.js';
 import Category from '../../../Database/models/category.model.js';
-import { sendOrderEmail } from '../services/emailService.js';
+import { sendOrderEmail } from '../../services/emailService.js';
 import { initiatePesapalPayment } from '../../services/pesapalService.js';
 
 const getAllOrders = async (req, res) => {

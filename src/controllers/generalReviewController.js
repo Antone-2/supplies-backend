@@ -1,6 +1,6 @@
 // generalReviewController.js
 import GeneralReview from '../../Database/models/generalReview.model.js';
-import { sendEmail } from '../services/emailService.js';
+import { sendEmail } from '../../services/emailService.js';
 
 // Create a new general review
 export const createGeneralReview = async (req, res) => {
