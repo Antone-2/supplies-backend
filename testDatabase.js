@@ -261,10 +261,266 @@ class TestDatabase {
                 updatedAt: new Date('2024-09-01T08:00:00Z')
             }
         ];
+        this.settings = [
+            {
+                _id: 'setting_001',
+                key: 'site_name',
+                value: 'MEDHELM Supplies',
+                type: 'string',
+                category: 'general',
+                description: 'Website name displayed in header and title',
+                isPublic: true,
+                createdAt: new Date('2024-09-01T08:00:00Z'),
+                updatedAt: new Date('2024-09-01T08:00:00Z')
+            },
+            {
+                _id: 'setting_002',
+                key: 'site_description',
+                value: 'Leading medical supplies provider in Kenya',
+                type: 'string',
+                category: 'general',
+                description: 'Website description for SEO',
+                isPublic: true,
+                createdAt: new Date('2024-09-01T08:00:00Z'),
+                updatedAt: new Date('2024-09-01T08:00:00Z')
+            },
+            {
+                _id: 'setting_003',
+                key: 'contact_email',
+                value: 'info@medhelmsupplies.co.ke',
+                type: 'string',
+                category: 'contact',
+                description: 'Primary contact email',
+                isPublic: true,
+                createdAt: new Date('2024-09-01T08:00:00Z'),
+                updatedAt: new Date('2024-09-01T08:00:00Z')
+            },
+            {
+                _id: 'setting_004',
+                key: 'contact_phone',
+                value: '+254 700 123 456',
+                type: 'string',
+                category: 'contact',
+                description: 'Primary contact phone number',
+                isPublic: true,
+                createdAt: new Date('2024-09-01T08:00:00Z'),
+                updatedAt: new Date('2024-09-01T08:00:00Z')
+            },
+            {
+                _id: 'setting_005',
+                key: 'shipping_fee',
+                value: '250',
+                type: 'number',
+                category: 'shipping',
+                description: 'Standard shipping fee in KES',
+                isPublic: true,
+                createdAt: new Date('2024-09-01T08:00:00Z'),
+                updatedAt: new Date('2024-09-01T08:00:00Z')
+            },
+            {
+                _id: 'setting_006',
+                key: 'free_shipping_threshold',
+                value: '5000',
+                type: 'number',
+                category: 'shipping',
+                description: 'Minimum order amount for free shipping in KES',
+                isPublic: true,
+                createdAt: new Date('2024-09-01T08:00:00Z'),
+                updatedAt: new Date('2024-09-01T08:00:00Z')
+            },
+            {
+                _id: 'setting_007',
+                key: 'tax_rate',
+                value: '16',
+                type: 'number',
+                category: 'payment',
+                description: 'VAT tax rate percentage',
+                isPublic: true,
+                createdAt: new Date('2024-09-01T08:00:00Z'),
+                updatedAt: new Date('2024-09-01T08:00:00Z')
+            },
+            {
+                _id: 'setting_008',
+                key: 'maintenance_mode',
+                value: 'false',
+                type: 'boolean',
+                category: 'system',
+                description: 'Enable maintenance mode',
+                isPublic: false,
+                createdAt: new Date('2024-09-01T08:00:00Z'),
+                updatedAt: new Date('2024-09-01T08:00:00Z')
+            }
+        ];
+        this.notifications = [
+            {
+                _id: 'notif_001',
+                title: 'Welcome to MEDHELM Supplies',
+                message: 'Thank you for choosing MEDHELM Supplies. Your order has been received and is being processed.',
+                type: 'order',
+                priority: 'normal',
+                targetAudience: 'customers',
+                isActive: true,
+                sentCount: 0,
+                createdAt: new Date('2024-12-01T10:00:00Z'),
+                updatedAt: new Date('2024-12-01T10:00:00Z')
+            },
+            {
+                _id: 'notif_002',
+                title: 'Order Shipped',
+                message: 'Your order has been shipped and is on its way. Track your package using the order number.',
+                type: 'order',
+                priority: 'normal',
+                targetAudience: 'customers',
+                isActive: true,
+                sentCount: 0,
+                createdAt: new Date('2024-12-15T14:00:00Z'),
+                updatedAt: new Date('2024-12-15T14:00:00Z')
+            },
+            {
+                _id: 'notif_003',
+                title: 'Low Stock Alert',
+                message: 'Medical Mask (Pack) is running low on stock. Only 6 units remaining.',
+                type: 'inventory',
+                priority: 'high',
+                targetAudience: 'admins',
+                isActive: true,
+                sentCount: 1,
+                createdAt: new Date('2025-01-18T09:00:00Z'),
+                updatedAt: new Date('2025-01-18T09:00:00Z')
+            },
+            {
+                _id: 'notif_004',
+                title: 'Payment Failed',
+                message: 'Your payment for order MH-2025-002 could not be processed. Please update your payment method.',
+                type: 'payment',
+                priority: 'urgent',
+                targetAudience: 'customers',
+                isActive: true,
+                sentCount: 0,
+                createdAt: new Date('2025-01-18T15:30:00Z'),
+                updatedAt: new Date('2025-01-18T15:30:00Z')
+            },
+            {
+                _id: 'notif_005',
+                title: 'New Product Added',
+                message: 'Check out our latest addition: Advanced Digital Thermometer now available in stock.',
+                type: 'product',
+                priority: 'normal',
+                targetAudience: 'customers',
+                isActive: true,
+                sentCount: 0,
+                createdAt: new Date('2025-01-19T11:00:00Z'),
+                updatedAt: new Date('2025-01-19T11:00:00Z')
+            },
+            {
+                _id: 'notif_006',
+                title: 'Monthly Sales Report',
+                message: 'January 2025 sales report is ready. Total revenue: KES 566.25, Orders: 5',
+                type: 'report',
+                priority: 'normal',
+                targetAudience: 'admins',
+                isActive: true,
+                sentCount: 1,
+                createdAt: new Date('2025-01-20T08:00:00Z'),
+                updatedAt: new Date('2025-01-20T08:00:00Z')
+            }
+        ];
+        this.newsletters = [
+            {
+                _id: 'news_001',
+                email: 'john.doe@example.com',
+                isActive: true,
+                subscribedAt: new Date('2024-12-01T10:00:00Z'),
+                preferences: ['medical_updates', 'promotions']
+            },
+            {
+                _id: 'news_002',
+                email: 'jane.smith@example.com',
+                isActive: true,
+                subscribedAt: new Date('2024-12-15T14:30:00Z'),
+                preferences: ['promotions']
+            },
+            {
+                _id: 'news_003',
+                email: 'dr.johnson@hospital.com',
+                isActive: true,
+                subscribedAt: new Date('2024-11-20T09:15:00Z'),
+                preferences: ['medical_updates', 'new_products']
+            },
+            {
+                _id: 'news_004',
+                email: 'sarah.wanjiku@gmail.com',
+                isActive: true,
+                subscribedAt: new Date('2025-01-01T16:45:00Z'),
+                preferences: ['promotions', 'new_products']
+            },
+            {
+                _id: 'news_005',
+                email: 'prof.oduya@university.edu',
+                isActive: false,
+                subscribedAt: new Date('2024-10-10T11:20:00Z'),
+                preferences: ['medical_updates'],
+                unsubscribedAt: new Date('2025-01-15T12:00:00Z')
+            }
+        ];
+        this.reviews = [
+            {
+                _id: 'review_001',
+                productId: 6,
+                userId: 'user_001',
+                userName: 'John Doe',
+                rating: 5,
+                title: 'Excellent Stethoscope',
+                comment: 'Very high quality stethoscope. Clear sound and comfortable to use. Highly recommended for medical professionals.',
+                isApproved: true,
+                createdAt: new Date('2025-01-10T14:30:00Z'),
+                updatedAt: new Date('2025-01-10T14:30:00Z')
+            },
+            {
+                _id: 'review_002',
+                productId: 7,
+                userId: 'user_002',
+                userName: 'Jane Smith',
+                rating: 4,
+                title: 'Good Blood Pressure Monitor',
+                comment: 'Accurate readings and easy to use. Battery life could be better but overall satisfied with the purchase.',
+                isApproved: true,
+                createdAt: new Date('2025-01-12T09:15:00Z'),
+                updatedAt: new Date('2025-01-12T09:15:00Z')
+            },
+            {
+                _id: 'review_003',
+                productId: 9,
+                userId: 'user_003',
+                userName: 'Dr. Michael Johnson',
+                rating: 5,
+                title: 'Quality Surgical Gloves',
+                comment: 'Excellent quality surgical gloves. Good fit and durability. Essential for any medical facility.',
+                isApproved: true,
+                createdAt: new Date('2025-01-08T16:45:00Z'),
+                updatedAt: new Date('2025-01-08T16:45:00Z')
+            },
+            {
+                _id: 'review_004',
+                productId: 14,
+                userId: 'user_005',
+                userName: 'Prof. Grace Oduya',
+                rating: 3,
+                title: 'Otoscope Review',
+                comment: 'Functional but the build quality could be improved. Gets the job done but expect to replace sooner than expected.',
+                isApproved: true,
+                createdAt: new Date('2025-01-05T11:20:00Z'),
+                updatedAt: new Date('2025-01-05T11:20:00Z')
+            }
+        ];
         this.nextOrderId = 1000;
         this.nextProductId = 17;
         this.nextUserId = 'user_007';
         this.nextCategoryId = 'cat_005';
+        this.nextSettingId = 'setting_009';
+        this.nextNotificationId = 'notif_007';
+        this.nextNewsletterId = 'news_006';
+        this.nextReviewId = 'review_005';
     }
 
     // Order operations
@@ -445,13 +701,11 @@ class TestDatabase {
         return null;
     }
 
-    async deleteProduct(id) {
-        const productIndex = this.products.findIndex(product => product._id === id || product.id === id);
-        if (productIndex !== -1) {
-            return this.products.splice(productIndex, 1)[0];
-        }
-        return null;
-    }
-}
-
-export default new TestDatabase();
+// Simple in-memory database for testing purposes
+class TestDatabase {
+    constructor() {
+        this.orders = [
+            {
+                _id: 'MH-2025-001',
+                orderStatus: 'shipped',
+                paymentStatus: 'paid',

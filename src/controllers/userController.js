@@ -271,12 +271,6 @@ export async function deleteUser(req, res) {
         res.status(500).json({ message: 'Failed to delete user' });
     }
 }
-import User from '../../Database/models/user.model.js';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import path from 'path';
-import fs from 'fs';
-import { validateProfile } from './user.validation.js';
 // POST /api/v1/users/avatar
 export async function uploadAvatar(req, res) {
     try {
