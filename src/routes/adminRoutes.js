@@ -27,6 +27,7 @@ router.delete('/users/:id', deleteUser);
 // Order management
 router.get('/orders', orderController.getAllOrders);
 router.put('/orders/:id', orderController.updateOrder);
+router.delete('/orders/bulk', orderController.bulkDeleteOrders);
 
 // Analytics
 router.get('/analytics', orderController.getOrderAnalytics);

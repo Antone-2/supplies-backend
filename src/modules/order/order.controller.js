@@ -646,19 +646,16 @@ const getOrderAnalytics = async (req, res) => {
         ]);
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
-        // Get user count (if User model is available)
+        // Get user count (prioritize real database, fall back to test only on connection errors)
         let totalUsers = 0;
         try {
             totalUsers = await User.countDocuments();
         } catch (error) {
-            console.log('User model not available for analytics, using test database');
-            // Use test database for users if MongoDB is not connected
-            if (mongoose.connection.readyState !== 1) {
-                totalUsers = testDatabase.users.length;
-            }
+            console.log('User model query failed, using test database:', error.message);
+            totalUsers = testDatabase.users.length;
         }
 
-        // Get product count and low stock products
+        // Get product count and low stock products (prioritize real database, fall back to test only on connection errors)
         let totalProducts = 0;
         let lowStockProducts = 0;
         try {
@@ -668,13 +665,10 @@ const getOrderAnalytics = async (req, res) => {
                 countInStock: { $lt: 10 }
             });
         } catch (error) {
-            console.log('Product model not available for analytics, using test database');
-            // Use test database for products if MongoDB is not connected
-            if (mongoose.connection.readyState !== 1) {
-                const allProducts = await testDatabase.findProducts();
-                totalProducts = allProducts.length;
-                lowStockProducts = allProducts.filter(product => product.countInStock < 10).length;
-            }
+            console.log('Product model query failed, using test database:', error.message);
+            const allProducts = await testDatabase.findProducts();
+            totalProducts = allProducts.length;
+            lowStockProducts = allProducts.filter(product => product.countInStock < 10).length;
         }
 
         // Get category count
@@ -1213,6 +1207,38 @@ const getDashboardStats = async (req, res) => {
     }
 };
 
+// Admin: Bulk delete orders
+const bulkDeleteOrders = async (req, res) => {
+    try {
+        const { orderIds } = req.body;
+
+        if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({ message: 'Order IDs array is required' });
+        }
+
+        // Check if MongoDB is connected, otherwise use test database
+        if (mongoose.connection.readyState !== 1) {
+            console.log('MongoDB not connected, using test database for bulk delete');
+            const deletedCount = await testDatabase.bulkDeleteOrders(orderIds);
+            return res.json({
+                message: `Successfully deleted ${deletedCount} orders from test database`,
+                deletedCount
+            });
+        }
+
+        // Delete orders from MongoDB
+        const result = await orderModel.deleteMany({ _id: { $in: orderIds } });
+
+        res.json({
+            message: `Successfully deleted ${result.deletedCount} orders`,
+            deletedCount: result.deletedCount
+        });
+    } catch (err) {
+        console.error('Bulk delete error:', err);
+        res.status(500).json({ message: 'Failed to delete orders' });
+    }
+};
+
 const orderController = {
     getAllOrders,
     createOrder,
@@ -1220,6 +1246,7 @@ const orderController = {
     getSpecificOrder,
     updateOrderStatus,
     updateOrder,
+    bulkDeleteOrders,
     payMpesa,
     payAirtelMoney,
     createCheckOutSession,

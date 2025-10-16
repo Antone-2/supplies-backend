@@ -223,11 +223,22 @@ export const payWithPaypal = async (req, res) => {
 
 // Payment callback/IPN handler for PesaPal
 export const paymentCallback = async (req, res) => {
+    console.log('🔄 PesaPal callback received:', {
+        method: req.method,
+        body: req.body,
+        query: req.query,
+        headers: req.headers,
+        timestamp: new Date().toISOString()
+    });
+
     try {
         // PesaPal IPN is typically form data, so use req.body or req.query
         const { pesapal_transaction_tracking_id: orderTrackingId, pesapal_merchant_reference: orderId } = req.body || req.query;
 
+        console.log('📋 Callback parameters:', { orderTrackingId, orderId });
+
         if (!orderTrackingId || !orderId) {
+            console.warn('❌ Missing required callback parameters');
             return res.status(400).send('<script>window.opener.postMessage("pesapal-payment-failed", "*");window.close();</script>');
         }
 
@@ -250,6 +261,8 @@ export const paymentCallback = async (req, res) => {
 
         const transactionStatus = response.data.payment_status_description; // e.g., 'COMPLETED', 'FAILED'
 
+        console.log('🔍 Transaction status from PesaPal:', transactionStatus);
+
         // Update order status
         let paymentStatus = 'failed';
         let message = 'pesapal-payment-failed';
@@ -260,6 +273,8 @@ export const paymentCallback = async (req, res) => {
             paymentStatus = 'pending';
             message = 'pesapal-payment-pending';
         }
+
+        console.log(`📝 Updating order ${orderId}: paymentStatus=${paymentStatus}, transactionStatus=${transactionStatus}`);
 
         const order = await Order.findOneAndUpdate(
             { orderNumber: orderId },
