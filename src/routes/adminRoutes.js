@@ -5,12 +5,15 @@ import {
     getUsers,
     createUser,
     updateUser,
-    deleteUser
+    deleteUser,
+    bulkDeleteUsers,
+    bulkUpdateUsers
 } from '../controllers/userController.js';
 import orderController from '../modules/order/order.controller.js';
 import { getProducts, createProduct, updateProduct, deleteProduct } from '../modules/product/product.controller.js';
 import { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory } from '../modules/category/category.controller.js';
 import { getSettings, updateSetting } from '../controllers/adminSettingController.js';
+import notificationRoutes from './notificationRoutes.js';
 
 const router = express.Router();
 
@@ -23,6 +26,8 @@ router.get('/users', getUsers);
 router.post('/users', createUser);
 router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
+router.delete('/users/bulk', bulkDeleteUsers);
+router.put('/users/bulk', bulkUpdateUsers);
 
 // Order management
 router.get('/orders', orderController.getAllOrders);
@@ -50,5 +55,8 @@ router.delete('/categories/:id', deleteCategory);
 // Settings management
 router.get('/settings', getSettings);
 router.put('/settings/:key', updateSetting);
+
+// Notification management
+router.use('/notifications', notificationRoutes);
 
 export default router;

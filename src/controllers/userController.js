@@ -1,6 +1,97 @@
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import Order from '../../Database/models/order.model.js';
+import User from '../../Database/models/user.model.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import path from 'path';
+import fs from 'fs';
+import { validateProfile } from './user.validation.js';
+
+// Admin: Bulk delete users
+export async function bulkDeleteUsers(req, res) {
+    try {
+        const { userIds } = req.body;
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ message: 'User IDs array is required' });
+        }
+
+        // Prevent deleting super admins
+        const users = await User.find({ _id: { $in: userIds } });
+        const superAdmins = users.filter(user => user.role === 'super_admin');
+
+        if (superAdmins.length > 0) {
+            return res.status(403).json({
+                message: 'Cannot delete super admin users',
+                superAdmins: superAdmins.map(user => ({ id: user._id, name: user.name, email: user.email }))
+            });
+        }
+
+        const result = await User.deleteMany({ _id: { $in: userIds } });
+
+        res.json({
+            message: `Successfully deleted ${result.deletedCount} users`,
+            deletedCount: result.deletedCount
+        });
+    } catch (err) {
+        console.error('Bulk delete error:', err);
+        res.status(500).json({ message: 'Failed to delete users' });
+    }
+}
+
+// Admin: Bulk update users
+export async function bulkUpdateUsers(req, res) {
+    try {
+        const { userIds, updates } = req.body;
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ message: 'User IDs array is required' });
+        }
+
+        if (!updates || typeof updates !== 'object') {
+            return res.status(400).json({ message: 'Updates object is required' });
+        }
+
+        // Validate allowed update fields
+        const allowedFields = ['role', 'active'];
+        const invalidFields = Object.keys(updates).filter(field => !allowedFields.includes(field));
+
+        if (invalidFields.length > 0) {
+            return res.status(400).json({
+                message: 'Invalid update fields',
+                invalidFields
+            });
+        }
+
+        // Prevent changing super admin roles
+        if (updates.role) {
+            const users = await User.find({ _id: { $in: userIds } });
+            const superAdmins = users.filter(user => user.role === 'super_admin');
+
+            if (superAdmins.length > 0) {
+                return res.status(403).json({
+                    message: 'Cannot modify super admin users',
+                    superAdmins: superAdmins.map(user => ({ id: user._id, name: user.name, email: user.email }))
+                });
+            }
+        }
+
+        const result = await User.updateMany(
+            { _id: { $in: userIds } },
+            { $set: updates },
+            { runValidators: true }
+        );
+
+        res.json({
+            message: `Successfully updated ${result.modifiedCount} users`,
+            modifiedCount: result.modifiedCount
+        });
+    } catch (err) {
+        console.error('Bulk update error:', err);
+        res.status(500).json({ message: 'Failed to update users' });
+    }
+}
 // POST /api/v1/users/2fa/request
 export async function request2FA(req, res) {
     const { email } = req.body;

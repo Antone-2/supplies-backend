@@ -1,142 +1,45 @@
-// Notification routes for user notifications
-const express = require('express');
-const router = express.Router();
-const auth = require('../middleware/auth');
-const {
-    getUserNotifications,
+import express from 'express';
+import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
+import admin from '../middleware/admin.js';
+import {
+    getNotifications,
+    getNotificationCount,
+    createNotification,
     markAsRead,
-    markAllAsRead,
-    cleanupOldNotifications
-} = require('../services/notificationService');
+    markMultipleAsRead,
+    deleteNotification,
+    deleteMultipleNotifications,
+    markAllAsRead
+} from '../modules/notification/notification.controller.js';
 
-// Get user notifications
-router.get('/', auth, async (req, res) => {
-    try {
-        const { page = 1, limit = 20, unreadOnly = false } = req.query;
-        const userId = req.user.id;
+const router = express.Router();
 
-        const result = await getUserNotifications(
-            userId,
-            parseInt(page),
-            parseInt(limit),
-            unreadOnly === 'true'
-        );
+// Apply admin middleware to all routes
+router.use(jwtAuthMiddleware);
+router.use(admin);
 
-        if (!result) {
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to fetch notifications'
-            });
-        }
+// Get notifications with pagination and filtering
+router.get('/', getNotifications);
 
-        res.json({
-            success: true,
-            data: result.notifications,
-            pagination: result.pagination,
-            unreadCount: result.unreadCount
-        });
-    } catch (error) {
-        console.error('Get notifications error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch notifications'
-        });
-    }
-});
+// Get notification count for header
+router.get('/count', getNotificationCount);
 
-// Get unread count
-router.get('/unread-count', auth, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const result = await getUserNotifications(userId, 1, 1, true);
-
-        res.json({
-            success: true,
-            count: result ? result.unreadCount : 0
-        });
-    } catch (error) {
-        console.error('Get unread count error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to get unread count'
-        });
-    }
-});
+// Create new notification
+router.post('/', createNotification);
 
 // Mark notification as read
-router.put('/:id/read', auth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const userId = req.user.id;
+router.put('/:id/read', markAsRead);
 
-        const notification = await markAsRead(id, userId);
-
-        if (!notification) {
-            return res.status(404).json({
-                success: false,
-                message: 'Notification not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            message: 'Notification marked as read',
-            data: notification
-        });
-    } catch (error) {
-        console.error('Mark as read error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to mark notification as read'
-        });
-    }
-});
+// Mark multiple notifications as read
+router.put('/read-multiple', markMultipleAsRead);
 
 // Mark all notifications as read
-router.put('/mark-all-read', auth, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const count = await markAllAsRead(userId);
+router.put('/read-all', markAllAsRead);
 
-        res.json({
-            success: true,
-            message: `${count} notifications marked as read`,
-            count
-        });
-    } catch (error) {
-        console.error('Mark all as read error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to mark all notifications as read'
-        });
-    }
-});
+// Delete notification
+router.delete('/:id', deleteNotification);
 
-// Admin: Cleanup old notifications
-router.delete('/cleanup', auth, async (req, res) => {
-    try {
-        // Check if user is admin (you'll need to implement role checking)
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Admin access required'
-            });
-        }
+// Delete multiple notifications
+router.delete('/', deleteMultipleNotifications);
 
-        const count = await cleanupOldNotifications();
-
-        res.json({
-            success: true,
-            message: `${count} old notifications cleaned up`,
-            count
-        });
-    } catch (error) {
-        console.error('Cleanup notifications error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to cleanup notifications'
-        });
-    }
-});
-
-module.exports = router;
+export default router;
