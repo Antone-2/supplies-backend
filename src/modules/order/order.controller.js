@@ -9,7 +9,6 @@ import Category from '../../../Database/models/category.model.js';
 import { sendOrderEmail, sendOrderConfirmation } from '../../services/emailService.js';
 import { sendOrderConfirmationSMS } from '../../services/smsService.js';
 import { initiatePesapalPayment } from '../../services/pesapalService.js';
-import testDatabase from '../../../testDatabase.js';
 
 const getAllOrders = async (req, res) => {
     try {
@@ -780,75 +779,9 @@ const updateOrder = async (req, res) => {
 // Admin dashboard stats endpoint
 const getDashboardStats = async (req, res) => {
     try {
-        // Check if MongoDB is connected, otherwise use test database
+        // Check if MongoDB is connected
         if (mongoose.connection.readyState !== 1) {
-            console.log('MongoDB not connected, using test database for dashboard stats');
-
-            // Use test database for all stats
-            const allOrders = await testDatabase.findOrders();
-            const totalOrders = allOrders.length;
-            const pendingOrders = allOrders.filter(order => order.orderStatus === 'pending').length;
-            const totalRevenue = allOrders
-                .filter(order => order.paymentStatus === 'paid')
-                .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-
-            const totalUsers = testDatabase.users.length;
-
-            const allProducts = await testDatabase.findProducts();
-            const totalProducts = allProducts.length;
-            const lowStockProducts = allProducts.filter(product => product.countInStock < 10).length;
-
-            // Get recent activity from test database
-            const recentOrders = allOrders
-                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                .slice(0, 10);
-
-            const recentActivity = recentOrders.map(order => ({
-                id: order._id,
-                type: 'order',
-                message: `New order #${order.orderNumber || order._id} from ${order.shippingAddress?.fullName || 'Customer'}`,
-                timestamp: new Date(order.createdAt).toLocaleString()
-            }));
-
-            // Get alerts
-            const alerts = [];
-            if (pendingOrders > 0) {
-                alerts.push({
-                    id: 'pending-orders',
-                    type: 'warning',
-                    message: `${pendingOrders} orders pending approval`,
-                    action: 'Review Orders'
-                });
-            }
-            if (lowStockProducts > 0) {
-                alerts.push({
-                    id: 'low-stock',
-                    type: 'warning',
-                    message: `${lowStockProducts} products are low in stock`,
-                    action: 'View Inventory'
-                });
-            }
-
-            // Get new users this month (simulate from test data)
-            const startOfMonth = new Date();
-            startOfMonth.setDate(1);
-            startOfMonth.setHours(0, 0, 0, 0);
-            const newUsers = testDatabase.users.filter(user =>
-                new Date(user.createdAt) >= startOfMonth
-            ).length;
-
-            const stats = {
-                totalUsers,
-                totalProducts,
-                totalOrders,
-                totalRevenue,
-                pendingOrders,
-                newUsers,
-                recentActivity,
-                alerts
-            };
-
-            return res.json(stats);
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         // Get total orders count
@@ -864,16 +797,13 @@ const getDashboardStats = async (req, res) => {
         ]);
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
-        // Get user count (if User model is available)
+        // Get user count
         let totalUsers = 0;
         try {
             totalUsers = await User.countDocuments();
         } catch (error) {
-            console.log('User model not available for analytics, using test database');
-            // Use test database for users if MongoDB is not connected
-            if (mongoose.connection.readyState !== 1) {
-                totalUsers = testDatabase.users.length;
-            }
+            console.log('User model query failed:', error.message);
+            throw new Error('Failed to fetch user data');
         }
 
         // Get product count and low stock products
@@ -886,13 +816,8 @@ const getDashboardStats = async (req, res) => {
                 countInStock: { $lt: 10 }
             });
         } catch (error) {
-            console.log('Product model not available for analytics, using test database');
-            // Use test database for products if MongoDB is not connected
-            if (mongoose.connection.readyState !== 1) {
-                const allProducts = await testDatabase.findProducts();
-                totalProducts = allProducts.length;
-                lowStockProducts = allProducts.filter(product => product.countInStock < 10).length;
-            }
+            console.log('Product model query failed:', error.message);
+            throw new Error('Failed to fetch product data');
         }
 
         // Get recent activity (last 10 orders)
@@ -970,14 +895,9 @@ const bulkDeleteOrders = async (req, res) => {
             return res.status(400).json({ message: 'Order IDs array is required' });
         }
 
-        // Check if MongoDB is connected, otherwise use test database
+        // Check if MongoDB is connected
         if (mongoose.connection.readyState !== 1) {
-            console.log('MongoDB not connected, using test database for bulk delete');
-            const deletedCount = await testDatabase.bulkDeleteOrders(orderIds);
-            return res.json({
-                message: `Successfully deleted ${deletedCount} orders from test database`,
-                deletedCount
-            });
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         // Delete orders from MongoDB
@@ -1016,14 +936,9 @@ const bulkUpdateOrders = async (req, res) => {
             });
         }
 
-        // Check if MongoDB is connected, otherwise use test database
+        // Check if MongoDB is connected
         if (mongoose.connection.readyState !== 1) {
-            console.log('MongoDB not connected, using test database for bulk update');
-            const updatedCount = await testDatabase.bulkUpdateOrders(orderIds, updates);
-            return res.json({
-                message: `Successfully updated ${updatedCount} orders in test database`,
-                updatedCount
-            });
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         // Prepare update object

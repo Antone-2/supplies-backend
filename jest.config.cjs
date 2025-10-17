@@ -11,5 +11,8 @@ module.exports = {
         '!src/**/*.spec.js'
     ],
     testTimeout: 30000,
-    verbose: true
+    verbose: true,
+    transformIgnorePatterns: [
+        'node_modules/(?!(supertest)/)'
+    ]
 };

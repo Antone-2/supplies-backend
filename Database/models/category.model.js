@@ -17,5 +17,29 @@ const categorySchema = new mongoose.Schema({
     tags: [{ type: String }]
 });
 
+// Pre-save hook to generate slug from name if not provided
+categorySchema.pre('save', async function (next) {
+    if (!this.slug && this.name) {
+        // Generate slug from name: lowercase, replace spaces and special chars with hyphens, remove leading/trailing hyphens
+        let baseSlug = this.name
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+            .replace(/\s+/g, '-') // Replace spaces with hyphens
+            .replace(/-+/g, '-') // Replace multiple hyphens with single
+            .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+        // Ensure uniqueness by checking existing slugs (excluding current document)
+        let slug = baseSlug;
+        let counter = 1;
+        while (await mongoose.models.Category.findOne({ slug, _id: { $ne: this._id } })) {
+            slug = `${baseSlug}-${counter}`;
+            counter++;
+        }
+        this.slug = slug;
+    }
+    next();
+});
+
 const Category = mongoose.model('Category', categorySchema);
 export default Category;

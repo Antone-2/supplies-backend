@@ -49,6 +49,9 @@
         "xss-clean": "^0.1.4"
     },
     "devDependencies": {
+        "@babel/core": "^7.28.4",
+        "@babel/preset-env": "^7.28.3",
+        "babel-jest": "^30.2.0",
         "jest": "^30.2.0",
         "nodemon": "^2.0.22",
         "supertest": "^7.1.4"

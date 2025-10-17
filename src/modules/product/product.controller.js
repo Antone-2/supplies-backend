@@ -1,5 +1,6 @@
 import Product from '../../../Database/models/product.model.js';
 import Category from '../../../Database/models/category.model.js';
+import mongoose from 'mongoose';
 import redisClient from '../../lib/redisClient.js';
 
 // Get all products
@@ -14,7 +15,32 @@ const getProducts = async (req, res) => {
         //     return res.json(JSON.parse(cached));
         // }
         const query = {};
-        if (category) query.category = category;
+        if (category) {
+            // Handle category - if it's a string, find the category ObjectId
+            if (typeof category === 'string') {
+                // First try to find by name
+                let categoryDoc = await Category.findOne({ name: category });
+                if (categoryDoc) {
+                    query.category = categoryDoc._id;
+                } else {
+                    // If not found by name, check if it's a valid ObjectId
+                    if (mongoose.Types.ObjectId.isValid(category)) {
+                        query.category = category;
+                    } else {
+                        // If category not found, return empty results
+                        return res.json({
+                            products: [],
+                            page: parseInt(page),
+                            limit: parseInt(limit),
+                            total: 0,
+                            totalPages: 0
+                        });
+                    }
+                }
+            } else {
+                query.category = category;
+            }
+        }
         if (inStock) query.countInStock = { $gt: 0 };
 
         const sortOptions = {};
@@ -204,8 +230,25 @@ const createProduct = async (req, res) => {
             if (category) {
                 categoryId = category._id;
             } else {
+                // Generate slug for new category
+                let slug = categoryId
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^a-z0-9\s-]/g, '')
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '');
+
+                // Ensure uniqueness
+                let uniqueSlug = slug;
+                let counter = 1;
+                while (await Category.findOne({ slug: uniqueSlug })) {
+                    uniqueSlug = `${slug}-${counter}`;
+                    counter++;
+                }
+
                 // Create category if it doesn't exist
-                const newCategory = new Category({ name: categoryId });
+                const newCategory = new Category({ name: categoryId, slug: uniqueSlug });
                 await newCategory.save();
                 categoryId = newCategory._id;
             }
@@ -260,8 +303,25 @@ const updateProduct = async (req, res) => {
             if (category) {
                 updates.category = category._id;
             } else {
+                // Generate slug for new category
+                let slug = updates.category
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^a-z0-9\s-]/g, '')
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '');
+
+                // Ensure uniqueness
+                let uniqueSlug = slug;
+                let counter = 1;
+                while (await Category.findOne({ slug: uniqueSlug })) {
+                    uniqueSlug = `${slug}-${counter}`;
+                    counter++;
+                }
+
                 // Create category if it doesn't exist
-                const newCategory = new Category({ name: updates.category });
+                const newCategory = new Category({ name: updates.category, slug: uniqueSlug });
                 await newCategory.save();
                 updates.category = newCategory._id;
             }
