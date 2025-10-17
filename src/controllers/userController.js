@@ -143,9 +143,18 @@ export async function verify2FA(req, res) {
 // Admin: Get paginated list of users
 export async function getUsers(req, res) {
     try {
-        const { page = 1, limit = 20, role, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+        const { page = 1, limit = 20, role, sortBy = 'createdAt', sortOrder = 'desc', search } = req.query;
         const query = {};
         if (role) query.role = role;
+
+        // Add search functionality for name and email
+        if (search && search.trim()) {
+            const searchRegex = new RegExp(search.trim(), 'i');
+            query.$or = [
+                { name: searchRegex },
+                { email: searchRegex }
+            ];
+        }
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
