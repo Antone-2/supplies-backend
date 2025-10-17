@@ -3,73 +3,21 @@
 
 import orderModel from '../../../Database/models/order.model.js';
 import mongoose from 'mongoose';
-import testDatabase from '../../../testDatabase.js';
 import User from '../../../Database/models/user.model.js';
 import Product from '../../../Database/models/product.model.js';
 import Category from '../../../Database/models/category.model.js';
 import { sendOrderEmail, sendOrderConfirmation } from '../../services/emailService.js';
 import { sendOrderConfirmationSMS } from '../../services/smsService.js';
 import { initiatePesapalPayment } from '../../services/pesapalService.js';
+import testDatabase from '../../../testDatabase.js';
 
 const getAllOrders = async (req, res) => {
     try {
         const { page = 1, limit = 20, status, paymentStatus, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
-        // Check if MongoDB is connected, otherwise use test database
+        // Check if MongoDB is connected
         if (mongoose.connection.readyState !== 1) {
-            console.log('MongoDB not connected, using test database for orders');
-            const query = {};
-            if (status) query.orderStatus = status;
-            if (paymentStatus) query.paymentStatus = paymentStatus;
-
-            const allOrders = await testDatabase.findOrders(query);
-
-            // Simple sorting
-            if (sortBy === 'createdAt') {
-                allOrders.sort((a, b) => {
-                    const dateA = new Date(a.createdAt);
-                    const dateB = new Date(b.createdAt);
-                    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-                });
-            }
-
-            // Simple pagination
-            const skip = (parseInt(page) - 1) * parseInt(limit);
-            const orders = allOrders.slice(skip, skip + parseInt(limit));
-            const total = allOrders.length;
-
-            // Format orders for admin view
-            const formattedOrders = orders.map(order => ({
-                id: order._id,
-                orderNumber: order.orderNumber || order._id,
-                customerId: order.user || 'guest',
-                customerName: order.shippingAddress?.fullName || 'N/A',
-                customerEmail: order.shippingAddress?.email || 'N/A',
-                items: order.items || [],
-                total: order.totalAmount || 0,
-                subtotal: order.subtotal || order.totalAmount || 0,
-                tax: 0, // Not stored separately
-                shipping: order.shippingFee || 0,
-                status: order.orderStatus || 'pending',
-                paymentStatus: order.paymentStatus || 'pending',
-                shippingAddress: order.shippingAddress || {},
-                billingAddress: order.shippingAddress || {}, // Same as shipping for now
-                createdAt: order.createdAt,
-                updatedAt: order.updatedAt,
-                deliveryDate: null,
-                trackingNumber: order.trackingNumber || null,
-                transactionTrackingId: order.transactionTrackingId || null,
-                transactionStatus: order.transactionStatus || null,
-                paymentMethod: order.paymentMethod || 'pesapal'
-            }));
-
-            return res.json({
-                orders: formattedOrders,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                totalPages: Math.ceil(total / parseInt(limit))
-            });
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         const query = {};
@@ -136,44 +84,7 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // Check if MongoDB is connected, otherwise use test database
-        if (mongoose.connection.readyState !== 1) {
-            console.log('MongoDB not connected, using test database');
-            const testOrder = await testDatabase.createOrder({
-                orderNumber: orderId,
-                items: items.map(item => ({
-                    productId: item.productId,
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price
-                })),
-                shippingAddress: {
-                    fullName: shippingAddress.fullName,
-                    email: shippingAddress.email,
-                    phone: shippingAddress.phone,
-                    address: shippingAddress.address,
-                    city: shippingAddress.city,
-                    county: shippingAddress.county,
-                    deliveryLocation: shippingAddress.deliveryLocation
-                },
-                totalAmount,
-                paymentMethod: paymentMethod || 'pesapal',
-                orderStatus: 'pending',
-                paymentStatus: 'pending',
-                timeline: [{
-                    status: 'pending',
-                    changedAt: new Date(),
-                    note: 'Order created'
-                }]
-            });
 
-            return res.status(201).json({
-                success: true,
-                message: 'Order created successfully (test mode)',
-                orderId: testOrder.orderNumber,
-                mongoId: testOrder._id
-            });
-        }
 
         // Create new order (let MongoDB generate the _id, use orderId as orderNumber)
         const order = new orderModel({
@@ -276,42 +187,9 @@ const getSpecificOrder = async (req, res) => {
     try {
         const orderId = req.params.id;
 
-        // Check if MongoDB is connected, otherwise use test database
+        // Check if MongoDB is connected
         if (mongoose.connection.readyState !== 1) {
-            console.log('MongoDB not connected, using test database for order tracking');
-            const order = await testDatabase.findOrder(orderId);
-            if (!order) {
-                return res.status(404).json({ message: 'Order not found' });
-            }
-
-            // Format test database response for consistency
-            const trackingData = {
-                orderId: order._id,
-                orderNumber: order.orderNumber || order._id,
-                status: order.orderStatus,
-                paymentStatus: order.paymentStatus,
-                totalAmount: order.totalAmount,
-                createdAt: order.createdAt,
-                updatedAt: order.updatedAt,
-                timeline: order.timeline.map(entry => ({
-                    status: entry.status,
-                    date: entry.changedAt,
-                    note: entry.note
-                })),
-                shippingAddress: {
-                    fullName: order.shippingAddress.fullName,
-                    city: order.shippingAddress.city,
-                    county: order.shippingAddress.county,
-                    deliveryLocation: order.shippingAddress.deliveryLocation
-                },
-                items: order.items.map(item => ({
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price
-                }))
-            };
-
-            return res.json({ order: trackingData });
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         const order = await orderModel.findById(orderId)
@@ -505,132 +383,9 @@ const calculateShippingFee = async (req, res, next) => {
 // Analytics endpoint for admin dashboard
 const getOrderAnalytics = async (req, res) => {
     try {
-        // Check if MongoDB is connected, otherwise use test database
+        // Check if MongoDB is connected
         if (mongoose.connection.readyState !== 1) {
-            console.log('MongoDB not connected, using test database for analytics');
-
-            // Use test database for all analytics
-            const allOrders = await testDatabase.findOrders();
-            const totalOrders = allOrders.length;
-            const pendingOrders = allOrders.filter(order => order.orderStatus === 'pending').length;
-            const totalRevenue = allOrders
-                .filter(order => order.paymentStatus === 'paid')
-                .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-
-            const totalUsers = testDatabase.users.length;
-
-            const allProducts = await testDatabase.findProducts();
-            const totalProducts = allProducts.length;
-            const lowStockProducts = allProducts.filter(product => product.countInStock < 10).length;
-
-            // Get new users this month (simulate from test data)
-            const startOfMonth = new Date();
-            startOfMonth.setDate(1);
-            startOfMonth.setHours(0, 0, 0, 0);
-            const newUsers = testDatabase.users.filter(user =>
-                new Date(user.createdAt) >= startOfMonth
-            ).length;
-
-            // Get monthly revenue data
-            const monthlyRevenue = [];
-            for (let i = 5; i >= 0; i--) {
-                const date = new Date();
-                date.setMonth(date.getMonth() - i);
-                const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-                const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-                const monthOrders = allOrders.filter(order => {
-                    const orderDate = new Date(order.createdAt);
-                    return orderDate >= monthStart && orderDate <= monthEnd && order.paymentStatus === 'paid';
-                });
-
-                const monthRevenue = monthOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-                const monthOrderCount = monthOrders.length;
-
-                monthlyRevenue.push({
-                    month: monthStart.toLocaleString('default', { month: 'short' }),
-                    revenue: monthRevenue,
-                    orders: monthOrderCount
-                });
-            }
-
-            // Get top products
-            const productSales = {};
-            allOrders.forEach(order => {
-                if (order.paymentStatus === 'paid') {
-                    order.items.forEach(item => {
-                        if (!productSales[item.productId]) {
-                            productSales[item.productId] = {
-                                name: item.name,
-                                sales: 0,
-                                revenue: 0
-                            };
-                        }
-                        productSales[item.productId].sales += item.quantity;
-                        productSales[item.productId].revenue += item.price * item.quantity;
-                    });
-                }
-            });
-
-            const topProducts = Object.values(productSales)
-                .sort((a, b) => b.revenue - a.revenue)
-                .slice(0, 5);
-
-            // Get order status breakdown
-            const orderStatusBreakdown = [
-                { status: 'completed', count: allOrders.filter(o => o.orderStatus === 'completed').length },
-                { status: 'pending', count: pendingOrders },
-                { status: 'shipped', count: allOrders.filter(o => o.orderStatus === 'shipped').length },
-                { status: 'cancelled', count: allOrders.filter(o => o.orderStatus === 'cancelled').length }
-            ].map(status => ({
-                ...status,
-                percentage: totalOrders > 0 ? (status.count / totalOrders) * 100 : 0
-            }));
-
-            // Get user growth data
-            const userGrowth = [];
-            for (let i = 5; i >= 0; i--) {
-                const date = new Date();
-                date.setMonth(date.getMonth() - i);
-                const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-
-                const monthUsers = testDatabase.users.filter(user =>
-                    new Date(user.createdAt) >= monthStart
-                ).length;
-
-                userGrowth.push({
-                    month: monthStart.toLocaleString('default', { month: 'short' }),
-                    users: monthUsers
-                });
-            }
-
-            // Get category performance (simplified)
-            const categoryPerformance = [
-                { category: 'Medical Equipment', sales: 456, revenue: 45600 },
-                { category: 'Personal Protective Equipment', sales: 389, revenue: 15560 },
-                { category: 'Diagnostic Tools', sales: 234, revenue: 35100 },
-                { category: 'Surgical Supplies', sales: 178, revenue: 14240 }
-            ];
-
-            const stats = {
-                totalProducts,
-                totalOrders,
-                totalUsers,
-                totalRevenue,
-                pendingOrders,
-                newUsers,
-                lowStockProducts,
-                monthlyRevenue,
-                topProducts,
-                orderStatusBreakdown,
-                userGrowth,
-                categoryPerformance
-            };
-
-            return res.json({
-                success: true,
-                stats
-            });
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         // Get total orders count
@@ -646,16 +401,16 @@ const getOrderAnalytics = async (req, res) => {
         ]);
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
-        // Get user count (prioritize real database, fall back to test only on connection errors)
+        // Get user count
         let totalUsers = 0;
         try {
             totalUsers = await User.countDocuments();
         } catch (error) {
-            console.log('User model query failed, using test database:', error.message);
-            totalUsers = testDatabase.users.length;
+            console.log('User model query failed:', error.message);
+            throw new Error('Failed to fetch user data');
         }
 
-        // Get product count and low stock products (prioritize real database, fall back to test only on connection errors)
+        // Get product count and low stock products
         let totalProducts = 0;
         let lowStockProducts = 0;
         try {
@@ -665,10 +420,8 @@ const getOrderAnalytics = async (req, res) => {
                 countInStock: { $lt: 10 }
             });
         } catch (error) {
-            console.log('Product model query failed, using test database:', error.message);
-            const allProducts = await testDatabase.findProducts();
-            totalProducts = allProducts.length;
-            lowStockProducts = allProducts.filter(product => product.countInStock < 10).length;
+            console.log('Product model query failed:', error.message);
+            throw new Error('Failed to fetch product data');
         }
 
         // Get category count
@@ -689,6 +442,7 @@ const getOrderAnalytics = async (req, res) => {
             newUsers = await User.countDocuments({ createdAt: { $gte: startOfMonth } });
         } catch (error) {
             console.log('Could not fetch new users count');
+            throw new Error('Failed to fetch user growth data');
         }
 
         // Get monthly revenue data (last 6 months)
@@ -789,7 +543,7 @@ const getOrderAnalytics = async (req, res) => {
             }
         } catch (error) {
             console.log('Could not fetch user growth data');
-            // Fallback to empty array
+            throw new Error('Failed to fetch user growth data');
         }
 
         // Get category performance (simplified - would need category data)

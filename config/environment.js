@@ -113,7 +113,7 @@ function validateConfig() {
     ];
 
     // Additional production requirements
-    if (config.NODE_ENV) {
+    if (config.NODE_ENV === 'production') {
         required.push(
             'EMAIL_HOST',
             'EMAIL_PORT',
@@ -129,7 +129,9 @@ function validateConfig() {
             'GOOGLE_CLIENT_ID',
             'GOOGLE_CLIENT_SECRET'
         );
-    } for (const key of required) {
+    }
+
+    for (const key of required) {
         const keys = key.split('_');
         let value = process.env[key];
 
