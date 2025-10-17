@@ -993,6 +993,123 @@ const bulkDeleteOrders = async (req, res) => {
     }
 };
 
+// Admin: Bulk update orders
+const bulkUpdateOrders = async (req, res) => {
+    try {
+        const { orderIds, updates } = req.body;
+
+        if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({ message: 'Order IDs array is required' });
+        }
+
+        if (!updates || typeof updates !== 'object') {
+            return res.status(400).json({ message: 'Updates object is required' });
+        }
+
+        // Validate allowed update fields
+        const allowedFields = ['orderStatus', 'paymentStatus', 'trackingNumber', 'note'];
+        const invalidFields = Object.keys(updates).filter(field => !allowedFields.includes(field));
+
+        if (invalidFields.length > 0) {
+            return res.status(400).json({
+                message: `Invalid update fields: ${invalidFields.join(', ')}. Allowed fields: ${allowedFields.join(', ')}`
+            });
+        }
+
+        // Check if MongoDB is connected, otherwise use test database
+        if (mongoose.connection.readyState !== 1) {
+            console.log('MongoDB not connected, using test database for bulk update');
+            const updatedCount = await testDatabase.bulkUpdateOrders(orderIds, updates);
+            return res.json({
+                message: `Successfully updated ${updatedCount} orders in test database`,
+                updatedCount
+            });
+        }
+
+        // Prepare update object
+        const updateObj = {};
+        const timelineEntry = {
+            status: updates.orderStatus || 'updated',
+            changedAt: new Date(),
+            note: updates.note || 'Bulk updated by admin'
+        };
+
+        // Add fields to update
+        if (updates.orderStatus) updateObj.orderStatus = updates.orderStatus;
+        if (updates.paymentStatus) updateObj.paymentStatus = updates.paymentStatus;
+        if (updates.trackingNumber) updateObj.trackingNumber = updates.trackingNumber;
+
+        // Always add timeline entry for bulk updates
+        updateObj.$push = { timeline: timelineEntry };
+
+        // Update orders in MongoDB
+        const result = await orderModel.updateMany(
+            { _id: { $in: orderIds } },
+            updateObj
+        );
+
+        // Send notifications for status changes if applicable
+        if (updates.orderStatus) {
+            try {
+                // Get updated orders for notification
+                const updatedOrders = await orderModel.find({ _id: { $in: orderIds } })
+                    .select('shippingAddress orderNumber')
+                    .lean();
+
+                // Send notifications for each order
+                for (const order of updatedOrders) {
+                    if (order.shippingAddress?.email) {
+                        try {
+                            const { sendOrderStatusUpdate } = require('../../services/emailService');
+                            await sendOrderStatusUpdate({
+                                email: order.shippingAddress.email,
+                                name: order.shippingAddress.fullName,
+                                orderId: order.orderNumber,
+                                status: updates.orderStatus,
+                                trackingNumber: updates.trackingNumber,
+                                note: updates.note
+                            });
+                        } catch (emailError) {
+                            console.warn(`Failed to send email notification for order ${order.orderNumber}:`, emailError);
+                        }
+                    }
+
+                    if (order.shippingAddress?.phone) {
+                        try {
+                            const { sendOrderStatusUpdateSMS } = require('../../services/smsService');
+                            let phoneNumber = order.shippingAddress.phone;
+                            if (phoneNumber.startsWith('0')) {
+                                phoneNumber = '+254' + phoneNumber.substring(1);
+                            } else if (!phoneNumber.startsWith('+')) {
+                                phoneNumber = '+254' + phoneNumber;
+                            }
+
+                            await sendOrderStatusUpdateSMS(phoneNumber, {
+                                name: order.shippingAddress.fullName,
+                                orderId: order.orderNumber,
+                                status: updates.orderStatus
+                            });
+                        } catch (smsError) {
+                            console.warn(`Failed to send SMS notification for order ${order.orderNumber}:`, smsError);
+                        }
+                    }
+                }
+            } catch (notificationError) {
+                console.warn('Bulk notification error:', notificationError);
+            }
+        }
+
+        res.json({
+            message: `Successfully updated ${result.modifiedCount} orders`,
+            updatedCount: result.modifiedCount,
+            matchedCount: result.matchedCount
+        });
+    } catch (err) {
+        console.error('Bulk update error:', err);
+        res.status(500).json({ message: 'Failed to update orders' });
+    }
+};
+
 const orderController = {
     getAllOrders,
     createOrder,
@@ -1001,6 +1118,7 @@ const orderController = {
     updateOrderStatus,
     updateOrder,
     bulkDeleteOrders,
+    bulkUpdateOrders,
     payMpesa,
     payAirtelMoney,
     createCheckOutSession,

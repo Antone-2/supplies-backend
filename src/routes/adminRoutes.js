@@ -33,6 +33,7 @@ router.put('/users/bulk', bulkUpdateUsers);
 router.get('/orders', orderController.getAllOrders);
 router.put('/orders/:id', orderController.updateOrder);
 router.delete('/orders/bulk', orderController.bulkDeleteOrders);
+router.put('/orders/bulk', orderController.bulkUpdateOrders);
 
 // Analytics
 router.get('/analytics', orderController.getOrderAnalytics);
