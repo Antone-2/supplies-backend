@@ -14,7 +14,7 @@ const getProducts = async (req, res) => {
         // if (cached) {
         //     return res.json(JSON.parse(cached));
         // }
-        const query = {};
+        const query = { isActive: true };
         if (category) {
             // Handle category - if it's a string, find the category ObjectId
             if (typeof category === 'string') {
@@ -163,7 +163,8 @@ const getFeaturedProducts = async (req, res) => {
                 $or: [
                     { isFeatured: true },
                     { featured: true }
-                ]
+                ],
+                isActive: true
             },
             {
                 // Only select necessary fields to reduce data transfer
@@ -201,7 +202,7 @@ const getFeaturedProducts = async (req, res) => {
 // Get product by ID
 const getProductById = async (req, res) => {
     try {
-        const product = await Product.findById(req.params.id).populate('category');
+        const product = await Product.findOne({ _id: req.params.id, isActive: true }).populate('category');
         if (!product) return res.status(404).json({ message: 'Product not found' });
         res.json({ product });
     } catch (err) {
@@ -382,12 +383,12 @@ const deleteProduct = async (req, res) => {
 const getAllProducts = async (req, res) => {
     try {
         console.log('getAllProducts called for admin');
-        const products = await Product.find({})
+        const products = await Product.find({ isActive: true })
             .populate('category')
             .sort({ createdAt: -1 })
             .lean();
 
-        console.log('All products found:', products.length);
+        console.log('All active products found:', products.length);
         res.json({ products });
     } catch (err) {
         console.error('Error fetching all products:', err);

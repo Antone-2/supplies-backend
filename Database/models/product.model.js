@@ -22,7 +22,8 @@ const productSchema = new mongoose.Schema({
         length: { type: Number },
         width: { type: Number },
         height: { type: Number }
-    }
+    },
+    isActive: { type: Boolean, default: true }
 });
 
 productSchema.index({ name: 1 });
