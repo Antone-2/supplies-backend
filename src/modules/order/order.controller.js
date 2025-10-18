@@ -387,11 +387,14 @@ const getOrderAnalytics = async (req, res) => {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
-        // Get total orders count
-        const totalOrders = await orderModel.countDocuments();
+        // Get total orders count (only paid orders for dashboard display)
+        const totalOrders = await orderModel.countDocuments({ paymentStatus: 'paid' });
 
-        // Get pending orders count
-        const pendingOrders = await orderModel.countDocuments({ orderStatus: 'pending' });
+        // Get pending orders count (orders that are pending but payment is completed)
+        const pendingOrders = await orderModel.countDocuments({
+            orderStatus: 'pending',
+            paymentStatus: 'paid'
+        });
 
         // Get total revenue (paid orders only)
         const revenueResult = await orderModel.aggregate([
@@ -399,6 +402,15 @@ const getOrderAnalytics = async (req, res) => {
             { $group: { _id: null, total: { $sum: '$totalAmount' } } }
         ]);
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+
+        console.log('Dashboard stats calculated:', {
+            totalOrders,
+            pendingOrders,
+            totalRevenue,
+            totalUsers,
+            totalProducts,
+            lowStockProducts
+        });
 
         // Get user count
         let totalUsers = 0;
