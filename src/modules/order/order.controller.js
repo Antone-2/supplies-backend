@@ -397,15 +397,6 @@ const getOrderAnalytics = async (req, res) => {
         ]);
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
-        console.log('Dashboard stats calculated:', {
-            totalOrders,
-            pendingOrders,
-            totalRevenue,
-            totalUsers,
-            totalProducts,
-            lowStockProducts
-        });
-
         // Get user count
         let totalUsers = 0;
         try {
@@ -414,6 +405,15 @@ const getOrderAnalytics = async (req, res) => {
             console.log('User model query failed:', error.message);
             throw new Error('Failed to fetch user data');
         }
+
+        console.log('Dashboard stats calculated:', {
+            totalOrders,
+            pendingOrders,
+            totalRevenue,
+            totalUsers,
+            totalProducts,
+            lowStockProducts
+        });
 
         // Get product count and low stock products
         let totalProducts = 0;

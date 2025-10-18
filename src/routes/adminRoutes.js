@@ -36,6 +36,9 @@ router.post('/orders/:id/notes', orderController.addOrderNote);
 router.delete('/orders/bulk', orderController.bulkDeleteOrders);
 router.put('/orders/bulk', orderController.bulkUpdateOrders);
 
+// Individual order actions
+router.put('/orders/:id/status', orderController.updateOrderStatus);
+
 // Analytics
 router.get('/analytics', orderController.getOrderAnalytics);
 

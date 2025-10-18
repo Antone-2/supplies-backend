@@ -238,7 +238,6 @@ const createProduct = async (req, res) => {
         // Handle category - if it's a string, find the category ObjectId
         let categoryId = productData.category;
         if (typeof categoryId === 'string') {
-            const Category = (await import('../../../Database/models/category.model.js')).default;
             const category = await Category.findOne({ name: categoryId });
             if (category) {
                 categoryId = category._id;
@@ -311,7 +310,6 @@ const updateProduct = async (req, res) => {
 
         // Handle category update - if it's a string, find the category ObjectId
         if (updates.category && typeof updates.category === 'string') {
-            const Category = (await import('../../../Database/models/category.model.js')).default;
             const category = await Category.findOne({ name: updates.category });
             if (category) {
                 updates.category = category._id;
@@ -377,7 +375,6 @@ const deleteProduct = async (req, res) => {
         }
 
         // Check if product is referenced in any orders
-        const Order = (await import('../../../Database/models/order.model.js')).default;
         const orderCount = await Order.countDocuments({
             'items.productId': productId
         });
@@ -390,7 +387,6 @@ const deleteProduct = async (req, res) => {
         }
 
         // Check if product is in any carts
-        const Cart = (await import('../../../Database/models/cart.model.js')).default;
         const cartCount = await Cart.countDocuments({
             'items.productId': productId
         });
