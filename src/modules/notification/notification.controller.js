@@ -1,4 +1,5 @@
 import Notification from '../../../Database/models/notification.model.js';
+import User from '../../../Database/models/user.model.js';
 
 // Get all notifications for the current admin user
 export const getNotifications = async (req, res) => {
@@ -53,7 +54,6 @@ export const createNotification = async (req, res) => {
         const { type, title, message, priority = 'medium', actionUrl, metadata } = req.body;
 
         // Get all admin users to send notification to all admins
-        const User = (await import('../../../Database/models/user.model.js')).default;
         const adminUsers = await User.find({ role: { $in: ['admin', 'super_admin'] } }).distinct('_id');
 
         const notifications = adminUsers.map(adminId => ({

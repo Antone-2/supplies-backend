@@ -2,6 +2,9 @@ import Product from '../../../Database/models/product.model.js';
 import Category from '../../../Database/models/category.model.js';
 import mongoose from 'mongoose';
 import redisClient from '../../lib/redisClient.js';
+import Order from '../../../Database/models/order.model.js';
+import Cart from '../../../Database/models/cart.model.js';
+import Wishlist from '../../../Database/models/wishlist.model.js';
 
 // Get all products
 const getProducts = async (req, res) => {
@@ -402,7 +405,6 @@ const deleteProduct = async (req, res) => {
         }
 
         // Check if product is in any wishlists
-        const Wishlist = (await import('../../../Database/models/wishlist.model.js')).default;
         const wishlistCount = await Wishlist.countDocuments({
             products: productId
         });

@@ -1,6 +1,6 @@
-const Newsletter = require('../../Database/models/newsletter.model');
-const { body, validationResult } = require('express-validator');
-const { sendEmail, getEmailTemplate } = require('../services/emailService');
+import Newsletter from '../../Database/models/newsletter.model.js';
+import { body, validationResult } from 'express-validator';
+import { sendEmail, getEmailTemplate } from '../services/emailService.js';
 
 // Subscribe to newsletter
 exports.subscribe = async (req, res) => {

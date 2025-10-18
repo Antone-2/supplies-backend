@@ -1,6 +1,6 @@
-// Comprehensive notification service for Medhelm Supplies  
-const Notification = require('../../Database/models/notification.model');
-const { sendEmail, getEmailTemplate } = require('./emailService');
+// Comprehensive notification service for Medhelm Supplies
+import Notification from '../../Database/models/notification.model.js';
+import { sendEmail, getEmailTemplate } from './emailService.js';
 
 // Create in-app notification
 const createNotification = async (userId, title, message, type = 'general', data = {}, priority = 'medium') => {
@@ -217,7 +217,7 @@ const notifySystemIssue = async (adminUserIds, title, message, priority = 'urgen
     }
 };
 
-module.exports = {
+export {
     createNotification,
     getUserNotifications,
     markAsRead,

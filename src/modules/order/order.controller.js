@@ -118,8 +118,6 @@ const createOrder = async (req, res) => {
 
         // Send order confirmation email and SMS notification
         try {
-            const { sendOrderConfirmation } = require('../../services/emailService');
-
             await sendOrderConfirmation({
                 email: shippingAddress.email,
                 name: shippingAddress.fullName,
@@ -266,8 +264,6 @@ const updateOrderStatus = async (req, res) => {
         // Send notifications for status changes
         if (status && order.shippingAddress?.email) {
             try {
-                const { sendOrderStatusUpdate, sendShippingNotification, sendDeliveryNotification } = require('../../services/emailService');
-
                 // Send appropriate email based on status
                 if (status === 'shipped') {
                     await sendShippingNotification({
@@ -304,8 +300,6 @@ const updateOrderStatus = async (req, res) => {
         // Send SMS notifications for status changes if phone number is provided
         if (status && order.shippingAddress?.phone) {
             try {
-                const { sendOrderStatusUpdateSMS, sendShippingNotificationSMS, sendDeliveryNotificationSMS } = require('../../services/smsService');
-
                 // Format phone number to international format if needed (assuming Kenyan numbers)
                 let phoneNumber = order.shippingAddress.phone;
                 if (phoneNumber.startsWith('0')) {
@@ -1011,7 +1005,6 @@ const bulkUpdateOrders = async (req, res) => {
                 for (const order of updatedOrders) {
                     if (order.shippingAddress?.email) {
                         try {
-                            const { sendOrderStatusUpdate } = require('../../services/emailService');
                             await sendOrderStatusUpdate({
                                 email: order.shippingAddress.email,
                                 name: order.shippingAddress.fullName,
@@ -1027,7 +1020,6 @@ const bulkUpdateOrders = async (req, res) => {
 
                     if (order.shippingAddress?.phone) {
                         try {
-                            const { sendOrderStatusUpdateSMS } = require('../../services/smsService');
                             let phoneNumber = order.shippingAddress.phone;
                             if (phoneNumber.startsWith('0')) {
                                 phoneNumber = '+254' + phoneNumber.substring(1);
