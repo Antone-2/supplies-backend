@@ -393,26 +393,26 @@ const getAllProducts = async (req, res) => {
     try {
         console.log('getAllProducts called for admin');
         // Admin should see all products, including inactive ones
-        // Use raw MongoDB collection to bypass mongoose schema validation
-        const db = mongoose.connection.db;
-        const productsCollection = db.collection('products');
-
-        // Convert cursor to array and handle any potential errors
-        const products = await productsCollection.find({}).sort({ createdAt: -1 }).toArray();
+        // Use mongoose with validation disabled to handle mixed category types
+        const products = await Product.find({})
+            .sort({ createdAt: -1 })
+            .setOptions({ skipValidation: true })
+            .lean();
 
         console.log('All products found:', products.length);
         res.json({ products });
     } catch (err) {
         console.error('Error fetching all products:', err);
-        // If raw collection access fails, try a different approach
+        // If that fails, try raw MongoDB query
         try {
-            // Fallback: use mongoose but with error handling
-            const products = await Product.find({}).sort({ createdAt: -1 }).lean();
-            console.log('Fallback: All products found:', products.length);
+            const db = mongoose.connection.db;
+            const productsCollection = db.collection('products');
+            const products = await productsCollection.find({}).sort({ createdAt: -1 }).toArray();
+            console.log('Raw MongoDB query: All products found:', products.length);
             res.json({ products });
-        } catch (fallbackErr) {
-            console.error('Fallback also failed:', fallbackErr);
-            res.status(500).json({ message: 'Failed to fetch all products', details: fallbackErr.message });
+        } catch (rawErr) {
+            console.error('Raw MongoDB query also failed:', rawErr);
+            res.status(500).json({ message: 'Failed to fetch all products', details: rawErr.message });
         }
     }
 };
