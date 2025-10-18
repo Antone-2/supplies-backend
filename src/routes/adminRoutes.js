@@ -10,7 +10,7 @@ import {
     bulkUpdateUsers
 } from '../controllers/userController.js';
 import orderController from '../modules/order/order.controller.js';
-import { getProducts, createProduct, updateProduct, deleteProduct } from '../modules/product/product.controller.js';
+import { getAllProducts, createProduct, updateProduct, deleteProduct } from '../modules/product/product.controller.js';
 import { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory } from '../modules/category/category.controller.js';
 import { getSettings, updateSetting } from '../controllers/adminSettingController.js';
 import notificationRoutes from './notificationRoutes.js';
@@ -42,7 +42,7 @@ router.get('/analytics', orderController.getOrderAnalytics);
 router.get('/dashboard/stats', orderController.getDashboardStats);
 
 // Product management
-router.get('/products', getProducts);
+router.get('/products', getAllProducts);
 router.post('/products', createProduct);
 router.put('/products/:id', updateProduct);
 router.delete('/products/:id', deleteProduct);

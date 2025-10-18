@@ -1,5 +1,5 @@
 import express from 'express';
-import { getCategoriesWithCounts, getCategories, getProductsByCategory, getProducts, getFeaturedProducts, getProductById, createProduct, updateProduct, deleteProduct } from './product.controller.js';
+import { getCategoriesWithCounts, getCategories, getProductsByCategory, getProducts, getFeaturedProducts, getProductById, createProduct, updateProduct, deleteProduct, getAllProducts } from './product.controller.js';
 import auth from '../../middleware/auth.js';
 import { default as admin } from '../../middleware/admin.js';
 const router = express.Router();

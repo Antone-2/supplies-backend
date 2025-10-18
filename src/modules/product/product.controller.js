@@ -378,4 +378,21 @@ const deleteProduct = async (req, res) => {
     }
 };
 
-export { getProducts, createProduct, updateProduct, deleteProduct, getCategoriesWithCounts, getCategories, getProductsByCategory, getFeaturedProducts, getProductById };
+// Get all products for admin (no pagination, all fields)
+const getAllProducts = async (req, res) => {
+    try {
+        console.log('getAllProducts called for admin');
+        const products = await Product.find({})
+            .populate('category')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        console.log('All products found:', products.length);
+        res.json({ products });
+    } catch (err) {
+        console.error('Error fetching all products:', err);
+        res.status(500).json({ message: 'Failed to fetch all products', details: err.message });
+    }
+};
+
+export { getProducts, createProduct, updateProduct, deleteProduct, getCategoriesWithCounts, getCategories, getProductsByCategory, getFeaturedProducts, getProductById, getAllProducts };
