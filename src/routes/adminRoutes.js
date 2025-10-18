@@ -32,6 +32,7 @@ router.put('/users/bulk', bulkUpdateUsers);
 // Order management
 router.get('/orders', orderController.getAllOrders);
 router.put('/orders/:id', orderController.updateOrder);
+router.post('/orders/:id/notes', orderController.addOrderNote);
 router.delete('/orders/bulk', orderController.bulkDeleteOrders);
 router.put('/orders/bulk', orderController.bulkUpdateOrders);
 

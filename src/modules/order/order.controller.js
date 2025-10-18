@@ -1025,6 +1025,44 @@ const bulkUpdateOrders = async (req, res) => {
     }
 };
 
+// Admin: Add note to order
+const addOrderNote = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { note } = req.body;
+
+        if (!note || typeof note !== 'string' || note.trim().length === 0) {
+            return res.status(400).json({ message: 'Note is required and must be a non-empty string' });
+        }
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // Add note to timeline
+        order.timeline.push({
+            status: order.orderStatus,
+            changedAt: new Date(),
+            note: note.trim()
+        });
+
+        await order.save();
+
+        res.json({
+            message: 'Note added successfully',
+            order: {
+                id: order._id,
+                orderNumber: order.orderNumber,
+                timeline: order.timeline
+            }
+        });
+    } catch (err) {
+        console.error('Error adding order note:', err);
+        res.status(500).json({ message: 'Failed to add note to order' });
+    }
+};
+
 const orderController = {
     getAllOrders,
     createOrder,
@@ -1032,6 +1070,7 @@ const orderController = {
     getSpecificOrder,
     updateOrderStatus,
     updateOrder,
+    addOrderNote,
     bulkDeleteOrders,
     bulkUpdateOrders,
     payMpesa,
