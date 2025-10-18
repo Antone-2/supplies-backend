@@ -7,14 +7,23 @@ import redisClient from '../../lib/redisClient.js';
 const getProducts = async (req, res) => {
     try {
         console.log('getProducts called with query:', req.query);
-        const { page = 1, limit = 12, category, sortBy = 'name', sortOrder = 'asc', inStock } = req.query;
+        const { page = 1, limit = 12, category, sortBy = 'name', sortOrder = 'asc', inStock, admin, showAll, includeInactive } = req.query;
         const cacheKey = `products:${page}:${limit}:${category || ''}:${sortBy}:${sortOrder}:${inStock || ''}`;
         // Temporarily skip Redis
         // const cached = await redisClient.get(cacheKey);
         // if (cached) {
         //     return res.json(JSON.parse(cached));
         // }
-        const query = { isActive: true };
+
+        // Allow admin access to all products or inactive products if specified
+        let query = {};
+        if (admin === 'true' || showAll === 'true' || includeInactive === 'true') {
+            // Admin can see all products
+            query = {};
+        } else {
+            // Public API only shows active products
+            query = { isActive: true };
+        }
         if (category) {
             // Handle category - if it's a string, find the category ObjectId
             if (typeof category === 'string') {
