@@ -392,12 +392,13 @@ const deleteProduct = async (req, res) => {
 const getAllProducts = async (req, res) => {
     try {
         console.log('getAllProducts called for admin');
-        const products = await Product.find({ isActive: true })
+        // Admin should see all products, including inactive ones
+        const products = await Product.find({})
             .populate('category')
             .sort({ createdAt: -1 })
             .lean();
 
-        console.log('All active products found:', products.length);
+        console.log('All products found:', products.length);
         res.json({ products });
     } catch (err) {
         console.error('Error fetching all products:', err);
