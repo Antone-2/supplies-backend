@@ -361,28 +361,77 @@ const updateProduct = async (req, res) => {
     }
 };
 
-// Delete product (Admin only)
+// Delete product (Admin only) - PERMANENT DELETE
 const deleteProduct = async (req, res) => {
     try {
         const productId = req.params.id;
+        console.log('Permanently deleting product with ID:', productId);
 
+        // Check if product exists
         const product = await Product.findById(productId);
         if (!product) {
             return res.status(404).json({ message: 'Product not found' });
         }
 
-        // Soft delete - set isActive to false instead of deleting
-        product.isActive = false;
-        await product.save();
+        // Check if product is referenced in any orders
+        const Order = (await import('../../../Database/models/order.model.js')).default;
+        const orderCount = await Order.countDocuments({
+            'items.productId': productId
+        });
 
+        if (orderCount > 0) {
+            return res.status(400).json({
+                message: `Cannot delete product. It is referenced in ${orderCount} order(s). Consider deactivating instead.`,
+                ordersCount: orderCount
+            });
+        }
+
+        // Check if product is in any carts
+        const Cart = (await import('../../../Database/models/cart.model.js')).default;
+        const cartCount = await Cart.countDocuments({
+            'items.productId': productId
+        });
+
+        if (cartCount > 0) {
+            // Remove product from all carts
+            await Cart.updateMany(
+                { 'items.productId': productId },
+                { $pull: { items: { productId: productId } } }
+            );
+            console.log(`Removed product from ${cartCount} cart(s)`);
+        }
+
+        // Check if product is in any wishlists
+        const Wishlist = (await import('../../../Database/models/wishlist.model.js')).default;
+        const wishlistCount = await Wishlist.countDocuments({
+            products: productId
+        });
+
+        if (wishlistCount > 0) {
+            // Remove product from all wishlists
+            await Wishlist.updateMany(
+                { products: productId },
+                { $pull: { products: productId } }
+            );
+            console.log(`Removed product from ${wishlistCount} wishlist(s)`);
+        }
+
+        // PERMANENT DELETE - Remove from database completely
+        await Product.findByIdAndDelete(productId);
+
+        console.log('Product permanently deleted from database and cleaned up from all references');
         res.json({
             success: true,
-            message: 'Product deleted successfully'
+            message: 'Product permanently deleted from database and all references cleaned up',
+            cleanup: {
+                cartsCleaned: cartCount,
+                wishlistsCleaned: wishlistCount
+            }
         });
     } catch (err) {
-        console.error('Error deleting product:', err);
+        console.error('Error permanently deleting product:', err);
         res.status(500).json({
-            message: 'Failed to delete product',
+            message: 'Failed to permanently delete product',
             error: err.message
         });
     }
