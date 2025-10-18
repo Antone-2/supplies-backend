@@ -393,16 +393,27 @@ const getAllProducts = async (req, res) => {
     try {
         console.log('getAllProducts called for admin');
         // Admin should see all products, including inactive ones
-        const products = await Product.find({})
-            .populate('category')
-            .sort({ createdAt: -1 })
-            .lean();
+        // Use raw MongoDB collection to bypass mongoose schema validation
+        const db = mongoose.connection.db;
+        const productsCollection = db.collection('products');
+
+        // Convert cursor to array and handle any potential errors
+        const products = await productsCollection.find({}).sort({ createdAt: -1 }).toArray();
 
         console.log('All products found:', products.length);
         res.json({ products });
     } catch (err) {
         console.error('Error fetching all products:', err);
-        res.status(500).json({ message: 'Failed to fetch all products', details: err.message });
+        // If raw collection access fails, try a different approach
+        try {
+            // Fallback: use mongoose but with error handling
+            const products = await Product.find({}).sort({ createdAt: -1 }).lean();
+            console.log('Fallback: All products found:', products.length);
+            res.json({ products });
+        } catch (fallbackErr) {
+            console.error('Fallback also failed:', fallbackErr);
+            res.status(500).json({ message: 'Failed to fetch all products', details: fallbackErr.message });
+        }
     }
 };
 
