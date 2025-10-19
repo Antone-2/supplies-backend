@@ -11,13 +11,13 @@ router.get('/:id', orderController.getSpecificOrder);
 router.put('/:id', admin, orderController.updateOrderStatus);
 
 // Order action endpoints for simple UI
-router.post('/:id/process', admin, orderController.processOrder);
-router.post('/:id/fulfill', admin, orderController.fulfillOrder);
-router.post('/:id/ready', admin, orderController.markReady);
-router.post('/:id/pickup', admin, orderController.pickupOrder);
-router.post('/:id/ship', admin, orderController.shipOrder);
-router.post('/:id/deliver', admin, orderController.deliverOrder);
-router.post('/:id/cancel', admin, orderController.cancelOrder);
+router.post('/:id/process', admin, orderController.updateOrderStatus);
+router.post('/:id/fulfill', admin, orderController.updateOrderStatus);
+router.post('/:id/ready', admin, orderController.updateOrderStatus);
+router.post('/:id/pickup', admin, orderController.updateOrderStatus);
+router.post('/:id/ship', admin, orderController.updateOrderStatus);
+router.post('/:id/deliver', admin, orderController.updateOrderStatus);
+router.post('/:id/cancel', admin, orderController.updateOrderStatus);
 
 // Payment endpoints
 router.post('/pay/mpesa', jwtAuthMiddleware, orderController.payMpesa);
