@@ -21,7 +21,7 @@ const getProducts = async (req, res) => {
         // Allow admin access to all products or inactive products if specified
         let query = {};
         if (admin === 'true' || showAll === 'true' || includeInactive === 'true') {
-            // Admin can see all products
+            // Admin can see all products (including inactive)
             query = {};
         } else {
             // Public API only shows active products
@@ -228,10 +228,10 @@ const createProduct = async (req, res) => {
     try {
         let productData;
 
-        // Handle different content types
-        if (req.headers['content-type']?.includes('application/json')) {
+        // Handle request body - Express JSON middleware should have already parsed it
+        if (typeof req.body === 'object' && req.body !== null && Object.keys(req.body).length > 0) {
             productData = req.body;
-        } else if (req.headers['content-type']?.includes('text/plain')) {
+        } else if (req.headers['content-type']?.includes('text/plain') && typeof req.body === 'string') {
             // Parse JSON string from plain text
             try {
                 productData = JSON.parse(req.body);
@@ -245,25 +245,16 @@ const createProduct = async (req, res) => {
                 });
             }
         } else {
-            // Handle other content types or when body is already parsed
-            if (typeof req.body === 'object' && req.body !== null) {
-                productData = req.body;
-            } else {
-                // Try to parse as JSON string
-                try {
-                    productData = JSON.parse(req.body);
-                } catch (parseError) {
-                    console.error('Fallback JSON parse error:', parseError);
-                    console.error('Request body type:', typeof req.body);
-                    console.error('Request body:', req.body);
-                    return res.status(400).json({
-                        message: 'Invalid request format',
-                        error: 'Request body must be valid JSON or object',
-                        contentType: req.headers['content-type'],
-                        bodyType: typeof req.body
-                    });
-                }
-            }
+            console.error('Invalid request body:', req.body);
+            console.error('Content-Type:', req.headers['content-type']);
+            console.error('Body type:', typeof req.body);
+            return res.status(400).json({
+                message: 'Invalid request body',
+                error: 'Request body is empty or invalid',
+                contentType: req.headers['content-type'],
+                bodyType: typeof req.body,
+                bodyKeys: typeof req.body === 'object' ? Object.keys(req.body) : 'N/A'
+            });
         }
 
         // Validate required fields
@@ -340,10 +331,37 @@ const createProduct = async (req, res) => {
             // Don't fail the product creation if notification fails
         }
 
+        console.log('✅ Product created successfully:', {
+            id: product._id,
+            name: product.name,
+            category: product.category?.name || product.category,
+            price: product.price,
+            countInStock: product.countInStock,
+            isActive: product.isActive
+        });
+
         res.status(201).json({
             success: true,
             message: 'Product created successfully',
-            product
+            product: {
+                _id: product._id,
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                category: product.category,
+                brand: product.brand,
+                countInStock: product.countInStock,
+                image: product.image,
+                images: product.images,
+                isFeatured: product.isFeatured,
+                featured: product.featured,
+                discount: product.discount,
+                rating: product.rating,
+                numReviews: product.numReviews,
+                isActive: product.isActive,
+                createdAt: product.createdAt,
+                updatedAt: product.updatedAt
+            }
         });
     } catch (err) {
         console.error('Error creating product:', err);
