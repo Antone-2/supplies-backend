@@ -83,168 +83,521 @@ const getAllOrders = async (req, res) => {
             canProcess: order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus),
             processingPriority: order.paymentStatus === 'paid' ? 'high' : 'normal',
 
-            // Responsive action buttons for frontend - organized by priority and grouped with click handlers
-            actionButtons: {
-                // Primary actions (most important, shown prominently)
-                primary: [
-                    {
-                        action: 'process',
-                        label: 'Process',
-                        icon: 'cog',
-                        variant: 'primary',
-                        size: 'sm',
-                        enabled: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
-                        loading: false,
-                        endpoint: 'POST',
-                        path: `/api/v1/admin/orders/${order._id}/process`,
-                        tooltip: 'Start processing this order',
-                        onClick: `handleOrderAction('${order._id}', 'process')`,
-                        confirm: false,
-                        refreshAfter: true
-                    },
-                    {
-                        action: 'fulfill',
-                        label: 'Fulfill',
-                        icon: 'package',
-                        variant: 'success',
-                        size: 'sm',
-                        enabled: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
-                        loading: false,
-                        endpoint: 'POST',
-                        path: `/api/v1/admin/orders/${order._id}/fulfill`,
-                        tooltip: 'Mark as fulfilled and ready for shipping',
-                        onClick: `handleOrderAction('${order._id}', 'fulfill')`,
-                        confirm: false,
-                        refreshAfter: true
-                    },
-                    {
-                        action: 'ship',
-                        label: 'Ship',
-                        icon: 'truck',
-                        variant: 'info',
-                        size: 'sm',
-                        enabled: order.paymentStatus === 'paid' && ['ready', 'fulfilled', 'picked_up'].includes(order.orderStatus),
-                        loading: false,
-                        endpoint: 'POST',
-                        path: `/api/v1/admin/orders/${order._id}/ship`,
-                        tooltip: 'Ship order with tracking number',
-                        onClick: `handleOrderAction('${order._id}', 'ship', { trackingNumber: prompt('Enter tracking number (optional):') })`,
-                        confirm: false,
-                        refreshAfter: true
-                    },
-                    {
-                        action: 'deliver',
-                        label: 'Deliver',
-                        icon: 'check-circle',
-                        variant: 'success',
-                        size: 'sm',
-                        enabled: order.paymentStatus === 'paid' && order.orderStatus === 'shipped',
-                        loading: false,
-                        endpoint: 'POST',
-                        path: `/api/v1/admin/orders/${order._id}/deliver`,
-                        tooltip: 'Mark as delivered',
-                        onClick: `handleOrderAction('${order._id}', 'deliver')`,
-                        confirm: 'Are you sure this order has been delivered?',
-                        refreshAfter: true
+            // Action icons for order status management with enhanced UI/UX
+            actionIcons: [
+                {
+                    id: 'process',
+                    label: 'Process',
+                    icon: 'fas fa-cog',
+                    color: '#007bff',
+                    bgColor: '#e7f3ff',
+                    hoverColor: '#0056b3',
+                    enabled: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
+                    loading: false,
+                    size: '32px',
+                    borderRadius: '8px',
+                    tooltip: 'Start processing this order - customer will be notified',
+                    animation: 'spin-on-hover',
+                    notification: {
+                        type: 'order_update',
+                        title: 'Order Processing Started',
+                        message: `Your order ${order.orderNumber} is now being processed.`,
+                        email: true,
+                        sms: true
                     }
-                ],
-                // Secondary actions (less critical, can be in dropdown)
-                secondary: [
-                    {
-                        action: 'ready',
-                        label: 'Mark Ready',
-                        icon: 'check',
-                        variant: 'outline-success',
-                        size: 'sm',
-                        enabled: order.paymentStatus === 'paid' && order.orderStatus === 'fulfilled',
-                        loading: false,
-                        endpoint: 'POST',
-                        path: `/api/v1/admin/orders/${order._id}/ready`,
-                        tooltip: 'Mark as ready for shipping',
-                        onClick: `handleOrderAction('${order._id}', 'ready')`,
+                },
+                {
+                    id: 'fulfill',
+                    label: 'Fulfill',
+                    icon: 'fas fa-box',
+                    color: '#28a745',
+                    bgColor: '#e8f5e8',
+                    hoverColor: '#1e7e34',
+                    enabled: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
+                    loading: false,
+                    size: '32px',
+                    borderRadius: '8px',
+                    tooltip: 'Mark order as fulfilled - customer will be notified',
+                    animation: 'bounce-on-hover',
+                    notification: {
+                        type: 'order_update',
+                        title: 'Order Fulfilled',
+                        message: `Your order ${order.orderNumber} has been fulfilled and is ready for shipping.`,
+                        email: true,
+                        sms: false
+                    }
+                },
+                {
+                    id: 'mark_ready',
+                    label: 'Ready',
+                    icon: 'fas fa-check-circle',
+                    color: '#17a2b8',
+                    bgColor: '#e0f7fa',
+                    hoverColor: '#117a8b',
+                    enabled: order.paymentStatus === 'paid' && order.orderStatus === 'fulfilled',
+                    loading: false,
+                    size: '32px',
+                    borderRadius: '8px',
+                    tooltip: 'Mark order as ready for shipping - customer will be notified',
+                    animation: 'pulse-on-hover',
+                    notification: {
+                        type: 'order_update',
+                        title: 'Order Ready for Shipping',
+                        message: `Your order ${order.orderNumber} is ready for shipping.`,
+                        email: true,
+                        sms: false
+                    }
+                },
+                {
+                    id: 'pickup',
+                    label: 'Pickup',
+                    icon: 'fas fa-hand-paper',
+                    color: '#ffc107',
+                    bgColor: '#fff8e1',
+                    hoverColor: '#d39e00',
+                    enabled: order.paymentStatus === 'paid' && ['ready', 'fulfilled'].includes(order.orderStatus),
+                    loading: false,
+                    size: '32px',
+                    borderRadius: '8px',
+                    tooltip: 'Mark order as picked up for delivery - customer will be notified',
+                    animation: 'shake-on-hover',
+                    notification: {
+                        type: 'order_update',
+                        title: 'Order Picked Up',
+                        message: `Your order ${order.orderNumber} has been picked up for delivery.`,
+                        email: true,
+                        sms: true
+                    }
+                },
+                {
+                    id: 'ship',
+                    label: 'Ship',
+                    icon: 'fas fa-truck',
+                    color: '#6f42c1',
+                    bgColor: '#f3e5f5',
+                    hoverColor: '#5a359a',
+                    enabled: order.paymentStatus === 'paid' && ['ready', 'fulfilled', 'picked_up'].includes(order.orderStatus),
+                    loading: false,
+                    size: '32px',
+                    borderRadius: '8px',
+                    tooltip: 'Ship order with tracking - customer will be notified with tracking details',
+                    animation: 'slide-on-hover',
+                    notification: {
+                        type: 'order_update',
+                        title: 'Order Shipped',
+                        message: `Your order ${order.orderNumber} has been shipped${order.trackingNumber ? ` with tracking number: ${order.trackingNumber}` : ''}.`,
+                        email: true,
+                        sms: true
+                    }
+                },
+                {
+                    id: 'deliver',
+                    label: 'Deliver',
+                    icon: 'fas fa-box-open',
+                    color: '#20c997',
+                    bgColor: '#e8f5f0',
+                    hoverColor: '#17a2b8',
+                    enabled: order.paymentStatus === 'paid' && order.orderStatus === 'shipped',
+                    loading: false,
+                    size: '32px',
+                    borderRadius: '8px',
+                    tooltip: 'Mark order as delivered - customer will be notified',
+                    animation: 'glow-on-hover',
+                    notification: {
+                        type: 'order_update',
+                        title: 'Order Delivered',
+                        message: `Your order ${order.orderNumber} has been successfully delivered. Thank you for shopping with us!`,
+                        email: true,
+                        sms: true
+                    }
+                },
+                {
+                    id: 'cancel',
+                    label: 'Cancel',
+                    icon: 'fas fa-times-circle',
+                    color: '#dc3545',
+                    bgColor: '#f8d7da',
+                    hoverColor: '#bd2130',
+                    enabled: ['pending', 'processing', 'fulfilled', 'ready'].includes(order.orderStatus),
+                    loading: false,
+                    size: '32px',
+                    borderRadius: '8px',
+                    tooltip: 'Cancel this order - customer will be notified',
+                    animation: 'shake-on-hover',
+                    notification: {
+                        type: 'order_cancelled',
+                        title: 'Order Cancelled',
+                        message: `Your order ${order.orderNumber} has been cancelled.`,
+                        email: true,
+                        sms: true
+                    }
+                }
+            ],
+
+            // Enhanced UI/UX click handlers for action icons
+            onActionClick: `function(orderId, action, iconElement) {
+                const actionConfig = {
+                    process: {
+                        endpoint: 'process',
                         confirm: false,
-                        refreshAfter: true
+                        input: false,
+                        successMessage: 'Order processing started successfully!',
+                        loadingText: 'Processing...'
                     },
-                    {
-                        action: 'pickup',
-                        label: 'Pickup',
-                        icon: 'hand-paper',
-                        variant: 'outline-info',
-                        size: 'sm',
-                        enabled: order.paymentStatus === 'paid' && ['ready', 'fulfilled'].includes(order.orderStatus),
-                        loading: false,
-                        endpoint: 'POST',
-                        path: `/api/v1/admin/orders/${order._id}/pickup`,
-                        tooltip: 'Mark as picked up for delivery',
-                        onClick: `handleOrderAction('${order._id}', 'pickup')`,
+                    fulfill: {
+                        endpoint: 'fulfill',
                         confirm: false,
-                        refreshAfter: true
+                        input: false,
+                        successMessage: 'Order fulfilled successfully!',
+                        loadingText: 'Fulfilling...'
                     },
-                    {
-                        action: 'cancel',
-                        label: 'Cancel',
-                        icon: 'times',
-                        variant: 'outline-danger',
-                        size: 'sm',
-                        enabled: ['pending', 'processing', 'fulfilled', 'ready'].includes(order.orderStatus),
-                        loading: false,
-                        endpoint: 'POST',
-                        path: `/api/v1/admin/orders/${order._id}/cancel`,
-                        tooltip: 'Cancel this order',
-                        onClick: `handleOrderAction('${order._id}', 'cancel', { reason: prompt('Reason for cancellation (optional):') })`,
+                    mark_ready: {
+                        endpoint: 'ready',
+                        confirm: false,
+                        input: false,
+                        successMessage: 'Order marked as ready!',
+                        loadingText: 'Marking ready...'
+                    },
+                    pickup: {
+                        endpoint: 'pickup',
+                        confirm: false,
+                        input: false,
+                        successMessage: 'Order pickup confirmed!',
+                        loadingText: 'Confirming pickup...'
+                    },
+                    ship: {
+                        endpoint: 'ship',
+                        confirm: false,
+                        input: {
+                            label: 'Enter tracking number (optional):',
+                            placeholder: 'TRK-123456789',
+                            type: 'text',
+                            required: false
+                        },
+                        successMessage: 'Order shipped successfully!',
+                        loadingText: 'Shipping order...'
+                    },
+                    deliver: {
+                        endpoint: 'deliver',
+                        confirm: 'Are you sure this order has been delivered to the customer?',
+                        input: false,
+                        successMessage: 'Order marked as delivered!',
+                        loadingText: 'Confirming delivery...'
+                    },
+                    cancel: {
+                        endpoint: 'cancel',
                         confirm: 'Are you sure you want to cancel this order? This action cannot be undone.',
-                        refreshAfter: true
+                        input: {
+                            label: 'Reason for cancellation (optional):',
+                            placeholder: 'Customer request, out of stock, etc.',
+                            type: 'text',
+                            required: false
+                        },
+                        successMessage: 'Order cancelled successfully.',
+                        loadingText: 'Cancelling order...'
                     }
-                ],
-                // Utility actions (always available, in dropdown or separate section)
-                utility: [
-                    {
-                        action: 'addNote',
-                        label: 'Add Note',
-                        icon: 'sticky-note',
-                        variant: 'outline-secondary',
-                        size: 'sm',
-                        enabled: true,
-                        loading: false,
-                        endpoint: 'POST',
-                        path: `/api/v1/admin/orders/${order._id}/notes`,
-                        tooltip: 'Add internal note',
-                        onClick: `handleAddNote('${order._id}')`,
-                        confirm: false,
-                        refreshAfter: false
-                    },
-                    {
-                        action: 'update',
-                        label: 'Edit',
-                        icon: 'edit',
-                        variant: 'outline-primary',
-                        size: 'sm',
-                        enabled: true,
-                        loading: false,
-                        endpoint: 'PUT',
-                        path: `/api/v1/admin/orders/${order._id}`,
-                        tooltip: 'Edit order details',
-                        onClick: `handleEditOrder('${order._id}')`,
-                        confirm: false,
-                        refreshAfter: false
-                    },
-                    {
-                        action: 'delete',
-                        label: 'Delete',
-                        icon: 'trash',
-                        variant: 'outline-danger',
-                        size: 'sm',
-                        enabled: order.paymentStatus !== 'paid',
-                        loading: false,
-                        endpoint: 'DELETE',
-                        path: `/api/v1/admin/orders/${order._id}`,
-                        tooltip: 'Delete this order (unpaid only)',
-                        onClick: `handleDeleteOrder('${order._id}')`,
-                        confirm: 'Are you sure you want to permanently delete this order? This action cannot be undone.',
-                        refreshAfter: true
+                };
+
+                const config = actionConfig[action];
+                if (!config) {
+                    console.error('Unknown action:', action);
+                    return;
+                }
+
+                // Enhanced confirmation dialog
+                if (config.confirm) {
+                    const confirmed = confirm(config.confirm);
+                    if (!confirmed) return;
+                }
+
+                // Enhanced input dialog with better UX
+                let extraData = {};
+                if (config.input) {
+                    let value;
+                    if (config.input.type === 'text') {
+                        value = prompt(config.input.label, config.input.placeholder || '');
+                        if (value !== null && value.trim() !== '') {
+                            if (action === 'ship') extraData.trackingNumber = value.trim();
+                            if (action === 'cancel') extraData.reason = value.trim();
+                        } else if (config.input.required) {
+                            alert('This field is required.');
+                            return;
+                        }
                     }
-                ]
-            },
+                }
+
+                // Enhanced loading state with visual feedback
+                if (iconElement) {
+                    // Store original styles
+                    const originalStyles = {
+                        backgroundColor: iconElement.style.backgroundColor,
+                        color: iconElement.style.color,
+                        opacity: iconElement.style.opacity,
+                        pointerEvents: iconElement.style.pointerEvents,
+                        innerHTML: iconElement.innerHTML
+                    };
+
+                    // Apply loading state
+                    iconElement.style.backgroundColor = '#6c757d';
+                    iconElement.style.opacity = '0.7';
+                    iconElement.style.pointerEvents = 'none';
+                    iconElement.innerHTML = \`<i class="fas fa-spinner fa-spin"></i>\`;
+
+                    // Add tooltip showing loading
+                    iconElement.title = config.loadingText;
+                }
+
+                // Show global loading indicator
+                showGlobalLoading(config.loadingText);
+
+                // Make API call with enhanced error handling
+                fetch(\`/api/v1/admin/orders/\${orderId}/\${config.endpoint}\`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken'))
+                    },
+                    body: Object.keys(extraData).length > 0 ? JSON.stringify(extraData) : undefined
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Enhanced success feedback
+                        showNotification('success', config.successMessage, 3000);
+
+                        // Show customer notification feedback
+                        if (data.notifications?.emailSent || data.notifications?.smsSent) {
+                            setTimeout(() => {
+                                showNotification('info', \`Customer notified via \${[
+                                    data.notifications.emailSent ? 'email' : '',
+                                    data.notifications.smsSent ? 'SMS' : ''
+                                ].filter(Boolean).join(' & ')}\`, 2000);
+                            }, 1000);
+                        }
+
+                        // Play success sound (if supported)
+                        if ('vibrate' in navigator) {
+                            navigator.vibrate(100);
+                        }
+
+                        // Refresh the orders list with animation
+                        if (typeof refreshOrdersList === 'function') {
+                            setTimeout(() => {
+                                refreshOrdersList();
+                            }, 500);
+                        }
+
+                        // Animate success on icon
+                        if (iconElement) {
+                            iconElement.style.backgroundColor = '#28a745';
+                            iconElement.innerHTML = '<i class="fas fa-check"></i>';
+                            setTimeout(() => {
+                                // Reset to original state
+                                Object.assign(iconElement.style, originalStyles);
+                            }, 2000);
+                        }
+
+                    } else {
+                        throw new Error(data.message || data.error || 'Action failed');
+                    }
+                })
+                .catch(error => {
+                    console.error('Order action error:', error);
+
+                    // Enhanced error feedback
+                    showNotification('error', error.message || 'Failed to update order status. Please try again.', 5000);
+
+                    // Visual error feedback on icon
+                    if (iconElement) {
+                        iconElement.style.backgroundColor = '#dc3545';
+                        iconElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                        setTimeout(() => {
+                            // Reset to original state
+                            Object.assign(iconElement.style, originalStyles);
+                        }, 3000);
+                    }
+
+                    // Vibrate for error (if supported)
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate([200, 100, 200]);
+                    }
+                })
+                .finally(() => {
+                    // Reset loading state
+                    hideGlobalLoading();
+
+                    // Reset icon after delay if not already reset
+                    if (iconElement && !iconElement.style.backgroundColor.includes('#28a745')) {
+                        setTimeout(() => {
+                            Object.assign(iconElement.style, originalStyles);
+                        }, 1000);
+                    }
+                });
+            }`,
+
+            // CSS styles for enhanced UI/UX
+            iconStyles: `
+                .order-action-icon {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    font-size: 16px;
+                    border: 2px solid transparent;
+                    position: relative;
+                    overflow: hidden;
+                }
+
+                .order-action-icon:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                }
+
+                .order-action-icon:active {
+                    transform: translateY(0);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+
+                .order-action-icon.spin-on-hover:hover i {
+                    animation: spin 1s linear infinite;
+                }
+
+                .order-action-icon.bounce-on-hover:hover {
+                    animation: bounce 0.6s ease;
+                }
+
+                .order-action-icon.pulse-on-hover:hover {
+                    animation: pulse 1s infinite;
+                }
+
+                .order-action-icon.shake-on-hover:hover {
+                    animation: shake 0.5s ease;
+                }
+
+                .order-action-icon.slide-on-hover:hover {
+                    animation: slideRight 0.3s ease;
+                }
+
+                .order-action-icon.glow-on-hover:hover {
+                    box-shadow: 0 0 20px rgba(32, 201, 151, 0.4);
+                }
+
+                .order-action-icon:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                    transform: none !important;
+                }
+
+                .order-action-icon.loading {
+                    animation: pulse 1s infinite;
+                }
+
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+
+                @keyframes bounce {
+                    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+                    40% { transform: translateY(-4px); }
+                    60% { transform: translateY(-2px); }
+                }
+
+                @keyframes pulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.7; }
+                    100% { opacity: 1; }
+                }
+
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+                    20%, 40%, 60%, 80% { transform: translateX(2px); }
+                }
+
+                @keyframes slideRight {
+                    from { transform: translateX(-5px); }
+                    to { transform: translateX(0); }
+                }
+
+                /* Responsive design */
+                @media (max-width: 768px) {
+                    .order-action-icon {
+                        width: 36px;
+                        height: 36px;
+                        font-size: 14px;
+                    }
+                }
+
+                @media (max-width: 480px) {
+                    .order-action-icon {
+                        width: 32px;
+                        height: 32px;
+                        font-size: 12px;
+                    }
+                }
+
+                /* Notification styles */
+                .notification-toast {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 9999;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 500;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    animation: slideInRight 0.3s ease;
+                    max-width: 300px;
+                }
+
+                .notification-toast.success { background-color: #28a745; }
+                .notification-toast.error { background-color: #dc3545; }
+                .notification-toast.info { background-color: #17a2b8; }
+
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+
+                /* Loading overlay */
+                .global-loading-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0,0,0,0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 99999;
+                    animation: fadeIn 0.2s ease;
+                }
+
+                .global-loading-content {
+                    background: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    text-align: center;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            `,
 
             // Quick action handlers for frontend
             quickActions: {
