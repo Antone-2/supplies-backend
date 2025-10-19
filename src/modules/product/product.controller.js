@@ -229,7 +229,9 @@ const createProduct = async (req, res) => {
         let productData;
 
         // Handle different content types
-        if (req.headers['content-type']?.includes('text/plain')) {
+        if (req.headers['content-type']?.includes('application/json')) {
+            productData = req.body;
+        } else if (req.headers['content-type']?.includes('text/plain')) {
             // Parse JSON string from plain text
             try {
                 productData = JSON.parse(req.body);
@@ -242,19 +244,25 @@ const createProduct = async (req, res) => {
                     details: parseError.message
                 });
             }
-        } else if (req.headers['content-type']?.includes('application/json')) {
-            productData = req.body;
         } else {
-            // Try to parse as JSON anyway
-            try {
-                productData = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            } catch (parseError) {
-                console.error('Fallback JSON parse error:', parseError);
-                return res.status(400).json({
-                    message: 'Invalid request format',
-                    error: 'Request body must be valid JSON',
-                    contentType: req.headers['content-type']
-                });
+            // Handle other content types or when body is already parsed
+            if (typeof req.body === 'object' && req.body !== null) {
+                productData = req.body;
+            } else {
+                // Try to parse as JSON string
+                try {
+                    productData = JSON.parse(req.body);
+                } catch (parseError) {
+                    console.error('Fallback JSON parse error:', parseError);
+                    console.error('Request body type:', typeof req.body);
+                    console.error('Request body:', req.body);
+                    return res.status(400).json({
+                        message: 'Invalid request format',
+                        error: 'Request body must be valid JSON or object',
+                        contentType: req.headers['content-type'],
+                        bodyType: typeof req.body
+                    });
+                }
             }
         }
 
