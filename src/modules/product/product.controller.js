@@ -234,13 +234,28 @@ const createProduct = async (req, res) => {
             try {
                 productData = JSON.parse(req.body);
             } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                console.error('Request body:', req.body);
                 return res.status(400).json({
                     message: 'Invalid JSON data provided',
-                    error: 'Failed to parse request body as JSON'
+                    error: 'Failed to parse request body as JSON',
+                    details: parseError.message
                 });
             }
-        } else {
+        } else if (req.headers['content-type']?.includes('application/json')) {
             productData = req.body;
+        } else {
+            // Try to parse as JSON anyway
+            try {
+                productData = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+            } catch (parseError) {
+                console.error('Fallback JSON parse error:', parseError);
+                return res.status(400).json({
+                    message: 'Invalid request format',
+                    error: 'Request body must be valid JSON',
+                    contentType: req.headers['content-type']
+                });
+            }
         }
 
         // Validate required fields
