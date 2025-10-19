@@ -83,154 +83,49 @@ const getAllOrders = async (req, res) => {
             canProcess: order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus),
             processingPriority: order.paymentStatus === 'paid' ? 'high' : 'normal',
 
-            // Action icons for order status management with enhanced UI/UX
+            // Simple action icons for order management
             actionIcons: [
                 {
                     id: 'process',
-                    label: 'Process',
-                    icon: 'fas fa-cog',
-                    color: '#007bff',
-                    bgColor: '#e7f3ff',
-                    hoverColor: '#0056b3',
+                    icon: 'fa-cog',
                     enabled: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
-                    loading: false,
-                    size: '32px',
-                    borderRadius: '8px',
-                    tooltip: 'Start processing this order - customer will be notified',
-                    animation: 'spin-on-hover',
-                    notification: {
-                        type: 'order_update',
-                        title: 'Order Processing Started',
-                        message: `Your order ${order.orderNumber} is now being processed.`,
-                        email: true,
-                        sms: true
-                    }
+                    tooltip: 'Process Order'
                 },
                 {
                     id: 'fulfill',
-                    label: 'Fulfill',
-                    icon: 'fas fa-box',
-                    color: '#28a745',
-                    bgColor: '#e8f5e8',
-                    hoverColor: '#1e7e34',
+                    icon: 'fa-box',
                     enabled: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
-                    loading: false,
-                    size: '32px',
-                    borderRadius: '8px',
-                    tooltip: 'Mark order as fulfilled - customer will be notified',
-                    animation: 'bounce-on-hover',
-                    notification: {
-                        type: 'order_update',
-                        title: 'Order Fulfilled',
-                        message: `Your order ${order.orderNumber} has been fulfilled and is ready for shipping.`,
-                        email: true,
-                        sms: false
-                    }
+                    tooltip: 'Fulfill Order'
                 },
                 {
-                    id: 'mark_ready',
-                    label: 'Ready',
-                    icon: 'fas fa-check-circle',
-                    color: '#17a2b8',
-                    bgColor: '#e0f7fa',
-                    hoverColor: '#117a8b',
+                    id: 'ready',
+                    icon: 'fa-check-circle',
                     enabled: order.paymentStatus === 'paid' && order.orderStatus === 'fulfilled',
-                    loading: false,
-                    size: '32px',
-                    borderRadius: '8px',
-                    tooltip: 'Mark order as ready for shipping - customer will be notified',
-                    animation: 'pulse-on-hover',
-                    notification: {
-                        type: 'order_update',
-                        title: 'Order Ready for Shipping',
-                        message: `Your order ${order.orderNumber} is ready for shipping.`,
-                        email: true,
-                        sms: false
-                    }
+                    tooltip: 'Mark Ready'
                 },
                 {
                     id: 'pickup',
-                    label: 'Pickup',
-                    icon: 'fas fa-hand-paper',
-                    color: '#ffc107',
-                    bgColor: '#fff8e1',
-                    hoverColor: '#d39e00',
-                    enabled: order.paymentStatus === 'paid' && ['ready', 'fulfilled'].includes(order.orderStatus),
-                    loading: false,
-                    size: '32px',
-                    borderRadius: '8px',
-                    tooltip: 'Mark order as picked up for delivery - customer will be notified',
-                    animation: 'shake-on-hover',
-                    notification: {
-                        type: 'order_update',
-                        title: 'Order Picked Up',
-                        message: `Your order ${order.orderNumber} has been picked up for delivery.`,
-                        email: true,
-                        sms: true
-                    }
+                    icon: 'fa-hand-paper',
+                    enabled: order.paymentStatus === 'paid' && order.orderStatus === 'ready',
+                    tooltip: 'Pickup Order'
                 },
                 {
                     id: 'ship',
-                    label: 'Ship',
-                    icon: 'fas fa-truck',
-                    color: '#6f42c1',
-                    bgColor: '#f3e5f5',
-                    hoverColor: '#5a359a',
-                    enabled: order.paymentStatus === 'paid' && ['ready', 'fulfilled', 'picked_up'].includes(order.orderStatus),
-                    loading: false,
-                    size: '32px',
-                    borderRadius: '8px',
-                    tooltip: 'Ship order with tracking - customer will be notified with tracking details',
-                    animation: 'slide-on-hover',
-                    notification: {
-                        type: 'order_update',
-                        title: 'Order Shipped',
-                        message: `Your order ${order.orderNumber} has been shipped${order.trackingNumber ? ` with tracking number: ${order.trackingNumber}` : ''}.`,
-                        email: true,
-                        sms: true
-                    }
+                    icon: 'fa-truck',
+                    enabled: order.paymentStatus === 'paid' && ['ready', 'picked_up'].includes(order.orderStatus),
+                    tooltip: 'Ship Order'
                 },
                 {
                     id: 'deliver',
-                    label: 'Deliver',
-                    icon: 'fas fa-box-open',
-                    color: '#20c997',
-                    bgColor: '#e8f5f0',
-                    hoverColor: '#17a2b8',
+                    icon: 'fa-box-open',
                     enabled: order.paymentStatus === 'paid' && order.orderStatus === 'shipped',
-                    loading: false,
-                    size: '32px',
-                    borderRadius: '8px',
-                    tooltip: 'Mark order as delivered - customer will be notified',
-                    animation: 'glow-on-hover',
-                    notification: {
-                        type: 'order_update',
-                        title: 'Order Delivered',
-                        message: `Your order ${order.orderNumber} has been successfully delivered. Thank you for shopping with us!`,
-                        email: true,
-                        sms: true
-                    }
+                    tooltip: 'Deliver Order'
                 },
                 {
                     id: 'cancel',
-                    label: 'Cancel',
-                    icon: 'fas fa-times-circle',
-                    color: '#dc3545',
-                    bgColor: '#f8d7da',
-                    hoverColor: '#bd2130',
-                    enabled: ['pending', 'processing', 'fulfilled', 'ready'].includes(order.orderStatus),
-                    loading: false,
-                    size: '32px',
-                    borderRadius: '8px',
-                    tooltip: 'Cancel this order - customer will be notified',
-                    animation: 'shake-on-hover',
-                    notification: {
-                        type: 'order_cancelled',
-                        title: 'Order Cancelled',
-                        message: `Your order ${order.orderNumber} has been cancelled.`,
-                        email: true,
-                        sms: true
-                    }
+                    icon: 'fa-times-circle',
+                    enabled: ['pending', 'processing', 'fulfilled', 'ready', 'picked_up'].includes(order.orderStatus),
+                    tooltip: 'Cancel Order'
                 }
             ],
 
@@ -706,10 +601,10 @@ const getAllOrders = async (req, res) => {
                 canProcess: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
                 canFulfill: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
                 canReady: order.paymentStatus === 'paid' && order.orderStatus === 'fulfilled',
-                canPickup: order.paymentStatus === 'paid' && ['ready', 'fulfilled'].includes(order.orderStatus),
-                canShip: order.paymentStatus === 'paid' && ['ready', 'fulfilled', 'picked_up'].includes(order.orderStatus),
+                canPickup: order.paymentStatus === 'paid' && order.orderStatus === 'ready',
+                canShip: order.paymentStatus === 'paid' && ['ready', 'picked_up'].includes(order.orderStatus),
                 canDeliver: order.paymentStatus === 'paid' && order.orderStatus === 'shipped',
-                canCancel: ['pending', 'processing', 'fulfilled', 'ready'].includes(order.orderStatus),
+                canCancel: ['pending', 'processing', 'fulfilled', 'ready', 'picked_up'].includes(order.orderStatus),
                 canAddNote: true,
                 canUpdate: true,
                 canDelete: order.paymentStatus !== 'paid'
@@ -2437,6 +2332,78 @@ const cancelOrder = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Failed to cancel order', error: error.message });
+    }
+};
+
+const markReady = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { note } = req.body;
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (order.orderStatus !== 'fulfilled') {
+            return res.status(400).json({
+                success: false,
+                message: `Order must be fulfilled to mark as ready. Current status: ${order.orderStatus}`
+            });
+        }
+
+        order.orderStatus = 'ready';
+        order.timeline.push({
+            status: 'ready',
+            changedAt: new Date(),
+            note: note || 'Order marked as ready for pickup/shipping'
+        });
+
+        await order.save();
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} has been marked as ready`,
+            order: { id: order._id, orderNumber: order.orderNumber, orderStatus: order.orderStatus }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to mark order as ready', error: error.message });
+    }
+};
+
+const pickupOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { note } = req.body;
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (order.orderStatus !== 'ready') {
+            return res.status(400).json({
+                success: false,
+                message: `Order must be ready to pickup. Current status: ${order.orderStatus}`
+            });
+        }
+
+        order.orderStatus = 'picked_up';
+        order.timeline.push({
+            status: 'picked_up',
+            changedAt: new Date(),
+            note: note || 'Order picked up by customer'
+        });
+
+        await order.save();
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} has been picked up`,
+            order: { id: order._id, orderNumber: order.orderNumber, orderStatus: order.orderStatus }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to pickup order', error: error.message });
     }
 };
 
