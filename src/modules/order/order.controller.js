@@ -83,18 +83,283 @@ const getAllOrders = async (req, res) => {
             canProcess: order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus),
             processingPriority: order.paymentStatus === 'paid' ? 'high' : 'normal',
 
-            // Action permissions for frontend
+            // Responsive action buttons for frontend - organized by priority and grouped with click handlers
+            actionButtons: {
+                // Primary actions (most important, shown prominently)
+                primary: [
+                    {
+                        action: 'process',
+                        label: 'Process',
+                        icon: 'cog',
+                        variant: 'primary',
+                        size: 'sm',
+                        enabled: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
+                        loading: false,
+                        endpoint: 'POST',
+                        path: `/api/v1/admin/orders/${order._id}/process`,
+                        tooltip: 'Start processing this order',
+                        onClick: `handleOrderAction('${order._id}', 'process')`,
+                        confirm: false,
+                        refreshAfter: true
+                    },
+                    {
+                        action: 'fulfill',
+                        label: 'Fulfill',
+                        icon: 'package',
+                        variant: 'success',
+                        size: 'sm',
+                        enabled: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
+                        loading: false,
+                        endpoint: 'POST',
+                        path: `/api/v1/admin/orders/${order._id}/fulfill`,
+                        tooltip: 'Mark as fulfilled and ready for shipping',
+                        onClick: `handleOrderAction('${order._id}', 'fulfill')`,
+                        confirm: false,
+                        refreshAfter: true
+                    },
+                    {
+                        action: 'ship',
+                        label: 'Ship',
+                        icon: 'truck',
+                        variant: 'info',
+                        size: 'sm',
+                        enabled: order.paymentStatus === 'paid' && ['ready', 'fulfilled', 'picked_up'].includes(order.orderStatus),
+                        loading: false,
+                        endpoint: 'POST',
+                        path: `/api/v1/admin/orders/${order._id}/ship`,
+                        tooltip: 'Ship order with tracking number',
+                        onClick: `handleOrderAction('${order._id}', 'ship', { trackingNumber: prompt('Enter tracking number (optional):') })`,
+                        confirm: false,
+                        refreshAfter: true
+                    },
+                    {
+                        action: 'deliver',
+                        label: 'Deliver',
+                        icon: 'check-circle',
+                        variant: 'success',
+                        size: 'sm',
+                        enabled: order.paymentStatus === 'paid' && order.orderStatus === 'shipped',
+                        loading: false,
+                        endpoint: 'POST',
+                        path: `/api/v1/admin/orders/${order._id}/deliver`,
+                        tooltip: 'Mark as delivered',
+                        onClick: `handleOrderAction('${order._id}', 'deliver')`,
+                        confirm: 'Are you sure this order has been delivered?',
+                        refreshAfter: true
+                    }
+                ],
+                // Secondary actions (less critical, can be in dropdown)
+                secondary: [
+                    {
+                        action: 'ready',
+                        label: 'Mark Ready',
+                        icon: 'check',
+                        variant: 'outline-success',
+                        size: 'sm',
+                        enabled: order.paymentStatus === 'paid' && order.orderStatus === 'fulfilled',
+                        loading: false,
+                        endpoint: 'POST',
+                        path: `/api/v1/admin/orders/${order._id}/ready`,
+                        tooltip: 'Mark as ready for shipping',
+                        onClick: `handleOrderAction('${order._id}', 'ready')`,
+                        confirm: false,
+                        refreshAfter: true
+                    },
+                    {
+                        action: 'pickup',
+                        label: 'Pickup',
+                        icon: 'hand-paper',
+                        variant: 'outline-info',
+                        size: 'sm',
+                        enabled: order.paymentStatus === 'paid' && ['ready', 'fulfilled'].includes(order.orderStatus),
+                        loading: false,
+                        endpoint: 'POST',
+                        path: `/api/v1/admin/orders/${order._id}/pickup`,
+                        tooltip: 'Mark as picked up for delivery',
+                        onClick: `handleOrderAction('${order._id}', 'pickup')`,
+                        confirm: false,
+                        refreshAfter: true
+                    },
+                    {
+                        action: 'cancel',
+                        label: 'Cancel',
+                        icon: 'times',
+                        variant: 'outline-danger',
+                        size: 'sm',
+                        enabled: ['pending', 'processing', 'fulfilled', 'ready'].includes(order.orderStatus),
+                        loading: false,
+                        endpoint: 'POST',
+                        path: `/api/v1/admin/orders/${order._id}/cancel`,
+                        tooltip: 'Cancel this order',
+                        onClick: `handleOrderAction('${order._id}', 'cancel', { reason: prompt('Reason for cancellation (optional):') })`,
+                        confirm: 'Are you sure you want to cancel this order? This action cannot be undone.',
+                        refreshAfter: true
+                    }
+                ],
+                // Utility actions (always available, in dropdown or separate section)
+                utility: [
+                    {
+                        action: 'addNote',
+                        label: 'Add Note',
+                        icon: 'sticky-note',
+                        variant: 'outline-secondary',
+                        size: 'sm',
+                        enabled: true,
+                        loading: false,
+                        endpoint: 'POST',
+                        path: `/api/v1/admin/orders/${order._id}/notes`,
+                        tooltip: 'Add internal note',
+                        onClick: `handleAddNote('${order._id}')`,
+                        confirm: false,
+                        refreshAfter: false
+                    },
+                    {
+                        action: 'update',
+                        label: 'Edit',
+                        icon: 'edit',
+                        variant: 'outline-primary',
+                        size: 'sm',
+                        enabled: true,
+                        loading: false,
+                        endpoint: 'PUT',
+                        path: `/api/v1/admin/orders/${order._id}`,
+                        tooltip: 'Edit order details',
+                        onClick: `handleEditOrder('${order._id}')`,
+                        confirm: false,
+                        refreshAfter: false
+                    },
+                    {
+                        action: 'delete',
+                        label: 'Delete',
+                        icon: 'trash',
+                        variant: 'outline-danger',
+                        size: 'sm',
+                        enabled: order.paymentStatus !== 'paid',
+                        loading: false,
+                        endpoint: 'DELETE',
+                        path: `/api/v1/admin/orders/${order._id}`,
+                        tooltip: 'Delete this order (unpaid only)',
+                        onClick: `handleDeleteOrder('${order._id}')`,
+                        confirm: 'Are you sure you want to permanently delete this order? This action cannot be undone.',
+                        refreshAfter: true
+                    }
+                ]
+            },
+
+            // Quick action handlers for frontend
+            quickActions: {
+                handleOrderAction: `function(orderId, action, extraData = {}) {
+                    // Show loading state
+                    const button = document.querySelector(\`[data-action="\${action}"][data-order-id="\${orderId}"]\`);
+                    if (button) {
+                        button.disabled = true;
+                        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                    }
+
+                    // Make API call
+                    fetch(\`/api/v1/admin/orders/\${orderId}/\${action}\`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                        },
+                        body: Object.keys(extraData).length > 0 ? JSON.stringify(extraData) : undefined
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Show success message
+                            showToast('success', data.message || 'Action completed successfully');
+                            // Refresh the orders list
+                            if (typeof refreshOrders === 'function') {
+                                refreshOrders();
+                            }
+                        } else {
+                            throw new Error(data.message || 'Action failed');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Action error:', error);
+                        showToast('error', error.message || 'Action failed. Please try again.');
+                    })
+                    .finally(() => {
+                        // Reset button state
+                        if (button) {
+                            button.disabled = false;
+                            button.innerHTML = button.getAttribute('data-original-html');
+                        }
+                    });
+                }`,
+                handleAddNote: `function(orderId) {
+                    const note = prompt('Enter internal note:');
+                    if (note && note.trim()) {
+                        fetch(\`/api/v1/admin/orders/\${orderId}/notes\`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                            },
+                            body: JSON.stringify({ note: note.trim() })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                showToast('success', 'Note added successfully');
+                            } else {
+                                throw new Error(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            showToast('error', error.message || 'Failed to add note');
+                        });
+                    }
+                }`,
+                handleEditOrder: `function(orderId) {
+                    // Open edit modal or navigate to edit page
+                    if (typeof openEditModal === 'function') {
+                        openEditModal(orderId);
+                    } else {
+                        window.location.href = \`/admin/orders/\${orderId}/edit\`;
+                    }
+                }`,
+                handleDeleteOrder: `function(orderId) {
+                    if (confirm('Are you sure you want to permanently delete this order? This action cannot be undone.')) {
+                        fetch(\`/api/v1/admin/orders/\${orderId}\`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                showToast('success', data.message || 'Order deleted successfully');
+                                if (typeof refreshOrders === 'function') {
+                                    refreshOrders();
+                                }
+                            } else {
+                                throw new Error(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            showToast('error', error.message || 'Failed to delete order');
+                        });
+                    }
+                }`
+            },
+
+            // Legacy action permissions for backward compatibility
             actions: {
-                process: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
-                fulfill: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
-                ready: order.paymentStatus === 'paid' && order.orderStatus === 'fulfilled',
-                pickup: order.paymentStatus === 'paid' && ['ready', 'fulfilled'].includes(order.orderStatus),
-                ship: order.paymentStatus === 'paid' && ['ready', 'fulfilled', 'picked_up'].includes(order.orderStatus),
-                deliver: order.paymentStatus === 'paid' && order.orderStatus === 'shipped',
-                cancel: ['pending', 'processing', 'fulfilled', 'ready'].includes(order.orderStatus),
-                addNote: true, // Always allow adding notes
-                update: true, // Always allow updates
-                delete: order.paymentStatus !== 'paid' // Only delete unpaid orders
+                canProcess: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
+                canFulfill: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
+                canReady: order.paymentStatus === 'paid' && order.orderStatus === 'fulfilled',
+                canPickup: order.paymentStatus === 'paid' && ['ready', 'fulfilled'].includes(order.orderStatus),
+                canShip: order.paymentStatus === 'paid' && ['ready', 'fulfilled', 'picked_up'].includes(order.orderStatus),
+                canDeliver: order.paymentStatus === 'paid' && order.orderStatus === 'shipped',
+                canCancel: ['pending', 'processing', 'fulfilled', 'ready'].includes(order.orderStatus),
+                canAddNote: true,
+                canUpdate: true,
+                canDelete: order.paymentStatus !== 'paid'
             }
         }));
 

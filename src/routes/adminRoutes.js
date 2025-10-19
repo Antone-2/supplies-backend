@@ -250,18 +250,19 @@ router.get('/test', (req, res) => {
                 '7. Shipping ships → shipped (with tracking)',
                 '8. Customer receives → delivered'
             ],
-            orderActions: [
-                'process: Move from pending to processing',
-                'fulfill: Mark as fulfilled after processing',
-                'ready: Mark as ready for shipping',
-                'pickup: Mark as picked up for delivery',
-                'ship: Ship with tracking number',
-                'deliver: Mark as delivered',
-                'cancel: Cancel order (if not shipped)',
-                'addNote: Add internal notes',
-                'update: Update order details',
-                'delete: Delete unpaid orders only'
-            ],
+            orderActions: {
+                process: 'POST /api/v1/admin/orders/:id/process - Move from pending to processing',
+                fulfill: 'POST /api/v1/admin/orders/:id/fulfill - Mark as fulfilled after processing',
+                ready: 'POST /api/v1/admin/orders/:id/ready - Mark as ready for shipping',
+                pickup: 'POST /api/v1/admin/orders/:id/pickup - Mark as picked up for delivery',
+                ship: 'POST /api/v1/admin/orders/:id/ship - Ship with tracking number',
+                deliver: 'POST /api/v1/admin/orders/:id/deliver - Mark as delivered',
+                cancel: 'POST /api/v1/admin/orders/:id/cancel - Cancel order (if not shipped)',
+                addNote: 'POST /api/v1/admin/orders/:id/notes - Add internal notes',
+                update: 'PUT /api/v1/admin/orders/:id - Update order details',
+                delete: 'DELETE /api/v1/admin/orders/:id - Delete unpaid orders only',
+                status: 'PUT /api/v1/admin/orders/:id/status - Update order status directly'
+            },
             users: [
                 '1. User registers → active',
                 '2. Admin can edit user details',
