@@ -226,7 +226,22 @@ const getProductById = async (req, res) => {
 // Create product (Admin only)
 const createProduct = async (req, res) => {
     try {
-        const productData = req.body;
+        let productData;
+
+        // Handle different content types
+        if (req.headers['content-type']?.includes('text/plain')) {
+            // Parse JSON string from plain text
+            try {
+                productData = JSON.parse(req.body);
+            } catch (parseError) {
+                return res.status(400).json({
+                    message: 'Invalid JSON data provided',
+                    error: 'Failed to parse request body as JSON'
+                });
+            }
+        } else {
+            productData = req.body;
+        }
 
         // Validate required fields
         if (!productData.name || !productData.price || !productData.category) {
@@ -287,6 +302,20 @@ const createProduct = async (req, res) => {
 
         // Populate category for response
         await product.populate('category');
+
+        // Create admin notification for successful product creation
+        try {
+            const { createAdminNotification } = await import('../controllers/adminNotificationController.js');
+            await createAdminNotification(
+                'product_created',
+                `New product "${product.name}" has been added to the catalog`,
+                'Product Added Successfully',
+                'low'
+            );
+        } catch (notificationError) {
+            console.warn('Failed to create admin notification for product creation:', notificationError);
+            // Don't fail the product creation if notification fails
+        }
 
         res.status(201).json({
             success: true,

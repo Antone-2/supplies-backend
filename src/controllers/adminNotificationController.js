@@ -1,4 +1,4 @@
-const AdminNotification = require('../../Database/models/adminNotification.model');
+import AdminNotification from '../../Database/models/adminNotification.model.js';
 
 exports.getNotifications = async (req, res) => {
     try {
@@ -22,8 +22,13 @@ exports.markAsRead = async (req, res) => {
 
 exports.createNotification = async (req, res) => {
     try {
-        const { type, message } = req.body;
-        const notification = new AdminNotification({ type, message });
+        const { type, message, title, priority = 'medium' } = req.body;
+        const notification = new AdminNotification({
+            type,
+            message,
+            title: title || message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+            priority
+        });
         await notification.save();
         res.status(201).json(notification);
     } catch (err) {
@@ -39,5 +44,22 @@ exports.deleteNotification = async (req, res) => {
         res.json({ message: 'Notification deleted' });
     } catch (err) {
         res.status(400).json({ error: err.message });
+    }
+};
+
+// Internal function for creating notifications programmatically
+export const createAdminNotification = async (type, message, title, priority = 'medium') => {
+    try {
+        const notification = new AdminNotification({
+            type,
+            message,
+            title: title || message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+            priority
+        });
+        await notification.save();
+        return notification;
+    } catch (error) {
+        console.error('Failed to create admin notification:', error);
+        return null;
     }
 };
