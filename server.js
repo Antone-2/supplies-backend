@@ -64,7 +64,18 @@ if (process.env.NODE_ENV === 'production') {
         }
     });
 }
-app.use(cors({ origin: corsOrigins.length > 0 ? corsOrigins : true, credentials: true }));
+
+// Add localhost for development
+if (process.env.NODE_ENV !== 'production') {
+    corsOrigins.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080');
+}
+
+app.use(cors({
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.text({ limit: '1mb', type: 'text/plain' }));
 app.use(cookieParser());
