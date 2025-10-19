@@ -106,6 +106,71 @@ router.post('/orders/:id/ship', orderController.shipOrder);
 router.post('/orders/:id/deliver', orderController.deliverOrder);
 router.post('/orders/:id/cancel', orderController.cancelOrder);
 
+// Additional order workflow actions for frontend action icons
+router.post('/orders/:id/ready', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const order = await orderModel.findById(id);
+        if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+        if (order.orderStatus !== 'fulfilled') {
+            return res.status(400).json({
+                success: false,
+                message: `Order must be fulfilled to mark as ready for shipping. Current status: ${order.orderStatus}`
+            });
+        }
+
+        order.orderStatus = 'ready';
+        order.timeline.push({
+            status: 'ready',
+            changedAt: new Date(),
+            note: 'Order marked as ready for shipping'
+        });
+
+        await order.save();
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} is ready for shipping`,
+            order: { id: order._id, orderNumber: order.orderNumber, orderStatus: order.orderStatus }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to mark order as ready', error: error.message });
+    }
+});
+
+router.post('/orders/:id/pickup', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const order = await orderModel.findById(id);
+        if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+        if (!['ready', 'fulfilled'].includes(order.orderStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: `Order must be ready or fulfilled for pickup. Current status: ${order.orderStatus}`
+            });
+        }
+
+        order.orderStatus = 'picked_up';
+        order.timeline.push({
+            status: 'picked_up',
+            changedAt: new Date(),
+            note: 'Order picked up for delivery'
+        });
+
+        await order.save();
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} has been picked up`,
+            order: { id: order._id, orderNumber: order.orderNumber, orderStatus: order.orderStatus }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to mark order as picked up', error: error.message });
+    }
+});
+
 // Test endpoint for admin actions
 router.get('/test', (req, res) => {
     res.json({
@@ -180,8 +245,22 @@ router.get('/test', (req, res) => {
                 '2. Payment completed → paid',
                 '3. Admin processes → processing',
                 '4. Warehouse fulfills → fulfilled',
-                '5. Shipping ships → shipped (with tracking)',
-                '6. Customer receives → delivered'
+                '5. Mark as ready → ready',
+                '6. Pickup for delivery → picked_up',
+                '7. Shipping ships → shipped (with tracking)',
+                '8. Customer receives → delivered'
+            ],
+            orderActions: [
+                'process: Move from pending to processing',
+                'fulfill: Mark as fulfilled after processing',
+                'ready: Mark as ready for shipping',
+                'pickup: Mark as picked up for delivery',
+                'ship: Ship with tracking number',
+                'deliver: Mark as delivered',
+                'cancel: Cancel order (if not shipped)',
+                'addNote: Add internal notes',
+                'update: Update order details',
+                'delete: Delete unpaid orders only'
             ],
             users: [
                 '1. User registers → active',

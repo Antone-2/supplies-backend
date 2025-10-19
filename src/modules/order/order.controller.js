@@ -81,7 +81,21 @@ const getAllOrders = async (req, res) => {
             // Enhanced payment info for admin
             isPaid: order.paymentStatus === 'paid',
             canProcess: order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus),
-            processingPriority: order.paymentStatus === 'paid' ? 'high' : 'normal'
+            processingPriority: order.paymentStatus === 'paid' ? 'high' : 'normal',
+
+            // Action permissions for frontend
+            actions: {
+                process: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
+                fulfill: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
+                ready: order.paymentStatus === 'paid' && order.orderStatus === 'fulfilled',
+                pickup: order.paymentStatus === 'paid' && ['ready', 'fulfilled'].includes(order.orderStatus),
+                ship: order.paymentStatus === 'paid' && ['ready', 'fulfilled', 'picked_up'].includes(order.orderStatus),
+                deliver: order.paymentStatus === 'paid' && order.orderStatus === 'shipped',
+                cancel: ['pending', 'processing', 'fulfilled', 'ready'].includes(order.orderStatus),
+                addNote: true, // Always allow adding notes
+                update: true, // Always allow updates
+                delete: order.paymentStatus !== 'paid' // Only delete unpaid orders
+            }
         }));
 
         // Add summary statistics
