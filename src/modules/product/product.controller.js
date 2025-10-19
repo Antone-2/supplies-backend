@@ -228,32 +228,43 @@ const createProduct = async (req, res) => {
     try {
         let productData;
 
-        // Handle request body - Express JSON middleware should have already parsed it
-        if (typeof req.body === 'object' && req.body !== null && Object.keys(req.body).length > 0) {
-            productData = req.body;
-        } else if (req.headers['content-type']?.includes('text/plain') && typeof req.body === 'string') {
-            // Parse JSON string from plain text
-            try {
-                productData = JSON.parse(req.body);
-            } catch (parseError) {
-                console.error('JSON parse error:', parseError);
-                console.error('Request body:', req.body);
+        // Handle request body - check raw body first for text/plain content
+        if (req.headers['content-type']?.includes('text/plain')) {
+            // For text/plain, the body might be a string that needs parsing
+            if (typeof req.body === 'string' && req.body.trim()) {
+                try {
+                    productData = JSON.parse(req.body);
+                } catch (parseError) {
+                    console.error('JSON parse error for text/plain:', parseError);
+                    console.error('Raw body:', req.body);
+                    return res.status(400).json({
+                        message: 'Invalid JSON in text/plain request',
+                        error: 'Failed to parse request body as JSON',
+                        details: parseError.message
+                    });
+                }
+            } else {
+                // Empty or invalid text/plain body
                 return res.status(400).json({
-                    message: 'Invalid JSON data provided',
-                    error: 'Failed to parse request body as JSON',
-                    details: parseError.message
+                    message: 'Empty request body',
+                    error: 'No data provided in text/plain request'
                 });
             }
+        } else if (typeof req.body === 'object' && req.body !== null && Object.keys(req.body).length > 0) {
+            // Standard JSON body
+            productData = req.body;
         } else {
-            console.error('Invalid request body:', req.body);
-            console.error('Content-Type:', req.headers['content-type']);
-            console.error('Body type:', typeof req.body);
-            return res.status(400).json({
-                message: 'Invalid request body',
-                error: 'Request body is empty or invalid',
+            // Fallback for other cases
+            console.error('Unsupported request format:', {
                 contentType: req.headers['content-type'],
                 bodyType: typeof req.body,
-                bodyKeys: typeof req.body === 'object' ? Object.keys(req.body) : 'N/A'
+                bodyKeys: typeof req.body === 'object' ? Object.keys(req.body) : 'N/A',
+                bodyValue: req.body
+            });
+            return res.status(400).json({
+                message: 'Unsupported request format',
+                error: 'Request must be JSON or text/plain with valid JSON content',
+                contentType: req.headers['content-type']
             });
         }
 
@@ -342,7 +353,7 @@ const createProduct = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Product created successfully',
+            message: `Product "${product.name}" has been successfully added to your catalog and is now available in the store!`,
             product: {
                 _id: product._id,
                 name: product.name,
@@ -361,6 +372,11 @@ const createProduct = async (req, res) => {
                 isActive: product.isActive,
                 createdAt: product.createdAt,
                 updatedAt: product.updatedAt
+            },
+            notification: {
+                type: 'success',
+                title: 'Product Added Successfully',
+                message: `Product "${product.name}" is now live in your store!`
             }
         });
     } catch (err) {
