@@ -525,15 +525,48 @@ const deleteProduct = async (req, res) => {
 const getAllProducts = async (req, res) => {
     try {
         console.log('getAllProducts called for admin');
+
+        // Check if MongoDB is connected
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
+        }
+
         // Admin should see all products, including inactive ones
         // Use mongoose with validation disabled to handle mixed category types
         const products = await Product.find({})
+            .populate('category', 'name')
             .sort({ createdAt: -1 })
             .setOptions({ skipValidation: true })
             .lean();
 
         console.log('All products found:', products.length);
-        res.json({ products });
+
+        // Format products for admin view
+        const formattedProducts = products.map(product => ({
+            id: product._id,
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            category: product.category?.name || product.category || 'Uncategorized',
+            brand: product.brand,
+            countInStock: product.countInStock,
+            image: product.image,
+            images: product.images,
+            isFeatured: product.isFeatured,
+            featured: product.featured,
+            discount: product.discount,
+            rating: product.rating,
+            numReviews: product.numReviews,
+            isActive: product.isActive,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt
+        }));
+
+        res.json({
+            success: true,
+            products: formattedProducts,
+            total: formattedProducts.length
+        });
     } catch (err) {
         console.error('Error fetching all products:', err);
         // If that fails, try raw MongoDB query
@@ -542,10 +575,39 @@ const getAllProducts = async (req, res) => {
             const productsCollection = db.collection('products');
             const products = await productsCollection.find({}).sort({ createdAt: -1 }).toArray();
             console.log('Raw MongoDB query: All products found:', products.length);
-            res.json({ products });
+
+            const formattedProducts = products.map(product => ({
+                id: product._id,
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                category: product.category || 'Uncategorized',
+                brand: product.brand,
+                countInStock: product.countInStock,
+                image: product.image,
+                images: product.images,
+                isFeatured: product.isFeatured,
+                featured: product.featured,
+                discount: product.discount,
+                rating: product.rating,
+                numReviews: product.numReviews,
+                isActive: product.isActive,
+                createdAt: product.createdAt,
+                updatedAt: product.updatedAt
+            }));
+
+            res.json({
+                success: true,
+                products: formattedProducts,
+                total: formattedProducts.length
+            });
         } catch (rawErr) {
             console.error('Raw MongoDB query also failed:', rawErr);
-            res.status(500).json({ message: 'Failed to fetch all products', details: rawErr.message });
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch all products',
+                error: rawErr.message
+            });
         }
     }
 };

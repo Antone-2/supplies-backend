@@ -26,15 +26,52 @@ export async function createReview(req, res) {
 
         // Check if user has successfully placed an order for this product
         const Order = (await import('../../Database/models/order.model.js')).default;
-        const hasOrderedProduct = await Order.findOne({
+        const userOrder = await Order.findOne({
             user: userId,
             'items.productId': productId,
-            orderStatus: { $in: ['completed', 'shipped', 'delivered'] },
+            orderStatus: { $in: ['processing', 'fulfilled', 'shipped', 'delivered'] },
             paymentStatus: 'paid'
         });
 
-        if (!hasOrderedProduct) {
-            return res.status(403).json({ message: 'You can only review products you have successfully purchased.' });
+        if (!userOrder) {
+            return res.status(403).json({
+                message: 'You can only review products you have successfully purchased and paid for.',
+                details: 'Reviews are only allowed for products from completed orders with successful payment.',
+                help: 'Please ensure you have placed an order for this product and completed the payment process.'
+            });
+        }
+
+        // Additional validation: Check if the order was delivered (preferred) or at least processed
+        const isDelivered = userOrder.orderStatus === 'delivered';
+        const isShipped = userOrder.orderStatus === 'shipped';
+        const isFulfilled = userOrder.orderStatus === 'fulfilled';
+
+        // Allow reviews for delivered orders immediately, shipped orders after 12 hours, fulfilled orders after 6 hours
+        let minimumOrderAge = 0; // Delivered orders can be reviewed immediately
+
+        if (isShipped) {
+            minimumOrderAge = 12 * 60 * 60 * 1000; // 12 hours for shipped orders
+        } else if (isFulfilled) {
+            minimumOrderAge = 6 * 60 * 60 * 1000; // 6 hours for fulfilled orders
+        } else if (userOrder.orderStatus === 'processing') {
+            minimumOrderAge = 24 * 60 * 60 * 1000; // 24 hours for processing orders
+        }
+
+        if (minimumOrderAge > 0) {
+            const orderAge = Date.now() - new Date(userOrder.createdAt).getTime();
+            if (orderAge < minimumOrderAge) {
+                const remainingHours = Math.ceil((minimumOrderAge - orderAge) / (60 * 60 * 1000));
+                const waitingPeriod = isShipped ? '12 hours' : isFulfilled ? '6 hours' : '24 hours';
+
+                return res.status(403).json({
+                    message: `Please wait ${remainingHours} more hours before reviewing this product.`,
+                    details: `We require a ${waitingPeriod} waiting period after ${userOrder.orderStatus} status to ensure product quality experience.`,
+                    orderStatus: userOrder.orderStatus,
+                    orderDate: userOrder.createdAt,
+                    canReviewAt: new Date(userOrder.createdAt.getTime() + minimumOrderAge),
+                    reason: `Order is ${userOrder.orderStatus} - reviews allowed after ${waitingPeriod}`
+                });
+            }
         }
 
         // Check if user already reviewed this product
@@ -88,7 +125,13 @@ export async function createReview(req, res) {
                 rating: review.rating,
                 comment: review.comment,
                 createdAt: review.createdAt,
-                updatedAt: review.updatedAt
+                updatedAt: review.updatedAt,
+                verified: true,
+                orderInfo: {
+                    orderId: userOrder.orderNumber,
+                    orderStatus: userOrder.orderStatus,
+                    orderDate: userOrder.createdAt
+                }
             }
         });
     } catch (error) {

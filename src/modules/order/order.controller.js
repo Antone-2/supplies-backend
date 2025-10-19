@@ -12,7 +12,15 @@ import { initiatePesapalPayment } from '../../services/pesapalService.js';
 
 const getAllOrders = async (req, res) => {
     try {
-        const { page = 1, limit = 20, status, paymentStatus, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+        const {
+            page = 1,
+            limit = 20,
+            status,
+            paymentStatus,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+            paymentFilter = 'all' // 'all', 'paid', 'unpaid', 'pending'
+        } = req.query;
 
         // Check if MongoDB is connected
         if (mongoose.connection.readyState !== 1) {
@@ -20,8 +28,21 @@ const getAllOrders = async (req, res) => {
         }
 
         const query = {};
+
+        // Handle status filter
         if (status) query.orderStatus = status;
-        if (paymentStatus) query.paymentStatus = paymentStatus;
+
+        // Handle payment status filter
+        if (paymentStatus) {
+            query.paymentStatus = paymentStatus;
+        } else if (paymentFilter === 'paid') {
+            query.paymentStatus = 'paid';
+        } else if (paymentFilter === 'unpaid') {
+            query.paymentStatus = { $ne: 'paid' };
+        } else if (paymentFilter === 'pending') {
+            query.paymentStatus = 'pending';
+        }
+        // 'all' means no payment filter
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
@@ -34,7 +55,7 @@ const getAllOrders = async (req, res) => {
             .limit(parseInt(limit));
         const total = await orderModel.countDocuments(query);
 
-        // Format orders for admin view
+        // Format orders for admin view with enhanced payment information
         const formattedOrders = orders.map(order => ({
             id: order._id,
             orderNumber: order.orderNumber || order._id,
@@ -48,6 +69,7 @@ const getAllOrders = async (req, res) => {
             shipping: order.shippingFee || 0,
             status: order.orderStatus || 'pending',
             paymentStatus: order.paymentStatus || 'pending',
+            paymentMethod: order.paymentMethod || 'pesapal',
             shippingAddress: order.shippingAddress || {},
             billingAddress: order.shippingAddress || {}, // Same as shipping for now
             createdAt: order.createdAt,
@@ -56,18 +78,42 @@ const getAllOrders = async (req, res) => {
             trackingNumber: order.trackingNumber || null,
             transactionTrackingId: order.transactionTrackingId || null,
             transactionStatus: order.transactionStatus || null,
-            paymentMethod: order.paymentMethod || 'pesapal'
+            // Enhanced payment info for admin
+            isPaid: order.paymentStatus === 'paid',
+            canProcess: order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus),
+            processingPriority: order.paymentStatus === 'paid' ? 'high' : 'normal'
         }));
+
+        // Add summary statistics
+        const paidOrders = formattedOrders.filter(order => order.isPaid).length;
+        const processableOrders = formattedOrders.filter(order => order.canProcess).length;
 
         res.json({
             orders: formattedOrders,
             page: parseInt(page),
             limit: parseInt(limit),
             total,
-            totalPages: Math.ceil(total / parseInt(limit))
+            totalPages: Math.ceil(total / parseInt(limit)),
+            summary: {
+                totalOrders: formattedOrders.length,
+                paidOrders,
+                processableOrders,
+                unpaidOrders: formattedOrders.length - paidOrders,
+                filters: {
+                    status: status || 'all',
+                    paymentStatus: paymentStatus || paymentFilter,
+                    sortBy,
+                    sortOrder
+                }
+            }
         });
     } catch (err) {
-        res.status(500).json({ message: 'Failed to fetch orders' });
+        console.error('Error fetching orders:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch orders',
+            error: err.message
+        });
     }
 };
 
@@ -240,105 +286,222 @@ const sendOrderNotification = async (userId, message) => {
     return await sendOrderEmail(user.email, subject, htmlContent);
 };
 
+// Process order status update with comprehensive workflow
 const updateOrderStatus = async (req, res) => {
     try {
         const orderId = req.params.id;
         const { status, paymentStatus, note, trackingNumber } = req.body;
-        const order = await orderModel.findById(orderId);
-        if (!order) return res.status(404).json({ message: 'Order not found' });
 
-        // Update status fields
+        // Validate required fields
+        if (!status && !paymentStatus && !note && !trackingNumber) {
+            return res.status(400).json({
+                success: false,
+                message: 'At least one field must be provided: status, paymentStatus, note, or trackingNumber'
+            });
+        }
+
+        // Check if MongoDB is connected
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
+        }
+
+        const order = await orderModel.findById(orderId);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        // Validate status transitions (business rules)
+        if (status) {
+            const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+            if (!validStatuses.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+                });
+            }
+
+            // Business rule: Cannot change status of delivered orders
+            if (order.orderStatus === 'delivered' && status !== 'delivered') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot change status of delivered orders'
+                });
+            }
+
+            // Business rule: Cannot change status of cancelled orders
+            if (order.orderStatus === 'cancelled' && status !== 'cancelled') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot change status of cancelled orders'
+                });
+            }
+
+            // Generate tracking number for shipped orders
+            if (status === 'shipped' && !order.trackingNumber && !trackingNumber) {
+                const generatedTrackingNumber = `TRK-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+                order.trackingNumber = generatedTrackingNumber;
+                console.log(`📦 Generated tracking number: ${generatedTrackingNumber} for order ${order.orderNumber}`);
+            }
+        }
+
+        // Validate payment status transitions
+        if (paymentStatus) {
+            const validPaymentStatuses = ['pending', 'paid', 'failed', 'refunded'];
+            if (!validPaymentStatuses.includes(paymentStatus)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid payment status. Must be one of: ${validPaymentStatuses.join(', ')}`
+                });
+            }
+        }
+
+        // Store original values for comparison
+        const originalStatus = order.orderStatus;
+        const originalPaymentStatus = order.paymentStatus;
+
+        // Update fields
         if (status) order.orderStatus = status;
         if (paymentStatus) order.paymentStatus = paymentStatus;
         if (trackingNumber) order.trackingNumber = trackingNumber;
 
         // Add timeline entry
-        order.timeline.push({
+        const timelineEntry = {
             status: status || order.orderStatus,
             changedAt: new Date(),
-            note: note || ''
-        });
+            note: note || `Status updated by admin${status ? ` to ${status}` : ''}${paymentStatus ? `, payment ${paymentStatus}` : ''}`
+        };
+        order.timeline.push(timelineEntry);
 
         await order.save();
 
+        console.log(`✅ Order ${orderId} processed:`, {
+            orderNumber: order.orderNumber,
+            statusChange: originalStatus !== order.orderStatus ? `${originalStatus} → ${order.orderStatus}` : 'unchanged',
+            paymentChange: originalPaymentStatus !== order.paymentStatus ? `${originalPaymentStatus} → ${order.paymentStatus}` : 'unchanged',
+            trackingNumber: order.trackingNumber,
+            hasNote: !!note
+        });
+
         // Send notifications for status changes
-        if (status && order.shippingAddress?.email) {
+        if (status && status !== originalStatus && order.shippingAddress?.email) {
             try {
-                // Send appropriate email based on status
-                if (status === 'shipped') {
-                    await sendShippingNotification({
-                        email: order.shippingAddress.email,
-                        name: order.shippingAddress.fullName,
-                        orderId: order.orderNumber,
-                        trackingNumber: order.trackingNumber
-                    });
-                } else if (status === 'delivered') {
-                    await sendDeliveryNotification({
-                        email: order.shippingAddress.email,
-                        name: order.shippingAddress.fullName,
-                        orderId: order.orderNumber,
-                        deliveryDate: new Date()
-                    });
-                } else {
-                    // Send general status update for other statuses
-                    await sendOrderStatusUpdate({
-                        email: order.shippingAddress.email,
-                        name: order.shippingAddress.fullName,
-                        orderId: order.orderNumber,
-                        status: status,
-                        trackingNumber: order.trackingNumber,
-                        note: note
-                    });
-                }
-
-                console.log(`Order status update email sent for status: ${status}`);
+                await sendOrderStatusNotifications(order, status, note);
             } catch (notificationError) {
-                console.warn('Order status notification email failed:', notificationError);
+                console.warn('Order status notification failed:', notificationError);
+                // Don't fail the update if notifications fail
             }
         }
 
-        // Send SMS notifications for status changes if phone number is provided
-        if (status && order.shippingAddress?.phone) {
-            try {
-                // Format phone number to international format if needed (assuming Kenyan numbers)
-                let phoneNumber = order.shippingAddress.phone;
-                if (phoneNumber.startsWith('0')) {
-                    phoneNumber = '+254' + phoneNumber.substring(1);
-                } else if (!phoneNumber.startsWith('+')) {
-                    phoneNumber = '+254' + phoneNumber;
-                }
-
-                // Send appropriate SMS based on status
-                if (status === 'shipped') {
-                    await sendShippingNotificationSMS(phoneNumber, {
-                        name: order.shippingAddress.fullName,
-                        orderId: order.orderNumber,
-                        trackingNumber: order.trackingNumber
-                    });
-                } else if (status === 'delivered') {
-                    await sendDeliveryNotificationSMS(phoneNumber, {
-                        name: order.shippingAddress.fullName,
-                        orderId: order.orderNumber
-                    });
-                } else {
-                    // Send general status update SMS for other statuses
-                    await sendOrderStatusUpdateSMS(phoneNumber, {
-                        name: order.shippingAddress.fullName,
-                        orderId: order.orderNumber,
-                        status: status
-                    });
-                }
-
-                console.log(`Order status update SMS sent for status: ${status}`);
-            } catch (smsError) {
-                console.warn('Order status notification SMS failed:', smsError);
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} processed successfully`,
+            order: {
+                id: order._id,
+                orderNumber: order.orderNumber,
+                orderStatus: order.orderStatus,
+                paymentStatus: order.paymentStatus,
+                trackingNumber: order.trackingNumber,
+                updatedAt: order.updatedAt,
+                statusChanged: originalStatus !== order.orderStatus,
+                paymentStatusChanged: originalPaymentStatus !== order.paymentStatus
+            },
+            notifications: {
+                emailSent: status && status !== originalStatus ? true : false,
+                smsSent: status && status !== originalStatus && order.shippingAddress?.phone ? true : false
             }
-        }
-
-        res.json({ message: 'Order status updated', order });
+        });
     } catch (error) {
-        res.status(500).json({ message: 'Failed to update order status', error: error.message });
+        console.error('Error processing order:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to process order',
+            error: error.message
+        });
     }
+};
+
+// Helper function to send order status notifications
+const sendOrderStatusNotifications = async (order, newStatus, note) => {
+    const notifications = [];
+
+    // Email notification
+    if (order.shippingAddress?.email) {
+        try {
+            let emailFunction;
+            switch (newStatus) {
+                case 'processing':
+                    emailFunction = sendOrderStatusUpdate;
+                    break;
+                case 'shipped':
+                    emailFunction = sendShippingNotification;
+                    break;
+                case 'delivered':
+                    emailFunction = sendDeliveryNotification;
+                    break;
+                default:
+                    emailFunction = sendOrderStatusUpdate;
+            }
+
+            await emailFunction({
+                email: order.shippingAddress.email,
+                name: order.shippingAddress.fullName,
+                orderId: order.orderNumber,
+                status: newStatus,
+                trackingNumber: order.trackingNumber,
+                note: note,
+                deliveryDate: newStatus === 'delivered' ? new Date() : undefined
+            });
+
+            notifications.push('email');
+            console.log(`📧 Order status email sent for ${order.orderNumber}: ${newStatus}`);
+        } catch (emailError) {
+            console.warn(`📧❌ Failed to send email notification for order ${order.orderNumber}:`, emailError);
+        }
+    }
+
+    // SMS notification
+    if (order.shippingAddress?.phone) {
+        try {
+            let phoneNumber = order.shippingAddress.phone;
+            if (phoneNumber.startsWith('0')) {
+                phoneNumber = '+254' + phoneNumber.substring(1);
+            } else if (!phoneNumber.startsWith('+')) {
+                phoneNumber = '+254' + phoneNumber;
+            }
+
+            let smsFunction;
+            switch (newStatus) {
+                case 'processing':
+                    smsFunction = sendOrderStatusUpdateSMS;
+                    break;
+                case 'shipped':
+                    smsFunction = sendShippingNotificationSMS;
+                    break;
+                case 'delivered':
+                    smsFunction = sendDeliveryNotificationSMS;
+                    break;
+                default:
+                    smsFunction = sendOrderStatusUpdateSMS;
+            }
+
+            await smsFunction(phoneNumber, {
+                name: order.shippingAddress.fullName,
+                orderId: order.orderNumber,
+                status: newStatus,
+                trackingNumber: order.trackingNumber
+            });
+
+            notifications.push('sms');
+            console.log(`📱 Order status SMS sent for ${order.orderNumber}: ${newStatus}`);
+        } catch (smsError) {
+            console.warn(`📱❌ Failed to send SMS notification for order ${order.orderNumber}:`, smsError);
+        }
+    }
+
+    return notifications;
 };
 
 const payMpesa = async (req, res) => {
@@ -406,13 +569,17 @@ const getOrderAnalytics = async (req, res) => {
             throw new Error('Failed to fetch user data');
         }
 
-        console.log('Dashboard stats calculated:', {
+        console.log('📊 Real-time dashboard analytics calculated:', {
             totalOrders,
             pendingOrders,
-            totalRevenue,
+            totalRevenue: `KES ${totalRevenue.toLocaleString()}`,
             totalUsers,
             totalProducts,
-            lowStockProducts
+            lowStockProducts,
+            monthlyRevenue: monthlyRevenue.length,
+            topProducts: topProducts.length,
+            categoryPerformance: categoryPerformance.length,
+            userGrowth: userGrowth.length
         });
 
         // Get product count and low stock products
@@ -462,34 +629,54 @@ const getOrderAnalytics = async (req, res) => {
             throw new Error('Failed to fetch user growth data');
         }
 
-        // Get monthly revenue data (last 6 months)
+        // Get real monthly revenue data (last 6 months)
         const monthlyRevenue = [];
-        for (let i = 5; i >= 0; i--) {
-            const date = new Date();
-            date.setMonth(date.getMonth() - i);
-            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        try {
+            for (let i = 5; i >= 0; i--) {
+                const date = new Date();
+                date.setMonth(date.getMonth() - i);
+                const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-            const monthResult = await orderModel.aggregate([
-                {
-                    $match: {
-                        paymentStatus: 'paid',
-                        createdAt: { $gte: monthStart, $lte: monthEnd }
+                const monthResult = await orderModel.aggregate([
+                    {
+                        $match: {
+                            paymentStatus: 'paid',
+                            createdAt: { $gte: monthStart, $lte: monthEnd }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            revenue: { $sum: '$totalAmount' },
+                            orders: { $sum: 1 },
+                            avgOrderValue: { $avg: '$totalAmount' }
+                        }
                     }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        revenue: { $sum: '$totalAmount' },
-                        orders: { $sum: 1 }
-                    }
-                }
-            ]);
+                ]);
 
-            monthlyRevenue.push({
-                month: monthStart.toLocaleString('default', { month: 'short' }),
-                revenue: monthResult.length > 0 ? monthResult[0].revenue : 0,
-                orders: monthResult.length > 0 ? monthResult[0].orders : 0
+                const result = monthResult.length > 0 ? monthResult[0] : { revenue: 0, orders: 0, avgOrderValue: 0 };
+
+                monthlyRevenue.push({
+                    month: monthStart.toLocaleString('default', { month: 'short' }),
+                    year: monthStart.getFullYear(),
+                    revenue: Math.round(result.revenue * 100) / 100, // Round to 2 decimal places
+                    orders: result.orders || 0,
+                    avgOrderValue: Math.round(result.avgOrderValue * 100) / 100
+                });
+            }
+        } catch (error) {
+            console.log('Error fetching monthly revenue:', error.message);
+            // Provide fallback data
+            const fallbackMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+            fallbackMonths.forEach(month => {
+                monthlyRevenue.push({
+                    month,
+                    year: new Date().getFullYear(),
+                    revenue: 0,
+                    orders: 0,
+                    avgOrderValue: 0
+                });
             });
         }
 
@@ -515,63 +702,144 @@ const getOrderAnalytics = async (req, res) => {
             revenue: product.revenue
         }));
 
-        // Get order status breakdown
+        // Get real order status breakdown
         const orderStatuses = await orderModel.aggregate([
             {
                 $group: {
                     _id: '$orderStatus',
-                    count: { $sum: 1 }
+                    count: { $sum: 1 },
+                    revenue: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$paymentStatus', 'paid'] },
+                                '$totalAmount',
+                                0
+                            ]
+                        }
+                    }
                 }
             }
         ]);
 
         const orderStatusBreakdown = [
-            { status: 'completed', count: 0 },
-            { status: 'pending', count: 0 },
-            { status: 'shipped', count: 0 },
-            { status: 'cancelled', count: 0 }
+            { status: 'pending', count: 0, revenue: 0, percentage: 0 },
+            { status: 'processing', count: 0, revenue: 0, percentage: 0 },
+            { status: 'fulfilled', count: 0, revenue: 0, percentage: 0 },
+            { status: 'shipped', count: 0, revenue: 0, percentage: 0 },
+            { status: 'delivered', count: 0, revenue: 0, percentage: 0 },
+            { status: 'cancelled', count: 0, revenue: 0, percentage: 0 }
         ];
 
         orderStatuses.forEach(status => {
             const index = orderStatusBreakdown.findIndex(s => s.status === status._id);
             if (index !== -1) {
                 orderStatusBreakdown[index].count = status.count;
+                orderStatusBreakdown[index].revenue = status.revenue || 0;
             }
         });
 
+        // Calculate percentages based on total orders
+        const totalOrderCount = orderStatusBreakdown.reduce((sum, status) => sum + status.count, 0);
         orderStatusBreakdown.forEach(status => {
-            status.percentage = totalOrders > 0 ? (status.count / totalOrders) * 100 : 0;
+            status.percentage = totalOrderCount > 0 ? Math.round((status.count / totalOrderCount) * 100 * 100) / 100 : 0;
         });
 
-        // Get user growth data (last 6 months)
+        // Get real user growth data (last 6 months)
         const userGrowth = [];
         try {
             for (let i = 5; i >= 0; i--) {
                 const date = new Date();
                 date.setMonth(date.getMonth() - i);
                 const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-                const monthUsers = await User.countDocuments({ createdAt: { $gte: monthStart } });
+                // Count users registered in this month
+                const monthUsers = await User.countDocuments({
+                    createdAt: { $gte: monthStart, $lte: monthEnd }
+                });
+
+                // Count cumulative users up to end of this month
+                const cumulativeUsers = await User.countDocuments({
+                    createdAt: { $lte: monthEnd }
+                });
 
                 userGrowth.push({
                     month: monthStart.toLocaleString('default', { month: 'short' }),
-                    users: monthUsers
+                    newUsers: monthUsers,
+                    totalUsers: cumulativeUsers
                 });
             }
         } catch (error) {
-            console.log('Could not fetch user growth data');
-            throw new Error('Failed to fetch user growth data');
+            console.log('Could not fetch user growth data:', error.message);
+            // Provide fallback data instead of throwing error
+            const fallbackMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+            fallbackMonths.forEach((month, index) => {
+                userGrowth.push({
+                    month,
+                    newUsers: 0,
+                    totalUsers: totalUsers || 0
+                });
+            });
         }
 
-        // Get category performance (simplified - would need category data)
-        const categoryPerformance = [
-            { category: 'Medical Equipment', sales: 456, revenue: 45600 },
-            { category: 'Personal Protective Equipment', sales: 389, revenue: 15560 },
-            { category: 'Diagnostic Tools', sales: 234, revenue: 35100 },
-            { category: 'Surgical Supplies', sales: 178, revenue: 14240 }
-        ];
+        // Get real category performance data
+        const categoryPerformanceResult = await orderModel.aggregate([
+            { $match: { paymentStatus: 'paid' } },
+            { $unwind: '$items' },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: 'items.productId',
+                    foreignField: '_id',
+                    as: 'product'
+                }
+            },
+            { $unwind: { path: '$product', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'categories',
+                    localField: 'product.category',
+                    foreignField: '_id',
+                    as: 'category'
+                }
+            },
+            { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+            {
+                $group: {
+                    _id: '$category.name',
+                    sales: { $sum: '$items.quantity' },
+                    revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } },
+                    orders: { $addToSet: '$_id' }
+                }
+            },
+            {
+                $project: {
+                    category: '$_id',
+                    sales: 1,
+                    revenue: 1,
+                    orderCount: { $size: '$orders' }
+                }
+            },
+            { $sort: { revenue: -1 } },
+            { $limit: 5 }
+        ]);
+
+        const categoryPerformance = categoryPerformanceResult.map(cat => ({
+            category: cat.category || 'Uncategorized',
+            sales: cat.sales || 0,
+            revenue: cat.revenue || 0,
+            orders: cat.orderCount || 0
+        }));
+
+        // If no real data, provide fallback
+        if (categoryPerformance.length === 0) {
+            categoryPerformance.push(
+                { category: 'No sales data available', sales: 0, revenue: 0, orders: 0 }
+            );
+        }
 
         const stats = {
+            // Core metrics
             totalProducts,
             totalOrders,
             totalUsers,
@@ -579,11 +847,30 @@ const getOrderAnalytics = async (req, res) => {
             pendingOrders,
             newUsers,
             lowStockProducts,
+
+            // Revenue analytics
             monthlyRevenue,
+            averageOrderValue: totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0,
+
+            // Product performance
             topProducts,
+            totalTopProductsRevenue: topProducts.reduce((sum, product) => sum + product.revenue, 0),
+
+            // Order analytics
             orderStatusBreakdown,
+            orderConversionRate: totalOrders > 0 ? Math.round(((totalOrders - pendingOrders) / totalOrders) * 100 * 100) / 100 : 0,
+
+            // User analytics
             userGrowth,
-            categoryPerformance
+            userRetentionRate: totalUsers > 0 ? Math.round((newUsers / totalUsers) * 100 * 100) / 100 : 0,
+
+            // Category analytics
+            categoryPerformance,
+            totalCategoryRevenue: categoryPerformance.reduce((sum, cat) => sum + cat.revenue, 0),
+
+            // System health
+            dataFreshness: new Date().toISOString(),
+            analyticsSource: 'real-time'
         };
 
         res.json({
@@ -758,39 +1045,153 @@ const initiatePayment = async (req, res) => {
     }
 };
 
-// Admin: Update order
+// Admin: Update order with comprehensive processing
 const updateOrder = async (req, res) => {
     try {
         const { id } = req.params;
         const { orderStatus, paymentStatus, trackingNumber, transactionTrackingId, transactionStatus, note } = req.body;
 
-        const order = await orderModel.findById(id);
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
+        // Validate that at least one field is provided
+        if (!orderStatus && !paymentStatus && !trackingNumber && !transactionTrackingId && !transactionStatus && !note) {
+            return res.status(400).json({
+                success: false,
+                message: 'At least one field must be provided for update'
+            });
         }
 
-        // Update fields
-        if (orderStatus) order.orderStatus = orderStatus;
-        if (paymentStatus) order.paymentStatus = paymentStatus;
+        // Check if MongoDB is connected
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
+        }
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        // Store original values for change tracking
+        const originalValues = {
+            orderStatus: order.orderStatus,
+            paymentStatus: order.paymentStatus,
+            trackingNumber: order.trackingNumber,
+            transactionTrackingId: order.transactionTrackingId,
+            transactionStatus: order.transactionStatus
+        };
+
+        // Validate and update order status
+        if (orderStatus) {
+            const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+            if (!validStatuses.includes(orderStatus)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid order status. Must be one of: ${validStatuses.join(', ')}`
+                });
+            }
+
+            // Business rules for status changes
+            if (order.orderStatus === 'delivered' && orderStatus !== 'delivered') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot change status of delivered orders'
+                });
+            }
+
+            if (order.orderStatus === 'cancelled' && orderStatus !== 'cancelled') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot change status of cancelled orders'
+                });
+            }
+
+            order.orderStatus = orderStatus;
+        }
+
+        // Validate and update payment status
+        if (paymentStatus) {
+            const validPaymentStatuses = ['pending', 'paid', 'failed', 'refunded'];
+            if (!validPaymentStatuses.includes(paymentStatus)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid payment status. Must be one of: ${validPaymentStatuses.join(', ')}`
+                });
+            }
+            order.paymentStatus = paymentStatus;
+        }
+
+        // Update other fields
         if (trackingNumber) order.trackingNumber = trackingNumber;
         if (transactionTrackingId) order.transactionTrackingId = transactionTrackingId;
         if (transactionStatus) order.transactionStatus = transactionStatus;
 
-        // Add timeline entry if status changed
-        if (orderStatus || paymentStatus || note) {
-            order.timeline.push({
-                status: orderStatus || order.orderStatus,
-                changedAt: new Date(),
-                note: note || 'Order updated by admin'
-            });
-        }
+        // Add timeline entry for admin updates
+        const changes = [];
+        if (originalValues.orderStatus !== order.orderStatus) changes.push(`status: ${originalValues.orderStatus} → ${order.orderStatus}`);
+        if (originalValues.paymentStatus !== order.paymentStatus) changes.push(`payment: ${originalValues.paymentStatus} → ${order.paymentStatus}`);
+        if (originalValues.trackingNumber !== order.trackingNumber) changes.push(`tracking added/updated`);
+        if (originalValues.transactionTrackingId !== order.transactionTrackingId) changes.push(`transaction ID updated`);
+        if (originalValues.transactionStatus !== order.transactionStatus) changes.push(`transaction status updated`);
+
+        const timelineNote = note || (changes.length > 0 ? `Admin update: ${changes.join(', ')}` : 'Order updated by admin');
+
+        order.timeline.push({
+            status: order.orderStatus,
+            changedAt: new Date(),
+            note: timelineNote
+        });
 
         await order.save();
 
-        res.json({ order });
+        console.log(`✅ Order ${id} comprehensively updated:`, {
+            orderNumber: order.orderNumber,
+            changes: changes.length,
+            hasNote: !!note,
+            statusChanged: originalValues.orderStatus !== order.orderStatus,
+            paymentChanged: originalValues.paymentStatus !== order.paymentStatus
+        });
+
+        // Send notifications if status changed
+        if (orderStatus && orderStatus !== originalValues.orderStatus && order.shippingAddress?.email) {
+            try {
+                await sendOrderStatusNotifications(order, orderStatus, note);
+            } catch (notificationError) {
+                console.warn('Order update notification failed:', notificationError);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} updated successfully`,
+            order: {
+                id: order._id,
+                orderNumber: order.orderNumber,
+                orderStatus: order.orderStatus,
+                paymentStatus: order.paymentStatus,
+                trackingNumber: order.trackingNumber,
+                transactionTrackingId: order.transactionTrackingId,
+                transactionStatus: order.transactionStatus,
+                updatedAt: order.updatedAt
+            },
+            changes: {
+                statusChanged: originalValues.orderStatus !== order.orderStatus,
+                paymentStatusChanged: originalValues.paymentStatus !== order.paymentStatus,
+                trackingUpdated: originalValues.trackingNumber !== order.trackingNumber,
+                transactionUpdated: originalValues.transactionTrackingId !== order.transactionTrackingId || originalValues.transactionStatus !== order.transactionStatus,
+                noteAdded: !!note
+            },
+            notifications: {
+                sent: orderStatus && orderStatus !== originalValues.orderStatus ? true : false
+            }
+        });
     } catch (err) {
         console.error('Error updating order:', err);
-        res.status(500).json({ message: 'Failed to update order' });
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update order',
+            error: err.message
+        });
     }
 };
 
@@ -933,7 +1334,10 @@ const bulkDeleteOrders = async (req, res) => {
         // Delete orders from MongoDB
         const result = await orderModel.deleteMany({ _id: { $in: orderIds } });
 
+        console.log(`✅ Bulk deleted ${result.deletedCount} orders`);
+
         res.json({
+            success: true,
             message: `Successfully deleted ${result.deletedCount} orders`,
             deletedCount: result.deletedCount
         });
@@ -1042,7 +1446,10 @@ const bulkUpdateOrders = async (req, res) => {
             }
         }
 
+        console.log(`✅ Bulk updated ${result.modifiedCount} orders`);
+
         res.json({
+            success: true,
             message: `Successfully updated ${result.modifiedCount} orders`,
             updatedCount: result.modifiedCount,
             matchedCount: result.matchedCount
@@ -1053,41 +1460,351 @@ const bulkUpdateOrders = async (req, res) => {
     }
 };
 
-// Admin: Add note to order
+// Admin: Delete single order
+const deleteOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if MongoDB is connected
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
+        }
+
+        // Find the order first
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        // Check if order has been paid (paid orders should not be deleted)
+        if (order.paymentStatus === 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot delete a paid order. Consider cancelling instead.',
+                orderStatus: order.orderStatus,
+                paymentStatus: order.paymentStatus
+            });
+        }
+
+        // Log the deletion
+        console.log(`🗑️ Admin deleting order ${order.orderNumber} (ID: ${id})`);
+
+        // Delete the order
+        await orderModel.findByIdAndDelete(id);
+
+        console.log(`✅ Order ${order.orderNumber} successfully deleted`);
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} has been successfully deleted`,
+            deletedOrder: {
+                id: order._id,
+                orderNumber: order.orderNumber,
+                customerName: order.shippingAddress?.fullName || 'N/A',
+                totalAmount: order.totalAmount,
+                orderStatus: order.orderStatus,
+                paymentStatus: order.paymentStatus
+            }
+        });
+    } catch (err) {
+        console.error('Error deleting order:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete order',
+            error: err.message
+        });
+    }
+};
+
+// Admin: Add note to order with enhanced processing
 const addOrderNote = async (req, res) => {
     try {
         const { id } = req.params;
-        const { note } = req.body;
+        const { note, noteType = 'admin', priority = 'normal' } = req.body;
 
+        // Validate note
         if (!note || typeof note !== 'string' || note.trim().length === 0) {
-            return res.status(400).json({ message: 'Note is required and must be a non-empty string' });
+            return res.status(400).json({
+                success: false,
+                message: 'Note is required and must be a non-empty string'
+            });
+        }
+
+        if (note.trim().length > 1000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Note must be less than 1000 characters'
+            });
+        }
+
+        // Check if MongoDB is connected
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         const order = await orderModel.findById(id);
         if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
         }
 
-        // Add note to timeline
-        order.timeline.push({
+        // Create enhanced note entry
+        const noteEntry = {
             status: order.orderStatus,
             changedAt: new Date(),
-            note: note.trim()
+            note: note.trim(),
+            noteType: noteType, // 'admin', 'system', 'customer', etc.
+            priority: priority, // 'low', 'normal', 'high', 'urgent'
+            addedBy: 'admin' // In a real app, this would be the admin's ID/name
+        };
+
+        order.timeline.push(noteEntry);
+        await order.save();
+
+        console.log(`✅ Note added to order ${id}:`, {
+            orderNumber: order.orderNumber,
+            noteType,
+            priority,
+            length: note.trim().length
+        });
+
+        res.json({
+            success: true,
+            message: 'Note added successfully to order',
+            order: {
+                id: order._id,
+                orderNumber: order.orderNumber,
+                timeline: order.timeline.slice(-1)[0] // Return just the new note
+            },
+            noteDetails: {
+                type: noteType,
+                priority: priority,
+                length: note.trim().length,
+                addedAt: noteEntry.changedAt
+            }
+        });
+    } catch (err) {
+        console.error('Error adding order note:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to add note to order',
+            error: err.message
+        });
+    }
+};
+
+// Order processing workflow functions
+const processOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { note } = req.body;
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (order.orderStatus !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                message: `Order is already ${order.orderStatus}, cannot process`
+            });
+        }
+
+        order.orderStatus = 'processing';
+        order.timeline.push({
+            status: 'processing',
+            changedAt: new Date(),
+            note: note || 'Order moved to processing by admin'
+        });
+
+        await order.save();
+
+        // Send notifications
+        if (order.shippingAddress?.email) {
+            await sendOrderStatusNotifications(order, 'processing', note);
+        }
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} is now being processed`,
+            order: { id: order._id, orderNumber: order.orderNumber, orderStatus: order.orderStatus }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to process order', error: error.message });
+    }
+};
+
+const fulfillOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { note } = req.body;
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (order.orderStatus !== 'processing') {
+            return res.status(400).json({
+                success: false,
+                message: `Order must be processing to fulfill. Current status: ${order.orderStatus}`
+            });
+        }
+
+        order.orderStatus = 'fulfilled';
+        order.timeline.push({
+            status: 'fulfilled',
+            changedAt: new Date(),
+            note: note || 'Order fulfilled and ready for shipping'
         });
 
         await order.save();
 
         res.json({
-            message: 'Note added successfully',
+            success: true,
+            message: `Order ${order.orderNumber} has been fulfilled`,
+            order: { id: order._id, orderNumber: order.orderNumber, orderStatus: order.orderStatus }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to fulfill order', error: error.message });
+    }
+};
+
+const shipOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { trackingNumber, note } = req.body;
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (!['processing', 'fulfilled'].includes(order.orderStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: `Order must be processing or fulfilled to ship. Current status: ${order.orderStatus}`
+            });
+        }
+
+        // Generate tracking number if not provided
+        const finalTrackingNumber = trackingNumber || `TRK-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+        order.orderStatus = 'shipped';
+        order.trackingNumber = finalTrackingNumber;
+        order.timeline.push({
+            status: 'shipped',
+            changedAt: new Date(),
+            note: note || `Order shipped with tracking number: ${finalTrackingNumber}`
+        });
+
+        await order.save();
+
+        // Send shipping notification
+        if (order.shippingAddress?.email) {
+            await sendOrderStatusNotifications(order, 'shipped', note);
+        }
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} has been shipped`,
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
-                timeline: order.timeline
+                orderStatus: order.orderStatus,
+                trackingNumber: order.trackingNumber
             }
         });
-    } catch (err) {
-        console.error('Error adding order note:', err);
-        res.status(500).json({ message: 'Failed to add note to order' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to ship order', error: error.message });
+    }
+};
+
+const deliverOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { note } = req.body;
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (order.orderStatus !== 'shipped') {
+            return res.status(400).json({
+                success: false,
+                message: `Order must be shipped to deliver. Current status: ${order.orderStatus}`
+            });
+        }
+
+        order.orderStatus = 'delivered';
+        order.timeline.push({
+            status: 'delivered',
+            changedAt: new Date(),
+            note: note || 'Order delivered successfully'
+        });
+
+        await order.save();
+
+        // Send delivery notification
+        if (order.shippingAddress?.email) {
+            await sendOrderStatusNotifications(order, 'delivered', note);
+        }
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} has been delivered`,
+            order: { id: order._id, orderNumber: order.orderNumber, orderStatus: order.orderStatus }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to deliver order', error: error.message });
+    }
+};
+
+const cancelOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason, note } = req.body;
+
+        const order = await orderModel.findById(id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (['delivered', 'cancelled'].includes(order.orderStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot cancel order with status: ${order.orderStatus}`
+            });
+        }
+
+        order.orderStatus = 'cancelled';
+        order.timeline.push({
+            status: 'cancelled',
+            changedAt: new Date(),
+            note: note || `Order cancelled${reason ? `: ${reason}` : ''}`
+        });
+
+        await order.save();
+
+        // Send cancellation notification
+        if (order.shippingAddress?.email) {
+            await sendOrderStatusNotifications(order, 'cancelled', note);
+        }
+
+        res.json({
+            success: true,
+            message: `Order ${order.orderNumber} has been cancelled`,
+            order: { id: order._id, orderNumber: order.orderNumber, orderStatus: order.orderStatus }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to cancel order', error: error.message });
     }
 };
 
@@ -1098,6 +1815,12 @@ const orderController = {
     getSpecificOrder,
     updateOrderStatus,
     updateOrder,
+    deleteOrder,
+    processOrder,
+    fulfillOrder,
+    shipOrder,
+    deliverOrder,
+    cancelOrder,
     addOrderNote,
     bulkDeleteOrders,
     bulkUpdateOrders,
