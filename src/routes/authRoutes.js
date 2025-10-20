@@ -10,7 +10,7 @@ router.post('/signup', register); // alias for frontend compatibility
 
 router.post('/login', login);
 router.post('/logout', logout);
-router.get('/me', me);
+router.get('/me', auth, me);
 router.post('/refresh-token', refreshToken);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);

@@ -1106,7 +1106,8 @@ const getOrderAnalytics = async (req, res) => {
             monthlyRevenue: monthlyRevenue.length,
             topProducts: topProducts.length,
             categoryPerformance: categoryPerformance.length,
-            userGrowth: userGrowth.length
+            userGrowth: userGrowth.length,
+            dataFreshness: new Date().toISOString()
         });
 
         // Get product count and low stock products
