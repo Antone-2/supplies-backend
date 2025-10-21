@@ -1421,7 +1421,7 @@ const initiatePayment = async (req, res) => {
         console.log('Request body:', JSON.stringify(req.body, null, 2));
 
         const { items, shippingAddress, totalAmount, paymentMethod } = req.body;
-        const userId = req.user?.id || null; // Allow null for guest users
+        const userId = req.user?.id || null; // Allow null for guest users - authentication is now optional
 
         console.log('User ID:', userId);
 

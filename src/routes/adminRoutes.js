@@ -1,6 +1,9 @@
 import express from 'express';
 import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
 import admin from '../middleware/admin.js';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import {
     getUsers,
     createUser,
@@ -14,6 +17,21 @@ import { getAllProducts, createProduct, updateProduct, deleteProduct } from '../
 import { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory } from '../modules/category/category.controller.js';
 import { getSettings, updateSetting } from '../controllers/adminSettingController.js';
 import notificationRoutes from './notificationRoutes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Multer setup for product image uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, '../../uploads'));
+    },
+    filename: function (req, file, cb) {
+        const ext = path.extname(file.originalname);
+        cb(null, `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}${ext}`);
+    },
+});
+const upload = multer({ storage });
 
 const router = express.Router();
 
@@ -286,6 +304,22 @@ router.get('/products', getAllProducts);
 router.post('/products', createProduct);
 router.put('/products/:id', updateProduct);
 router.delete('/products/:id', deleteProduct);
+
+// Image upload endpoint
+router.post('/products/upload-image', upload.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        // Return the uploaded file path
+        const imageUrl = `/uploads/${req.file.filename}`;
+        res.json({ imageUrl });
+    } catch (error) {
+        console.error('Image upload error:', error);
+        res.status(500).json({ message: 'Failed to upload image' });
+    }
+});
 
 // Test endpoint for debugging
 router.get('/products/test', (req, res) => {

@@ -5,7 +5,7 @@ import admin from '../middleware/admin.js';
 const router = express.Router();
 
 router.get('/', admin, orderController.getAllOrders);
-router.post('/', jwtAuthMiddleware, orderController.createCashOrder);
+router.post('/', orderController.createCashOrder);
 router.post('/create', orderController.createOrder); // New endpoint for checkout without auth
 router.get('/:id', orderController.getSpecificOrder);
 router.put('/:id', admin, orderController.updateOrderStatus);
@@ -20,15 +20,15 @@ router.post('/:id/deliver', admin, orderController.updateOrderStatus);
 router.post('/:id/cancel', admin, orderController.updateOrderStatus);
 
 // Payment endpoints
-router.post('/pay/mpesa', jwtAuthMiddleware, orderController.payMpesa);
-router.post('/pay/airtel', jwtAuthMiddleware, orderController.payAirtelMoney);
+router.post('/pay/mpesa', orderController.payMpesa);
+router.post('/pay/airtel', orderController.payAirtelMoney);
 
 // Shipping calculation
 router.post('/calculate-shipping', orderController.calculateShippingFee);
 
 // Pesapal integration
 router.post('/payments/pesapal', orderController.createCheckOutSession);
-router.post('/create-checkout-session', jwtAuthMiddleware, orderController.createCheckOutSession);
+router.post('/create-checkout-session', orderController.createCheckOutSession);
 router.post('/initiate-payment', orderController.initiatePayment); // Remove auth requirement for checkout
 
 // Analytics endpoint for admin dashboard
