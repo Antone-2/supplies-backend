@@ -281,7 +281,8 @@ export const paymentCallback = async (req, res) => {
             {
                 paymentStatus,
                 transactionStatus: transactionStatus,
-                paymentCompletedAt: transactionStatus === 'COMPLETED' ? new Date() : undefined
+                paymentCompletedAt: transactionStatus === 'COMPLETED' ? new Date() : undefined,
+                paidAt: transactionStatus === 'COMPLETED' ? new Date() : undefined
             },
             { new: true }
         );

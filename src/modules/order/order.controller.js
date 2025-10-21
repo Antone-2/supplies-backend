@@ -42,6 +42,10 @@ const getAllOrders = async (req, res) => {
         } else if (paymentFilter === 'pending') {
             query.paymentStatus = 'pending';
         }
+
+        // Add debug logging to see what orders are being queried
+        console.log('Order query:', JSON.stringify(query, null, 2));
+        console.log('Payment filter:', paymentFilter);
         // 'all' means no payment filter
 
         const sortOptions = {};
@@ -54,6 +58,12 @@ const getAllOrders = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit));
         const total = await orderModel.countDocuments(query);
+
+        // Debug: Log found orders
+        console.log(`Found ${orders.length} orders out of ${total} total matching query`);
+        orders.forEach(order => {
+            console.log(`Order ${order.orderNumber}: paymentStatus=${order.paymentStatus}, paidAt=${order.paidAt}, transactionStatus=${order.transactionStatus}, isPaid=${order.paymentStatus === 'paid'}`);
+        });
 
         // Format orders for admin view with enhanced payment information
         const formattedOrders = orders.map(order => ({
