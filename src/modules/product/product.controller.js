@@ -238,6 +238,7 @@ const createProduct = async (req, res) => {
                     console.error('JSON parse error for text/plain:', parseError);
                     console.error('Raw body:', req.body);
                     return res.status(400).json({
+                        success: false,
                         message: 'Invalid JSON in text/plain request',
                         error: 'Failed to parse request body as JSON',
                         details: parseError.message
@@ -246,6 +247,7 @@ const createProduct = async (req, res) => {
             } else {
                 // Empty or invalid text/plain body
                 return res.status(400).json({
+                    success: false,
                     message: 'Empty request body',
                     error: 'No data provided in text/plain request'
                 });
@@ -262,6 +264,7 @@ const createProduct = async (req, res) => {
                 bodyValue: req.body
             });
             return res.status(400).json({
+                success: false,
                 message: 'Unsupported request format',
                 error: 'Request must be JSON or text/plain with valid JSON content',
                 contentType: req.headers['content-type']
@@ -271,6 +274,7 @@ const createProduct = async (req, res) => {
         // Validate required fields
         if (!productData.name || !productData.price || !productData.category) {
             return res.status(400).json({
+                success: false,
                 message: 'Missing required fields: name, price, category'
             });
         }
@@ -310,8 +314,9 @@ const createProduct = async (req, res) => {
             name: productData.name,
             description: productData.description || '',
             price: Number(productData.price),
+            originalPrice: productData.originalPrice ? Number(productData.originalPrice) : undefined,
             category: categoryId,
-            brand: productData.brand || '',
+            brand: productData.brand || undefined,
             countInStock: Number(productData.countInStock) || 0,
             image: productData.image || '',
             images: productData.images || [],
@@ -359,6 +364,7 @@ const createProduct = async (req, res) => {
                 name: product.name,
                 description: product.description,
                 price: product.price,
+                originalPrice: product.originalPrice,
                 category: product.category,
                 brand: product.brand,
                 countInStock: product.countInStock,
@@ -382,6 +388,7 @@ const createProduct = async (req, res) => {
     } catch (err) {
         console.error('Error creating product:', err);
         res.status(500).json({
+            success: false,
             message: 'Failed to create product',
             error: err.message
         });
@@ -547,6 +554,7 @@ const getAllProducts = async (req, res) => {
             name: product.name,
             description: product.description,
             price: product.price,
+            originalPrice: product.originalPrice,
             category: product.category?.name || product.category || 'Uncategorized',
             brand: product.brand,
             countInStock: product.countInStock,
@@ -581,6 +589,7 @@ const getAllProducts = async (req, res) => {
                 name: product.name,
                 description: product.description,
                 price: product.price,
+                originalPrice: product.originalPrice,
                 category: product.category || 'Uncategorized',
                 brand: product.brand,
                 countInStock: product.countInStock,

@@ -4,6 +4,7 @@ const productSchema = Joi.object({
     name: Joi.string().required(),
     description: Joi.string().allow(''),
     price: Joi.number().required(),
+    originalPrice: Joi.number().optional(),
     image: Joi.string().allow(''),
     images: Joi.array().items(Joi.object({
         url: Joi.string().uri().required(),
@@ -11,7 +12,7 @@ const productSchema = Joi.object({
     })).optional(),
     category: Joi.string().required(),
     subcategory: Joi.string().allow(''),
-    brand: Joi.string().allow(''),
+    brand: Joi.string().optional(),
     countInStock: Joi.number().integer().min(0).default(0),
     rating: Joi.number().min(0).max(5).default(0),
     numReviews: Joi.number().integer().min(0).default(0),

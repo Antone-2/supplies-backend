@@ -1081,6 +1081,10 @@ const getOrderAnalytics = async (req, res) => {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
+        // Initialize product variables early to avoid initialization errors
+        let totalProducts = 0;
+        let lowStockProducts = 0;
+
         // Get total orders count (only paid orders for dashboard display)
         const totalOrders = await orderModel.countDocuments({ paymentStatus: 'paid' });
 
@@ -1106,23 +1110,7 @@ const getOrderAnalytics = async (req, res) => {
             throw new Error('Failed to fetch user data');
         }
 
-        console.log('📊 Real-time dashboard analytics calculated:', {
-            totalOrders,
-            pendingOrders,
-            totalRevenue: `KES ${totalRevenue.toLocaleString()}`,
-            totalUsers,
-            totalProducts,
-            lowStockProducts,
-            monthlyRevenue: monthlyRevenue.length,
-            topProducts: topProducts.length,
-            categoryPerformance: categoryPerformance.length,
-            userGrowth: userGrowth.length,
-            dataFreshness: new Date().toISOString()
-        });
-
         // Get product count and low stock products
-        let totalProducts = 0;
-        let lowStockProducts = 0;
         try {
             // Use raw MongoDB query to avoid mongoose schema validation issues
             const db = mongoose.connection.db;
