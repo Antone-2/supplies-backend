@@ -11,8 +11,13 @@ const getCategoriesWithCounts = async (req, res) => {
         // Get product counts for each category
         const categoriesWithCounts = await Promise.all(
             categories.map(async (category) => {
+                // Handle both ObjectId and string category references
                 const productCount = await Product.countDocuments({
-                    category: category._id,
+                    $or: [
+                        { category: category._id },
+                        { category: category._id.toString() },
+                        { category: category.name }
+                    ],
                     isActive: true
                 });
 
@@ -143,8 +148,14 @@ const deleteCategory = async (req, res) => {
             });
         }
 
-        // Check if category has products
-        const productCount = await Product.countDocuments({ category: categoryId });
+        // Check if category has products (handle both ObjectId and string references)
+        const productCount = await Product.countDocuments({
+            $or: [
+                { category: categoryId },
+                { category: categoryId.toString() },
+                { category: category.name }
+            ]
+        });
         if (productCount > 0) {
             return res.status(400).json({
                 success: false,
