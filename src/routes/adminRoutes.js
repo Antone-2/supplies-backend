@@ -206,6 +206,9 @@ router.get('/test', (req, res) => {
                 'GET /api/v1/admin/orders - Get all orders (with payment filters)',
                 'GET /api/v1/admin/orders?paymentFilter=paid - Get only paid orders',
                 'GET /api/v1/admin/orders?paymentFilter=unpaid - Get only unpaid orders',
+                'GET /api/v1/admin/orders?paymentFilter=pending - Get only pending payment orders',
+                'GET /api/v1/admin/orders?paymentFilter=processing - Get only processing payment orders',
+                'GET /api/v1/admin/orders?paymentFilter=failed - Get only failed payment orders',
                 'PUT /api/v1/admin/orders/:id - Update order',
                 'PUT /api/v1/admin/orders/:id/status - Update order status',
                 'POST /api/v1/admin/orders/:id/notes - Add order note',
@@ -255,7 +258,9 @@ router.get('/test', (req, res) => {
                     all: 'Show all orders',
                     paid: 'Show only paid orders (ready for processing)',
                     unpaid: 'Show only unpaid orders',
-                    pending: 'Show only pending payment orders'
+                    pending: 'Show only pending payment orders',
+                    processing: 'Show only processing payment orders',
+                    failed: 'Show only failed payment orders'
                 }
             },
             users: {

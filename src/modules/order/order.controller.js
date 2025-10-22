@@ -41,6 +41,10 @@ const getAllOrders = async (req, res) => {
             query.paymentStatus = { $ne: 'paid' };
         } else if (paymentFilter === 'pending') {
             query.paymentStatus = 'pending';
+        } else if (paymentFilter === 'processing') {
+            query.paymentStatus = 'processing';
+        } else if (paymentFilter === 'failed') {
+            query.paymentStatus = 'failed';
         }
 
         // Add debug logging to see what orders are being queried
