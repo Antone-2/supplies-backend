@@ -50,6 +50,7 @@ const getAllOrders = async (req, res) => {
         // Add debug logging to see what orders are being queried
         console.log('Order query:', JSON.stringify(query, null, 2));
         console.log('Payment filter:', paymentFilter);
+        console.log('Request query params:', req.query);
         // 'all' means no payment filter
 
         const sortOptions = {};
