@@ -2323,6 +2323,16 @@ const processOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
+        // Check if order is paid before allowing processing
+        if (order.paymentStatus !== 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot process order with payment status: ${order.paymentStatus}. Only paid orders can be processed.`,
+                currentPaymentStatus: order.paymentStatus,
+                requiredPaymentStatus: 'paid'
+            });
+        }
+
         if (order.orderStatus !== 'pending') {
             return res.status(400).json({
                 success: false,
@@ -2364,6 +2374,16 @@ const fulfillOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
+        // Check if order is paid before allowing fulfillment
+        if (order.paymentStatus !== 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot fulfill order with payment status: ${order.paymentStatus}. Only paid orders can be fulfilled.`,
+                currentPaymentStatus: order.paymentStatus,
+                requiredPaymentStatus: 'paid'
+            });
+        }
+
         if (order.orderStatus !== 'processing') {
             return res.status(400).json({
                 success: false,
@@ -2398,6 +2418,16 @@ const shipOrder = async (req, res) => {
         const order = await orderModel.findById(id);
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        // Check if order is paid before allowing shipping
+        if (order.paymentStatus !== 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot ship order with payment status: ${order.paymentStatus}. Only paid orders can be shipped.`,
+                currentPaymentStatus: order.paymentStatus,
+                requiredPaymentStatus: 'paid'
+            });
         }
 
         if (!['processing', 'fulfilled'].includes(order.orderStatus)) {
@@ -2448,6 +2478,16 @@ const deliverOrder = async (req, res) => {
         const order = await orderModel.findById(id);
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        // Check if order is paid before allowing delivery
+        if (order.paymentStatus !== 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot deliver order with payment status: ${order.paymentStatus}. Only paid orders can be delivered.`,
+                currentPaymentStatus: order.paymentStatus,
+                requiredPaymentStatus: 'paid'
+            });
         }
 
         if (order.orderStatus !== 'shipped') {
@@ -2532,6 +2572,16 @@ const markReady = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
+        // Check if order is paid before allowing ready status
+        if (order.paymentStatus !== 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot mark order as ready with payment status: ${order.paymentStatus}. Only paid orders can be marked as ready.`,
+                currentPaymentStatus: order.paymentStatus,
+                requiredPaymentStatus: 'paid'
+            });
+        }
+
         if (order.orderStatus !== 'fulfilled') {
             return res.status(400).json({
                 success: false,
@@ -2566,6 +2616,16 @@ const pickupOrder = async (req, res) => {
         const order = await orderModel.findById(id);
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        // Check if order is paid before allowing pickup
+        if (order.paymentStatus !== 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot pickup order with payment status: ${order.paymentStatus}. Only paid orders can be picked up.`,
+                currentPaymentStatus: order.paymentStatus,
+                requiredPaymentStatus: 'paid'
+            });
         }
 
         if (order.orderStatus !== 'ready') {
