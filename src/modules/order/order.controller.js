@@ -19,7 +19,8 @@ const getAllOrders = async (req, res) => {
             paymentStatus,
             sortBy = 'createdAt',
             sortOrder = 'desc',
-            paymentFilter = 'all' // 'all', 'paid', 'unpaid', 'pending'
+            paymentFilter = 'all', // 'all', 'paid', 'unpaid', 'pending', 'processing', 'failed', 'refunded'
+            history = false // New parameter to fetch historical paid orders
         } = req.query;
 
         // Check if MongoDB is connected
@@ -29,22 +30,30 @@ const getAllOrders = async (req, res) => {
 
         const query = {};
 
-        // Handle status filter
-        if (status) query.orderStatus = status;
-
-        // Handle payment status filter
-        if (paymentStatus) {
-            query.paymentStatus = paymentStatus;
-        } else if (paymentFilter === 'paid') {
+        // Handle history mode - fetch all paid orders regardless of current status
+        if (history === 'true' || history === true) {
             query.paymentStatus = 'paid';
-        } else if (paymentFilter === 'unpaid') {
-            query.paymentStatus = { $ne: 'paid' };
-        } else if (paymentFilter === 'pending') {
-            query.paymentStatus = 'pending';
-        } else if (paymentFilter === 'processing') {
-            query.paymentStatus = 'processing';
-        } else if (paymentFilter === 'failed') {
-            query.paymentStatus = 'failed';
+            console.log('📚 History mode: Fetching all paid orders');
+        } else {
+            // Handle status filter
+            if (status) query.orderStatus = status;
+
+            // Handle payment status filter with enhanced options
+            if (paymentStatus) {
+                query.paymentStatus = paymentStatus;
+            } else if (paymentFilter === 'paid') {
+                query.paymentStatus = 'paid';
+            } else if (paymentFilter === 'unpaid') {
+                query.paymentStatus = { $ne: 'paid' };
+            } else if (paymentFilter === 'pending') {
+                query.paymentStatus = 'pending';
+            } else if (paymentFilter === 'processing') {
+                query.paymentStatus = 'processing';
+            } else if (paymentFilter === 'failed') {
+                query.paymentStatus = 'failed';
+            } else if (paymentFilter === 'refunded') {
+                query.paymentStatus = 'refunded';
+            }
         }
 
         // Add debug logging to see what orders are being queried
@@ -64,10 +73,11 @@ const getAllOrders = async (req, res) => {
             .limit(parseInt(limit));
         const total = await orderModel.countDocuments(query);
 
-        // Debug: Log found orders
-        console.log(`Found ${orders.length} orders out of ${total} total matching query`);
+        // Debug: Log found orders with enhanced payment info
+        console.log(`📊 Found ${orders.length} orders out of ${total} total matching query`);
+        console.log(`🔍 Payment filter applied: ${paymentFilter || 'none'}, History mode: ${history}`);
         orders.forEach(order => {
-            console.log(`Order ${order.orderNumber}: paymentStatus=${order.paymentStatus}, paidAt=${order.paidAt}, transactionStatus=${order.transactionStatus}, isPaid=${order.paymentStatus === 'paid'}`);
+            console.log(`📦 Order ${order.orderNumber}: paymentStatus=${order.paymentStatus}, orderStatus=${order.orderStatus}, paidAt=${order.paidAt}, transactionStatus=${order.transactionStatus}, isPaid=${order.paymentStatus === 'paid'}, canProcess=${order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus)}`);
         });
 
         // Format orders for admin view with enhanced payment information
@@ -97,6 +107,11 @@ const getAllOrders = async (req, res) => {
             isPaid: order.paymentStatus === 'paid',
             canProcess: order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus),
             processingPriority: order.paymentStatus === 'paid' ? 'high' : 'normal',
+            // History mode indicators
+            isCompleted: ['delivered', 'picked_up'].includes(order.orderStatus),
+            isInProgress: ['processing', 'fulfilled', 'ready', 'shipped'].includes(order.orderStatus),
+            paymentCompletedAt: order.paidAt,
+            daysSincePayment: order.paidAt ? Math.floor((new Date() - new Date(order.paidAt)) / (1000 * 60 * 60 * 24)) : null,
 
             // Simple action icons for order management
             actionIcons: [
@@ -626,9 +641,18 @@ const getAllOrders = async (req, res) => {
             }
         }));
 
-        // Add summary statistics
+        // Add enhanced summary statistics
         const paidOrders = formattedOrders.filter(order => order.isPaid).length;
         const processableOrders = formattedOrders.filter(order => order.canProcess).length;
+        const pendingPaymentOrders = formattedOrders.filter(order => order.paymentStatus === 'pending').length;
+        const failedPaymentOrders = formattedOrders.filter(order => order.paymentStatus === 'failed').length;
+        const completedOrders = formattedOrders.filter(order => ['delivered', 'picked_up'].includes(order.status)).length;
+        const inProgressOrders = formattedOrders.filter(order => ['processing', 'fulfilled', 'ready', 'shipped'].includes(order.status)).length;
+
+        console.log(`📈 Summary: ${paidOrders} paid, ${processableOrders} processable, ${completedOrders} completed, ${inProgressOrders} in progress`);
+        if (history === 'true' || history === true) {
+            console.log(`📚 History mode: Showing all ${total} paid orders across all statuses`);
+        }
 
         res.json({
             orders: formattedOrders,
@@ -641,9 +665,15 @@ const getAllOrders = async (req, res) => {
                 paidOrders,
                 processableOrders,
                 unpaidOrders: formattedOrders.length - paidOrders,
+                pendingPaymentOrders,
+                failedPaymentOrders,
+                completedOrders,
+                inProgressOrders,
+                isHistoryMode: history === 'true' || history === true,
                 filters: {
                     status: status || 'all',
                     paymentStatus: paymentStatus || paymentFilter,
+                    history: history || false,
                     sortBy,
                     sortOrder
                 }
@@ -1098,61 +1128,62 @@ const refreshPaymentStatus = async (req, res) => {
             });
         }
 
-        // Fetch latest status from PesaPal
-        const paymentStatus = await getTransactionStatus(order.transactionTrackingId);
+        console.log(`🔄 Refreshing payment status for order ${order.orderNumber} with tracking ID: ${order.transactionTrackingId}`);
 
-        // Update order with latest payment status
-        let updatedPaymentStatus = order.paymentStatus;
-        let updatedTransactionStatus = order.transactionStatus;
+        // Get transaction status from PesaPal
+        const { getTransactionStatus } = await import('../../services/pesapalService.js');
+        const transactionData = await getTransactionStatus(order.transactionTrackingId);
 
-        // Map PesaPal status to our internal status
-        if (paymentStatus.status) {
-            const status = paymentStatus.status.toLowerCase();
-            if (status.includes('completed') || status.includes('success')) {
-                updatedPaymentStatus = 'paid';
-                updatedTransactionStatus = 'completed';
-            } else if (status.includes('failed') || status.includes('cancelled')) {
-                updatedPaymentStatus = 'failed';
-                updatedTransactionStatus = 'failed';
-            } else if (status.includes('pending')) {
-                updatedPaymentStatus = 'pending';
-                updatedTransactionStatus = 'pending';
-            }
+        const transactionStatus = transactionData.status || 'unknown';
+        const statusLower = transactionStatus.toLowerCase();
+
+        console.log(`📊 PesaPal response for order ${order.orderNumber}:`, {
+            transactionStatus,
+            paymentMethod: transactionData.paymentMethod,
+            amount: transactionData.amount,
+            rawResponse: transactionData.rawResponse
+        });
+
+        // Update order status based on transaction status with enhanced mapping
+        let paymentStatus = order.paymentStatus; // Keep current if unknown
+        let updateFields = {
+            transactionStatus: transactionStatus,
+            lastPaymentCheck: new Date()
+        };
+
+        if (statusLower.includes('completed') || statusLower.includes('success') || statusLower.includes('successful')) {
+            paymentStatus = 'paid';
+            updateFields.paymentStatus = paymentStatus;
+            updateFields.paymentCompletedAt = new Date();
+            updateFields.paidAt = new Date();
+        } else if (statusLower.includes('pending') || statusLower.includes('processing')) {
+            paymentStatus = 'pending';
+            updateFields.paymentStatus = paymentStatus;
+        } else if (statusLower.includes('failed') || statusLower.includes('cancelled') || statusLower.includes('cancel')) {
+            paymentStatus = 'failed';
+            updateFields.paymentStatus = paymentStatus;
+        } else if (statusLower.includes('invalid') || statusLower.includes('error')) {
+            paymentStatus = 'failed';
+            updateFields.paymentStatus = paymentStatus;
         }
 
-        // Update order if status changed
-        if (updatedPaymentStatus !== order.paymentStatus || updatedTransactionStatus !== order.transactionStatus) {
-            order.paymentStatus = updatedPaymentStatus;
-            order.transactionStatus = updatedTransactionStatus;
-            order.paidAt = updatedPaymentStatus === 'paid' ? new Date() : order.paidAt;
+        // Update order
+        const updatedOrder = await orderModel.findByIdAndUpdate(id, updateFields, { new: true });
 
-            // Add timeline entry
-            order.timeline.push({
-                status: order.orderStatus,
-                changedAt: new Date(),
-                note: `Payment status updated from PesaPal: ${paymentStatus.status}`
-            });
-
-            await order.save();
-
-            console.log(`✅ Order ${order.orderNumber} payment status refreshed:`, {
-                oldStatus: order.paymentStatus,
-                newStatus: updatedPaymentStatus,
-                pesapalStatus: paymentStatus.status
-            });
-        }
+        console.log(`✅ Payment status refreshed for order ${order.orderNumber}: ${order.paymentStatus} → ${paymentStatus} (${transactionStatus})`);
 
         res.json({
             success: true,
-            message: 'Payment status refreshed successfully',
+            message: `Payment status refreshed successfully`,
             order: {
-                id: order._id,
-                orderNumber: order.orderNumber,
-                paymentStatus: order.paymentStatus,
-                transactionStatus: order.transactionStatus,
-                paidAt: order.paidAt
+                id: updatedOrder._id,
+                orderNumber: updatedOrder.orderNumber,
+                paymentStatus: updatedOrder.paymentStatus,
+                transactionStatus: updatedOrder.transactionStatus,
+                paidAt: updatedOrder.paidAt,
+                lastPaymentCheck: updatedOrder.lastPaymentCheck
             },
-            pesapalData: paymentStatus
+            transactionData
         });
 
     } catch (error) {
@@ -1187,48 +1218,58 @@ const bulkRefreshPaymentStatus = async (req, res) => {
 
         for (const order of orders) {
             try {
-                const paymentStatus = await getTransactionStatus(order.transactionTrackingId);
+                console.log(`🔄 Bulk refreshing payment status for order ${order.orderNumber} with tracking ID: ${order.transactionTrackingId}`);
 
-                let updatedPaymentStatus = order.paymentStatus;
-                let updatedTransactionStatus = order.transactionStatus;
+                const transactionData = await getTransactionStatus(order.transactionTrackingId);
+                const transactionStatus = transactionData.status || 'unknown';
+                const statusLower = transactionStatus.toLowerCase();
 
-                if (paymentStatus.status) {
-                    const status = paymentStatus.status.toLowerCase();
-                    if (status.includes('completed') || status.includes('success')) {
-                        updatedPaymentStatus = 'paid';
-                        updatedTransactionStatus = 'completed';
-                    } else if (status.includes('failed') || status.includes('cancelled')) {
-                        updatedPaymentStatus = 'failed';
-                        updatedTransactionStatus = 'failed';
-                    } else if (status.includes('pending')) {
-                        updatedPaymentStatus = 'pending';
-                        updatedTransactionStatus = 'pending';
-                    }
+                console.log(`📊 PesaPal response for order ${order.orderNumber}:`, {
+                    transactionStatus,
+                    paymentMethod: transactionData.paymentMethod,
+                    amount: transactionData.amount
+                });
+
+                // Update order status based on transaction status with enhanced mapping
+                let paymentStatus = order.paymentStatus; // Keep current if unknown
+                let updateFields = {
+                    transactionStatus: transactionStatus,
+                    lastPaymentCheck: new Date()
+                };
+
+                if (statusLower.includes('completed') || statusLower.includes('success') || statusLower.includes('successful')) {
+                    paymentStatus = 'paid';
+                    updateFields.paymentStatus = paymentStatus;
+                    updateFields.paymentCompletedAt = new Date();
+                    updateFields.paidAt = new Date();
+                } else if (statusLower.includes('pending') || statusLower.includes('processing')) {
+                    paymentStatus = 'pending';
+                    updateFields.paymentStatus = paymentStatus;
+                } else if (statusLower.includes('failed') || statusLower.includes('cancelled') || statusLower.includes('cancel')) {
+                    paymentStatus = 'failed';
+                    updateFields.paymentStatus = paymentStatus;
+                } else if (statusLower.includes('invalid') || statusLower.includes('error')) {
+                    paymentStatus = 'failed';
+                    updateFields.paymentStatus = paymentStatus;
                 }
 
-                if (updatedPaymentStatus !== order.paymentStatus || updatedTransactionStatus !== order.transactionStatus) {
-                    order.paymentStatus = updatedPaymentStatus;
-                    order.transactionStatus = updatedTransactionStatus;
-                    order.paidAt = updatedPaymentStatus === 'paid' ? new Date() : order.paidAt;
+                // Update order
+                await orderModel.findByIdAndUpdate(order._id, updateFields);
 
-                    order.timeline.push({
-                        status: order.orderStatus,
-                        changedAt: new Date(),
-                        note: `Bulk payment status update from PesaPal: ${paymentStatus.status}`
-                    });
-
-                    await order.save();
-                    updatedCount++;
-                }
+                console.log(`✅ Bulk payment status refreshed for order ${order.orderNumber}: ${order.paymentStatus} → ${paymentStatus} (${transactionStatus})`);
 
                 results.push({
                     orderId: order._id,
                     orderNumber: order.orderNumber,
                     success: true,
                     oldStatus: order.paymentStatus,
-                    newStatus: updatedPaymentStatus,
-                    pesapalStatus: paymentStatus.status
+                    newStatus: paymentStatus,
+                    pesapalStatus: transactionStatus
                 });
+
+                if (paymentStatus !== order.paymentStatus) {
+                    updatedCount++;
+                }
 
             } catch (error) {
                 results.push({

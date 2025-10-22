@@ -236,7 +236,7 @@ export const paymentCallback = async (req, res) => {
         // PesaPal IPN is typically form data, so use req.body or req.query
         const { pesapal_transaction_tracking_id: orderTrackingId, pesapal_merchant_reference: orderId } = req.body || req.query;
 
-        console.log('📋 Callback parameters:', { orderTrackingId, orderId });
+        console.log('📋 Callback parameters:', { orderTrackingId, orderId, body: req.body, query: req.query });
 
         if (!orderTrackingId || !orderId) {
             console.warn('❌ Missing required callback parameters');
@@ -257,13 +257,17 @@ export const paymentCallback = async (req, res) => {
         let message = 'pesapal-payment-failed';
         const statusLower = transactionStatus.toLowerCase();
 
-        if (statusLower.includes('completed') || statusLower.includes('success')) {
+        // Enhanced status mapping for better reliability
+        if (statusLower.includes('completed') || statusLower.includes('success') || statusLower.includes('successful')) {
             paymentStatus = 'paid';
             message = 'pesapal-payment-success';
-        } else if (statusLower.includes('pending')) {
+        } else if (statusLower.includes('pending') || statusLower.includes('processing')) {
             paymentStatus = 'pending';
             message = 'pesapal-payment-pending';
-        } else if (statusLower.includes('failed') || statusLower.includes('cancelled')) {
+        } else if (statusLower.includes('failed') || statusLower.includes('cancelled') || statusLower.includes('cancel')) {
+            paymentStatus = 'failed';
+            message = 'pesapal-payment-failed';
+        } else if (statusLower.includes('invalid') || statusLower.includes('error')) {
             paymentStatus = 'failed';
             message = 'pesapal-payment-failed';
         }

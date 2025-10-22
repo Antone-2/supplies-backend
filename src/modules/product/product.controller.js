@@ -540,6 +540,14 @@ const getAllProducts = async (req, res) => {
 
         // Admin should see all products, including inactive ones
         // Use mongoose with validation disabled to handle mixed category types
+        console.log('getAllProducts called for admin - checking database connection');
+
+        // Check if MongoDB is connected
+        if (mongoose.connection.readyState !== 1) {
+            console.log('MongoDB not connected, attempting to connect...');
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
+        }
+
         const products = await Product.find({})
             .populate('category', 'name')
             .sort({ createdAt: -1 })
@@ -570,19 +578,26 @@ const getAllProducts = async (req, res) => {
             updatedAt: product.updatedAt
         }));
 
+        console.log('Returning formatted products:', formattedProducts.length);
+
         res.json({
             success: true,
             products: formattedProducts,
-            total: formattedProducts.length
+            total: formattedProducts.length,
+            message: formattedProducts.length > 0 ? 'Products loaded successfully' : 'No products found in database'
         });
     } catch (err) {
         console.error('Error fetching all products:', err);
+        console.error('Error details:', err.message);
+        console.error('MongoDB connection state:', mongoose.connection.readyState);
+
         // If that fails, try raw MongoDB query
         try {
             const db = mongoose.connection.db;
             const productsCollection = db.collection('products');
             const products = await productsCollection.find({}).sort({ createdAt: -1 }).toArray();
             console.log('Raw MongoDB query: All products found:', products.length);
+            console.log('Sample raw products:', products.slice(0, 2).map(p => ({ name: p.name, isActive: p.isActive })));
 
             const formattedProducts = products.map(product => ({
                 id: product._id,
@@ -615,7 +630,8 @@ const getAllProducts = async (req, res) => {
             res.status(500).json({
                 success: false,
                 message: 'Failed to fetch all products',
-                error: rawErr.message
+                error: rawErr.message,
+                suggestion: 'Check database connection and try again'
             });
         }
     }

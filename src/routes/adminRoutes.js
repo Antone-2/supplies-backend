@@ -313,6 +313,10 @@ router.get('/analytics', orderController.getOrderAnalytics);
 // Dashboard stats
 router.get('/dashboard/stats', orderController.getDashboardStats);
 
+// Payment status refresh endpoints
+router.post('/orders/:id/refresh-payment-status', orderController.refreshPaymentStatus);
+router.post('/orders/bulk-refresh-payment-status', orderController.bulkRefreshPaymentStatus);
+
 // Product management
 router.get('/products', getAllProducts);
 router.post('/products', createProduct);
