@@ -4,7 +4,7 @@ import Product from '../../../Database/models/product.model.js';
 // Get all categories with product counts
 const getCategoriesWithCounts = async (req, res) => {
     try {
-        const categories = await Category.find({ isActive: true })
+        const categories = await Category.find({})
             .populate('parentCategory', 'name')
             .sort({ displayOrder: 1, name: 1 });
 
@@ -32,7 +32,9 @@ const getCategoriesWithCounts = async (req, res) => {
                     productCount,
                     parentCategory: category.parentCategory,
                     subcategories: category.subcategories,
-                    displayOrder: category.displayOrder
+                    displayOrder: category.displayOrder,
+                    isActive: category.isActive,
+                    status: category.isActive ? 'Active' : 'Inactive'
                 };
             })
         );
