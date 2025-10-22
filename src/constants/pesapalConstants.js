@@ -8,7 +8,9 @@ export const PESAPAL_BASE_URLS = {
 export const PESAPAL_ENDPOINTS = {
     AUTH: '/api/Auth/RequestToken',
     SUBMIT_ORDER: '/api/Transactions/SubmitOrderRequest',
-    REGISTER_IPN: '/api/URLSetup/RegisterIPN'
+    REGISTER_IPN: '/api/URLSetup/RegisterIPN',
+    GET_TRANSACTION_STATUS: '/api/Transactions/GetTransactionStatus',
+    QUERY_PAYMENT_STATUS: '/api/Transactions/QueryPaymentStatus'
 };
 
 // PesaPal API response status codes

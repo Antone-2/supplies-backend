@@ -117,6 +117,10 @@ router.post('/orders/:id/notes', orderController.addOrderNote);
 router.delete('/orders/bulk', orderController.bulkDeleteOrders);
 router.put('/orders/bulk', orderController.bulkUpdateOrders);
 
+// Payment status refresh endpoints
+router.post('/orders/:id/refresh-payment-status', orderController.refreshPaymentStatus);
+router.post('/orders/refresh-payment-status/bulk', orderController.bulkRefreshPaymentStatus);
+
 // Individual order actions
 router.put('/orders/:id/status', orderController.updateOrderStatus);
 
@@ -211,6 +215,8 @@ router.get('/test', (req, res) => {
                 'POST /api/v1/admin/orders/:id/ship - Mark as shipped',
                 'POST /api/v1/admin/orders/:id/deliver - Mark as delivered',
                 'POST /api/v1/admin/orders/:id/cancel - Cancel order',
+                'POST /api/v1/admin/orders/:id/refresh-payment-status - Refresh payment status from PesaPal',
+                'POST /api/v1/admin/orders/refresh-payment-status/bulk - Bulk refresh payment status',
                 'DELETE /api/v1/admin/orders/bulk - Bulk delete orders',
                 'PUT /api/v1/admin/orders/bulk - Bulk update orders'
             ],

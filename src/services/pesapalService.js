@@ -218,10 +218,87 @@ async function submitOrder(orderId, amount, description, callbackUrl, notificati
     }
 }
 
+// Get transaction status from PesaPal
+async function getTransactionStatus(orderTrackingId) {
+    try {
+        const token = await getAccessToken();
+
+        const response = await axios.get(
+            `${PESAPAL_BASE_URL}${PESAPAL_ENDPOINTS.GET_TRANSACTION_STATUS}`,
+            {
+                params: {
+                    orderTrackingId: orderTrackingId
+                },
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+                timeout: 15000
+            }
+        );
+
+        logger.info('PesaPal transaction status response:', JSON.stringify(response.data, null, 2));
+
+        return {
+            status: response.data?.payment_status_description || response.data?.status || 'unknown',
+            paymentMethod: response.data?.payment_method || 'unknown',
+            amount: response.data?.amount || 0,
+            currency: response.data?.currency || 'KES',
+            transactionId: response.data?.confirmation_code || response.data?.transaction_id || orderTrackingId,
+            paymentAccount: response.data?.payment_account || 'unknown',
+            rawResponse: response.data
+        };
+
+    } catch (error) {
+        logger.error('Failed to get transaction status:', error.response?.data || error.message);
+
+        // Return a default status if we can't fetch from PesaPal
+        return {
+            status: 'unknown',
+            paymentMethod: 'unknown',
+            amount: 0,
+            currency: 'KES',
+            transactionId: orderTrackingId,
+            paymentAccount: 'unknown',
+            error: error.message,
+            rawResponse: null
+        };
+    }
+}
+
+// Query payment status (alternative method)
+async function queryPaymentStatus(orderId) {
+    try {
+        const token = await getAccessToken();
+
+        const response = await axios.get(
+            `${PESAPAL_BASE_URL}${PESAPAL_ENDPOINTS.QUERY_PAYMENT_STATUS}`,
+            {
+                params: {
+                    orderId: orderId
+                },
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+                timeout: 15000
+            }
+        );
+
+        logger.info('PesaPal payment status query response:', JSON.stringify(response.data, null, 2));
+
+        return response.data;
+
+    } catch (error) {
+        logger.error('Failed to query payment status:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
 // Main initiation function
 async function initiatePesapalPayment(orderId, amount, phone, email, description = 'Order Payment') {
     const callbackUrl = config.PESAPAL.CALLBACK_URL;
     return await submitOrder(orderId, amount, description, callbackUrl, null, email, phone);
 }
 
-export { initiatePesapalPayment, getAccessToken, getIPNID, submitOrder };
+export { initiatePesapalPayment, getAccessToken, getIPNID, submitOrder, getTransactionStatus, queryPaymentStatus };
