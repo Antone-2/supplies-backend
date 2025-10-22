@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { initiatePesapalPayment, getAccessToken } from '../../services/pesapalService.js';
+import { initiatePesapalPayment, getAccessToken, getTransactionStatus } from '../../services/pesapalService.js';
 import Order from '../../../Database/models/order.model.js';
 import { validatePesapalPayment } from './payment.validation.js';
 import { sendPaymentConfirmation } from '../../services/emailService.js';
@@ -71,6 +71,7 @@ export const createPesapalPayment = async (req, res) => {
             { orderNumber: orderId },
             {
                 paymentStatus: 'processing',
+                transactionTrackingId: result.orderTrackingId, // Store tracking ID for status checks
                 paymentTrackingId: result.orderTrackingId,
                 paymentInitiatedAt: new Date()
             }
@@ -245,33 +246,26 @@ export const paymentCallback = async (req, res) => {
         // Get access token
         const token = await getAccessToken();
 
-        // Get transaction status
-        const baseUrl = process.env.PESAPAL_TEST_MODE === 'true'
-            ? (process.env.PESAPAL_SANDBOX_URL)
-            : (process.env.PESAPAL_PRODUCTION_URL);
-        const response = await axios.get(
-            `${baseUrl}/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            }
-        );
-
-        const transactionStatus = response.data.payment_status_description; // e.g., 'COMPLETED', 'FAILED'
+        // Get transaction status using the service function
+        const transactionData = await getTransactionStatus(orderTrackingId);
+        const transactionStatus = transactionData.status || 'unknown';
 
         console.log('🔍 Transaction status from PesaPal:', transactionStatus);
 
-        // Update order status
+        // Update order status based on transaction status
         let paymentStatus = 'failed';
         let message = 'pesapal-payment-failed';
-        if (transactionStatus === 'COMPLETED') {
+        const statusLower = transactionStatus.toLowerCase();
+
+        if (statusLower.includes('completed') || statusLower.includes('success')) {
             paymentStatus = 'paid';
             message = 'pesapal-payment-success';
-        } else if (transactionStatus === 'PENDING') {
+        } else if (statusLower.includes('pending')) {
             paymentStatus = 'pending';
             message = 'pesapal-payment-pending';
+        } else if (statusLower.includes('failed') || statusLower.includes('cancelled')) {
+            paymentStatus = 'failed';
+            message = 'pesapal-payment-failed';
         }
 
         console.log(`📝 Updating order ${orderId}: paymentStatus=${paymentStatus}, transactionStatus=${transactionStatus}`);
@@ -281,14 +275,15 @@ export const paymentCallback = async (req, res) => {
             {
                 paymentStatus,
                 transactionStatus: transactionStatus,
-                paymentCompletedAt: transactionStatus === 'COMPLETED' ? new Date() : undefined,
-                paidAt: transactionStatus === 'COMPLETED' ? new Date() : undefined
+                transactionTrackingId: orderTrackingId, // Store tracking ID for future status checks
+                paymentCompletedAt: statusLower.includes('completed') || statusLower.includes('success') ? new Date() : undefined,
+                paidAt: statusLower.includes('completed') || statusLower.includes('success') ? new Date() : undefined
             },
             { new: true }
         );
 
         // Send payment confirmation email if payment was successful
-        if (transactionStatus === 'COMPLETED' && order?.shippingAddress?.email) {
+        if ((statusLower.includes('completed') || statusLower.includes('success')) && order?.shippingAddress?.email) {
             try {
                 await sendPaymentConfirmation({
                     email: order.shippingAddress.email,
