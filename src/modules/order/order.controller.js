@@ -1717,9 +1717,9 @@ const getOrderAnalytics = async (req, res) => {
         }));
 
         // Get traffic and conversion data (simulated based on order patterns)
-        const totalOrders = await orderModel.countDocuments({ paymentStatus: 'paid' });
-        const totalVisitors = Math.round(totalOrders * 3.5); // Estimate based on typical conversion rates
-        const conversionRate = totalOrders > 0 ? Math.round((totalOrders / totalVisitors) * 100 * 100) / 100 : 0;
+        const paidOrdersCount = await orderModel.countDocuments({ paymentStatus: 'paid' });
+        const totalVisitors = Math.round(paidOrdersCount * 3.5); // Estimate based on typical conversion rates
+        const conversionRate = paidOrdersCount > 0 ? Math.round((paidOrdersCount / totalVisitors) * 100 * 100) / 100 : 0;
         const bounceRate = Math.max(0, 100 - conversionRate - 15); // Estimate bounce rate
         const avgSessionDuration = 180; // Average session duration in seconds
 
@@ -1732,7 +1732,7 @@ const getOrderAnalytics = async (req, res) => {
 
         // Get refund and return rates (simulated based on order data)
         const refundedOrders = await orderModel.countDocuments({ paymentStatus: 'refunded' });
-        const refundRate = totalOrders > 0 ? Math.round((refundedOrders / totalOrders) * 100 * 100) / 100 : 0;
+        const refundRate = paidOrdersCount > 0 ? Math.round((refundedOrders / paidOrdersCount) * 100 * 100) / 100 : 0;
         const refundAmount = await orderModel.aggregate([
             { $match: { paymentStatus: 'refunded' } },
             { $group: { _id: null, total: { $sum: '$totalAmount' } } }
