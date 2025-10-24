@@ -54,7 +54,7 @@ export const createGeneralReview = async (req, res) => {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2 style="color: #2563eb;">Thank you for your review!</h2>
                 <p>Hi ${name},</p>
-                <p>Thank you for taking the time to share your experience with MEDHELM Supplies. Your feedback is valuable to us and helps other customers.</p>
+                <p>Thank you for taking the time to share your experience with Medhelm Supplies. Your feedback is valuable to us and helps other customers.</p>
                 <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                     <h3 style="margin: 0 0 10px 0;">Your Review:</h3>
                     <p><strong>Title:</strong> ${title}</p>
@@ -62,12 +62,12 @@ export const createGeneralReview = async (req, res) => {
                     <p><strong>Comment:</strong> ${comment}</p>
                 </div>
                 <p>Your review will appear on our website after approval (usually within 24 hours).</p>
-                <p>Thank you for choosing MEDHELM!</p>
+                <p>Thank you for choosing Medhelm!</p>
             </div>
         `;
 
         try {
-            await sendEmail(email, 'Review Submitted - MEDHELM Supplies', html);
+            await sendEmail(email, 'Review Submitted - Medhelm Supplies', html);
         } catch (emailError) {
             console.error('Error sending review confirmation email:', emailError);
             // Don't fail the review creation if email fails

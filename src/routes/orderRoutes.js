@@ -41,4 +41,7 @@ router.post('/bulk-update', admin, orderController.bulkUpdateOrders);
 // Public tracking endpoint (no authentication required)
 router.get('/track/:id', orderController.getSpecificOrder);
 
+// Admin payment status refresh endpoint
+router.post('/:id/refresh-payment', admin, orderController.refreshOrderPaymentStatus);
+
 export default router;

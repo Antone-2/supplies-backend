@@ -171,8 +171,8 @@ export async function getUsers(req, res) {
             .limit(parseInt(limit));
         const total = await User.countDocuments(query);
 
-        // Enhance user data with management information
-        const enhancedUsers = users.map(user => {
+        // Enhance user data with management information and real statistics
+        const enhancedUsers = await Promise.all(users.map(async (user) => {
             const userObj = user.toObject();
 
             // Add management flags
@@ -190,8 +190,59 @@ export async function getUsers(req, res) {
                 resetPassword: user.role !== 'super_admin'
             };
 
+            // Fetch real account statistics
+            const userOrders = await Order.find({ user: user._id });
+            const totalOrders = userOrders.length;
+            const totalSpent = userOrders
+                .filter(order => order.paymentStatus === 'paid')
+                .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+            // Calculate average order value
+            const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
+
+            // Get order history (recent 10 orders)
+            const orderHistory = userOrders
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .slice(0, 10)
+                .map(order => ({
+                    id: order._id,
+                    date: order.createdAt,
+                    total: order.totalAmount,
+                    status: order.orderStatus,
+                    items: order.items?.length || 0
+                }));
+
+            // Create activity log (mock for now, but could be real from audit logs)
+            const activityLog = [
+                {
+                    action: 'Account created',
+                    timestamp: user.createdAt,
+                    details: 'User account was created'
+                },
+                ...(user.lastLogin ? [{
+                    action: 'Last login',
+                    timestamp: user.lastLogin,
+                    details: 'User logged into the system'
+                }] : []),
+                ...(userOrders.length > 0 ? [{
+                    action: 'First order placed',
+                    timestamp: userOrders[userOrders.length - 1].createdAt,
+                    details: `Placed first order #${userOrders[userOrders.length - 1]._id}`
+                }] : [])
+            ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            // Add real statistics
+            userObj.orders = totalOrders;
+            userObj.totalSpent = totalSpent;
+            userObj.avgOrderValue = avgOrderValue;
+            userObj.orderHistory = orderHistory;
+            userObj.activityLog = activityLog;
+
+            // Add verification status
+            userObj.verified = user.emailVerified || user.isVerified || false;
+
             return userObj;
-        });
+        }));
 
         // Get summary statistics
         const totalActive = await User.countDocuments({ ...query, active: true });

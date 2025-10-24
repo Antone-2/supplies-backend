@@ -265,7 +265,7 @@ class TestDatabase {
             {
                 _id: 'setting_001',
                 key: 'site_name',
-                value: 'MEDHELM Supplies',
+                value: 'Medhelm Supplies',
                 type: 'string',
                 category: 'general',
                 description: 'Website name displayed in header and title',
@@ -354,7 +354,7 @@ class TestDatabase {
         this.notifications = [
             {
                 _id: 'notif_001',
-                title: 'Welcome to MEDHELM Supplies',
+                title: 'Welcome to Medhelm Supplies',
                 message: 'Thank you for choosing MEDHELM Supplies. Your order has been received and is being processed.',
                 type: 'order',
                 priority: 'normal',
