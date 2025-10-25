@@ -243,14 +243,20 @@ export const paymentCallback = async (req, res) => {
             return res.status(400).send('<script>window.opener.postMessage("pesapal-payment-failed", "*");window.close();</script>');
         }
 
-        // Get access token
-        const token = await getAccessToken();
+        // Query PesaPal for the latest transaction status
+        let transactionData;
+        let transactionStatus = 'unknown';
 
-        // Get transaction status using the service function
-        const transactionData = await getTransactionStatus(orderTrackingId);
-        const transactionStatus = transactionData.status || 'unknown';
-
-        console.log('🔍 Transaction status from PesaPal:', transactionStatus);
+        try {
+            console.log('🔍 Querying PesaPal for transaction status...');
+            transactionData = await getTransactionStatus(orderTrackingId);
+            transactionStatus = transactionData.status || 'unknown';
+            console.log('🔍 Transaction status from PesaPal:', transactionStatus);
+        } catch (statusError) {
+            console.warn('⚠️ Failed to query PesaPal for status, using fallback:', statusError.message);
+            // Continue with callback data if PesaPal query fails
+            transactionStatus = 'unknown';
+        }
 
         // Update order status based on transaction status
         let paymentStatus = 'failed';
@@ -281,10 +287,16 @@ export const paymentCallback = async (req, res) => {
                 transactionStatus: transactionStatus,
                 transactionTrackingId: orderTrackingId, // Store tracking ID for future status checks
                 paymentCompletedAt: statusLower.includes('completed') || statusLower.includes('success') ? new Date() : undefined,
-                paidAt: statusLower.includes('completed') || statusLower.includes('success') ? new Date() : undefined
+                paidAt: statusLower.includes('completed') || statusLower.includes('success') ? new Date() : undefined,
+                lastPaymentUpdate: new Date() // Track when payment was last updated
             },
             { new: true }
         );
+
+        if (!order) {
+            console.warn(`⚠️ Order ${orderId} not found in database`);
+            return res.status(404).send('<script>window.opener.postMessage("pesapal-payment-failed", "*");window.close();</script>');
+        }
 
         // Send payment confirmation email if payment was successful
         if ((statusLower.includes('completed') || statusLower.includes('success')) && order?.shippingAddress?.email) {
@@ -296,23 +308,23 @@ export const paymentCallback = async (req, res) => {
                     totalAmount: order.totalAmount,
                     paymentMethod: order.paymentMethod || 'pesapal'
                 });
-                console.log(`Payment confirmation email sent for order ${orderId}`);
+                console.log(`✅ Payment confirmation email sent for order ${orderId}`);
             } catch (emailError) {
-                console.warn('Payment confirmation email failed:', emailError);
+                console.warn('⚠️ Payment confirmation email failed:', emailError);
             }
         }
 
-        console.log(`Payment callback for order ${orderId}: Status updated to ${paymentStatus}`);
+        console.log(`✅ Payment callback for order ${orderId}: Status updated to ${paymentStatus}`);
 
         // Respond with script to close tab and notify opener
         res.status(200).send(`<script>window.opener.postMessage("${message}", "*");window.close();</script>`);
     } catch (err) {
-        console.error('Payment callback error:', err.message);
+        console.error('❌ Payment callback error:', err.message);
         res.status(500).send('<script>window.opener.postMessage("pesapal-payment-failed", "*");window.close();</script>');
     }
 };
 
-// Get payment status for an order
+// Get payment status for an order (with PesaPal status refresh)
 export const getPaymentStatus = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -333,16 +345,63 @@ export const getPaymentStatus = async (req, res) => {
             });
         }
 
+        // If we have a transaction tracking ID, query PesaPal for the latest status
+        let latestStatus = null;
+        if (order.transactionTrackingId && order.paymentStatus !== 'paid') {
+            try {
+                console.log(`🔄 Refreshing payment status for order ${orderId} from PesaPal...`);
+                const transactionData = await getTransactionStatus(order.transactionTrackingId);
+                latestStatus = transactionData.status;
+
+                // Update order if status has changed
+                if (latestStatus && latestStatus.toLowerCase() !== (order.transactionStatus || '').toLowerCase()) {
+                    let newPaymentStatus = order.paymentStatus;
+                    const statusLower = latestStatus.toLowerCase();
+
+                    if (statusLower.includes('completed') || statusLower.includes('success')) {
+                        newPaymentStatus = 'paid';
+                    } else if (statusLower.includes('failed') || statusLower.includes('cancelled')) {
+                        newPaymentStatus = 'failed';
+                    } else if (statusLower.includes('pending') || statusLower.includes('processing')) {
+                        newPaymentStatus = 'pending';
+                    }
+
+                    // Update order with fresh status
+                    await Order.findOneAndUpdate(
+                        { orderNumber: orderId },
+                        {
+                            paymentStatus: newPaymentStatus,
+                            transactionStatus: latestStatus,
+                            lastPaymentUpdate: new Date(),
+                            paymentCompletedAt: newPaymentStatus === 'paid' ? new Date() : order.paymentCompletedAt,
+                            paidAt: newPaymentStatus === 'paid' ? new Date() : order.paidAt
+                        }
+                    );
+
+                    console.log(`✅ Updated order ${orderId} status: ${order.paymentStatus} → ${newPaymentStatus}`);
+                }
+            } catch (statusError) {
+                console.warn(`⚠️ Failed to refresh status from PesaPal for order ${orderId}:`, statusError.message);
+            }
+        }
+
+        // Fetch updated order data
+        const updatedOrder = await Order.findOne({ orderNumber: orderId });
+
         res.json({
             success: true,
             data: {
-                orderId: order.orderNumber,
-                paymentStatus: order.paymentStatus,
-                transactionStatus: order.transactionStatus,
-                paymentTrackingId: order.paymentTrackingId,
-                totalAmount: order.totalAmount,
-                paymentInitiatedAt: order.paymentInitiatedAt,
-                updatedAt: order.updatedAt
+                orderId: updatedOrder.orderNumber,
+                paymentStatus: updatedOrder.paymentStatus,
+                transactionStatus: updatedOrder.transactionStatus,
+                paymentTrackingId: updatedOrder.paymentTrackingId,
+                transactionTrackingId: updatedOrder.transactionTrackingId,
+                totalAmount: updatedOrder.totalAmount,
+                paymentInitiatedAt: updatedOrder.paymentInitiatedAt,
+                paymentCompletedAt: updatedOrder.paymentCompletedAt,
+                lastPaymentUpdate: updatedOrder.lastPaymentUpdate,
+                updatedAt: updatedOrder.updatedAt,
+                statusRefreshed: latestStatus !== null
             }
         });
     } catch (error) {
@@ -350,6 +409,87 @@ export const getPaymentStatus = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to retrieve payment status'
+        });
+    }
+};
+
+// Manual payment status refresh endpoint
+export const refreshPaymentStatus = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Order ID is required'
+            });
+        }
+
+        const order = await Order.findOne({ orderNumber: orderId });
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        if (!order.transactionTrackingId) {
+            return res.status(400).json({
+                success: false,
+                message: 'No transaction tracking ID found for this order'
+            });
+        }
+
+        console.log(`🔄 Manually refreshing payment status for order ${orderId}...`);
+
+        // Query PesaPal for the latest status
+        const transactionData = await getTransactionStatus(order.transactionTrackingId);
+        const latestStatus = transactionData.status;
+
+        // Update order status based on PesaPal response
+        let paymentStatus = order.paymentStatus;
+        const statusLower = latestStatus.toLowerCase();
+
+        if (statusLower.includes('completed') || statusLower.includes('success')) {
+            paymentStatus = 'paid';
+        } else if (statusLower.includes('failed') || statusLower.includes('cancelled')) {
+            paymentStatus = 'failed';
+        } else if (statusLower.includes('pending') || statusLower.includes('processing')) {
+            paymentStatus = 'pending';
+        }
+
+        // Update order with fresh status
+        const updatedOrder = await Order.findOneAndUpdate(
+            { orderNumber: orderId },
+            {
+                paymentStatus,
+                transactionStatus: latestStatus,
+                lastPaymentUpdate: new Date(),
+                paymentCompletedAt: paymentStatus === 'paid' ? new Date() : order.paymentCompletedAt,
+                paidAt: paymentStatus === 'paid' ? new Date() : order.paidAt
+            },
+            { new: true }
+        );
+
+        console.log(`✅ Manually updated order ${orderId} status: ${order.paymentStatus} → ${paymentStatus}`);
+
+        res.json({
+            success: true,
+            message: `Payment status refreshed successfully`,
+            data: {
+                orderId: updatedOrder.orderNumber,
+                oldStatus: order.paymentStatus,
+                newStatus: updatedOrder.paymentStatus,
+                transactionStatus: updatedOrder.transactionStatus,
+                lastPaymentUpdate: updatedOrder.lastPaymentUpdate
+            }
+        });
+    } catch (error) {
+        console.error('Refresh payment status error:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to refresh payment status'
         });
     }
 };
