@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPesapalPayment, paymentCallback, getPaymentStatus, refreshPaymentStatus } from '../modules/payment/payment.controller.js';
+import { createPesapalPayment, paymentCallback, getPaymentStatus, refreshPaymentStatus, bulkRefreshPaymentStatus } from '../modules/payment/payment.controller.js';
 
 const router = express.Router();
 
@@ -12,5 +12,6 @@ router.post('/ipn', paymentCallback);
 // Additional endpoints for payment status management
 router.get('/status/:orderId', getPaymentStatus);
 router.post('/refresh-status/:orderId', refreshPaymentStatus);
+router.post('/refresh-status/bulk', bulkRefreshPaymentStatus);
 
 export default router;

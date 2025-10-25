@@ -493,3 +493,103 @@ export const refreshPaymentStatus = async (req, res) => {
         });
     }
 };
+
+// Bulk refresh payment status for multiple orders
+export const bulkRefreshPaymentStatus = async (req, res) => {
+    try {
+        const { orderIds } = req.body;
+
+        if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Order IDs array is required'
+            });
+        }
+
+        console.log(`🔄 Bulk refreshing payment status for ${orderIds.length} orders...`);
+
+        const results = [];
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const orderId of orderIds) {
+            try {
+                const order = await Order.findOne({ orderNumber: orderId });
+
+                if (!order) {
+                    results.push({ orderId, success: false, error: 'Order not found' });
+                    errorCount++;
+                    continue;
+                }
+
+                if (!order.transactionTrackingId) {
+                    results.push({ orderId, success: false, error: 'No transaction tracking ID' });
+                    errorCount++;
+                    continue;
+                }
+
+                // Query PesaPal for the latest status
+                const transactionData = await getTransactionStatus(order.transactionTrackingId);
+                const latestStatus = transactionData.status;
+
+                // Update order status based on PesaPal response
+                let paymentStatus = order.paymentStatus;
+                const statusLower = latestStatus.toLowerCase();
+
+                if (statusLower.includes('completed') || statusLower.includes('success')) {
+                    paymentStatus = 'paid';
+                } else if (statusLower.includes('failed') || statusLower.includes('cancelled')) {
+                    paymentStatus = 'failed';
+                } else if (statusLower.includes('pending') || statusLower.includes('processing')) {
+                    paymentStatus = 'pending';
+                }
+
+                // Update order with fresh status
+                const updatedOrder = await Order.findOneAndUpdate(
+                    { orderNumber: orderId },
+                    {
+                        paymentStatus,
+                        transactionStatus: latestStatus,
+                        lastPaymentUpdate: new Date(),
+                        paymentCompletedAt: paymentStatus === 'paid' ? new Date() : order.paymentCompletedAt,
+                        paidAt: paymentStatus === 'paid' ? new Date() : order.paidAt
+                    },
+                    { new: true }
+                );
+
+                results.push({
+                    orderId,
+                    success: true,
+                    oldStatus: order.paymentStatus,
+                    newStatus: updatedOrder.paymentStatus,
+                    transactionStatus: updatedOrder.transactionStatus
+                });
+                successCount++;
+
+            } catch (orderError) {
+                console.error(`Error refreshing order ${orderId}:`, orderError.message);
+                results.push({ orderId, success: false, error: orderError.message });
+                errorCount++;
+            }
+        }
+
+        console.log(`✅ Bulk refresh completed: ${successCount} successful, ${errorCount} failed`);
+
+        res.json({
+            success: true,
+            message: `Bulk payment status refresh completed: ${successCount} successful, ${errorCount} failed`,
+            data: {
+                totalProcessed: orderIds.length,
+                successCount,
+                errorCount,
+                results
+            }
+        });
+    } catch (error) {
+        console.error('Bulk refresh payment status error:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to bulk refresh payment status'
+        });
+    }
+};
