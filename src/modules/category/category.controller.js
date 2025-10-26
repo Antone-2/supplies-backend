@@ -4,9 +4,15 @@ import Product from '../../../Database/models/product.model.js';
 // Get all categories with product counts
 const getCategoriesWithCounts = async (req, res) => {
     try {
+        console.log('🔍 Fetching categories with counts...');
+
+        // Get all categories without filtering by isActive to show all categories in admin
         const categories = await Category.find({})
             .populate('parentCategory', 'name')
-            .sort({ displayOrder: 1, name: 1 });
+            .sort({ displayOrder: 1, name: 1 })
+            .limit(100); // Add reasonable limit to prevent performance issues
+
+        console.log(`📊 Found ${categories.length} categories in database`);
 
         // Get product counts for each category
         const categoriesWithCounts = await Promise.all(
@@ -16,10 +22,12 @@ const getCategoriesWithCounts = async (req, res) => {
                     $or: [
                         { category: category._id },
                         { category: category._id.toString() },
-                        { category: category.name }
-                    ],
-                    isActive: true
+                        { category: category.name },
+                        { category: { $regex: new RegExp(`^${category.name}$`, 'i') } } // Case-insensitive name match
+                    ]
                 });
+
+                console.log(`📦 Category "${category.name}": ${productCount} products`);
 
                 return {
                     _id: category._id,
@@ -39,12 +47,15 @@ const getCategoriesWithCounts = async (req, res) => {
             })
         );
 
+        console.log(`✅ Returning ${categoriesWithCounts.length} categories with product counts`);
+
         res.json({
             success: true,
-            data: categoriesWithCounts
+            data: categoriesWithCounts,
+            total: categoriesWithCounts.length
         });
     } catch (err) {
-        console.error('Error fetching categories:', err);
+        console.error('❌ Error fetching categories:', err);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch categories',

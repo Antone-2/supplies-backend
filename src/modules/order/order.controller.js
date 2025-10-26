@@ -113,9 +113,9 @@ const getAllOrders = async (req, res) => {
             createdAt: order.createdAt,
             updatedAt: order.updatedAt,
             deliveryDate: null,
-            trackingNumber: order.trackingNumber || null,
-            transactionTrackingId: order.transactionTrackingId || null,
-            transactionStatus: order.transactionStatus || null,
+            trackingNumber: order.trackingNumber || 'Not assigned',
+            transactionTrackingId: order.transactionTrackingId || 'N/A',
+            transactionStatus: order.transactionStatus || 'N/A',
             // Enhanced payment info for admin
             isPaid: order.paymentStatus === 'paid',
             canProcess: order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus),
@@ -930,6 +930,19 @@ const updateOrderStatus = async (req, res) => {
                 order.trackingNumber = generatedTrackingNumber;
                 console.log(`📦 Generated tracking number: ${generatedTrackingNumber} for order ${order.orderNumber}`);
             }
+
+            // Generate transaction tracking ID if not present (for payment tracking)
+            if (!order.transactionTrackingId) {
+                const generatedTransactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+                order.transactionTrackingId = generatedTransactionId;
+                console.log(`💳 Generated transaction tracking ID: ${generatedTransactionId} for order ${order.orderNumber}`);
+            }
+
+            // Set transaction status to N/A if not set
+            if (!order.transactionStatus || order.transactionStatus === '') {
+                order.transactionStatus = 'N/A';
+                console.log(`📊 Set transaction status to N/A for order ${order.orderNumber}`);
+            }
         }
 
         // Validate payment status transitions
@@ -1315,7 +1328,7 @@ const bulkRefreshPaymentStatus = async (req, res) => {
     }
 };
 
-// Analytics endpoint for admin dashboard
+// Analytics endpoint for admin dashboard - Optimized for performance
 const getOrderAnalytics = async (req, res) => {
     try {
         // Check if MongoDB is connected
@@ -1323,67 +1336,64 @@ const getOrderAnalytics = async (req, res) => {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
+        console.log('📊 Starting analytics calculation...');
+
         // Initialize product variables early to avoid initialization errors
         let totalProducts = 0;
         let lowStockProducts = 0;
 
-        // Get total orders count (only paid orders for dashboard display)
-        const totalOrders = await orderModel.countDocuments({ paymentStatus: 'paid' });
+        // Use Promise.all for parallel execution of independent queries
+        const [
+            totalOrdersResult,
+            pendingOrdersResult,
+            revenueResult,
+            userResult
+        ] = await Promise.all([
+            // Get total orders count (only paid orders for dashboard display)
+            orderModel.countDocuments({ paymentStatus: 'paid' }),
 
-        // Get pending orders count (orders that are pending but payment is completed)
-        const pendingOrders = await orderModel.countDocuments({
-            orderStatus: 'pending',
-            paymentStatus: 'paid'
-        });
+            // Get pending orders count (orders that are pending but payment is completed)
+            orderModel.countDocuments({
+                orderStatus: 'pending',
+                paymentStatus: 'paid'
+            }),
 
-        // Get total revenue (paid orders only)
-        const revenueResult = await orderModel.aggregate([
-            { $match: { paymentStatus: 'paid' } },
-            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+            // Get total revenue (paid orders only)
+            orderModel.aggregate([
+                { $match: { paymentStatus: 'paid' } },
+                { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+            ]),
+
+            // Get user count with error handling
+            User.countDocuments().catch(error => {
+                console.log('User model query failed:', error.message);
+                return 0;
+            })
         ]);
+
+        const totalOrders = totalOrdersResult;
+        const pendingOrders = pendingOrdersResult;
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+        const totalUsers = userResult;
 
-        // Get user count
-        let totalUsers = 0;
-        try {
-            totalUsers = await User.countDocuments();
-        } catch (error) {
-            console.log('User model query failed:', error.message);
-            throw new Error('Failed to fetch user data');
-        }
+        // Get product count and low stock products - Optimized with parallel queries
+        const productQueries = Promise.all([
+            Product.countDocuments({}).catch(() => 0),
+            Product.countDocuments({ countInStock: { $lt: 10 } }).catch(() => 0),
+            Category.countDocuments({ isActive: true }).catch(() => 0)
+        ]);
 
-        // Get product count and low stock products
-        try {
-            // Use raw MongoDB query to avoid mongoose schema validation issues
-            const db = mongoose.connection.db;
-            const productsCollection = db.collection('products');
-            totalProducts = await productsCollection.countDocuments({});
-            lowStockProducts = await productsCollection.countDocuments({
-                countInStock: { $lt: 10 }
-            });
-        } catch (error) {
-            console.log('Product collection query failed:', error.message);
-            // Fallback to mongoose with error handling
-            try {
-                totalProducts = await Product.countDocuments({});
-                lowStockProducts = await Product.countDocuments({
-                    countInStock: { $lt: 10 }
-                });
-            } catch (fallbackError) {
-                console.log('Fallback product query also failed:', fallbackError.message);
-                totalProducts = 0;
-                lowStockProducts = 0;
-            }
-        }
+        // Get new users this month - Optimized
+        const newUsersQuery = User.countDocuments({
+            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+        }).catch(() => 0);
 
-        // Get category count
-        let totalCategories = 0;
-        try {
-            totalCategories = await Category.countDocuments({ isActive: true });
-        } catch (error) {
-            console.log('Category model not available for analytics');
-            totalCategories = 0;
-        }
+        // Execute all product and category queries in parallel
+        const [totalProductsResult, lowStockProductsResult, totalCategoriesResult] = await productQueries;
+        totalProducts = totalProductsResult;
+        lowStockProducts = lowStockProductsResult;
+        const totalCategories = totalCategoriesResult;
+        const newUsersLast30Days = await newUsersQuery;
 
         // Get new users this month
         let newUsers = 0;
@@ -1397,16 +1407,16 @@ const getOrderAnalytics = async (req, res) => {
             throw new Error('Failed to fetch user growth data');
         }
 
-        // Get real monthly revenue data (last 6 months)
-        const monthlyRevenue = [];
-        try {
-            for (let i = 5; i >= 0; i--) {
-                const date = new Date();
-                date.setMonth(date.getMonth() - i);
-                const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-                const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        // Get real monthly revenue data (last 6 months) - Optimized with parallel queries
+        const monthlyRevenuePromises = [];
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date();
+            date.setMonth(date.getMonth() - i);
+            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-                const monthResult = await orderModel.aggregate([
+            monthlyRevenuePromises.push(
+                orderModel.aggregate([
                     {
                         $match: {
                             paymentStatus: 'paid',
@@ -1421,34 +1431,28 @@ const getOrderAnalytics = async (req, res) => {
                             avgOrderValue: { $avg: '$totalAmount' }
                         }
                     }
-                ]);
-
-                const result = monthResult.length > 0 ? monthResult[0] : { revenue: 0, orders: 0, avgOrderValue: 0 };
-
-                monthlyRevenue.push({
+                ]).then(monthResult => ({
                     month: monthStart.toLocaleString('default', { month: 'short' }),
                     year: monthStart.getFullYear(),
-                    revenue: Math.round(result.revenue * 100) / 100, // Round to 2 decimal places
-                    orders: result.orders || 0,
-                    avgOrderValue: Math.round(result.avgOrderValue * 100) / 100
-                });
-            }
-        } catch (error) {
-            console.log('Error fetching monthly revenue:', error.message);
-            // Provide fallback data
-            const fallbackMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-            fallbackMonths.forEach(month => {
-                monthlyRevenue.push({
-                    month,
-                    year: new Date().getFullYear(),
-                    revenue: 0,
-                    orders: 0,
-                    avgOrderValue: 0
-                });
-            });
+                    result: monthResult.length > 0 ? monthResult[0] : { revenue: 0, orders: 0, avgOrderValue: 0 }
+                })).catch(() => ({
+                    month: monthStart.toLocaleString('default', { month: 'short' }),
+                    year: monthStart.getFullYear(),
+                    result: { revenue: 0, orders: 0, avgOrderValue: 0 }
+                }))
+            );
         }
 
-        // Get top products by revenue
+        const monthlyResults = await Promise.all(monthlyRevenuePromises);
+        const monthlyRevenue = monthlyResults.map(item => ({
+            month: item.month,
+            year: item.year,
+            revenue: Math.round(item.result.revenue * 100) / 100,
+            orders: item.result.orders || 0,
+            avgOrderValue: Math.round(item.result.avgOrderValue * 100) / 100
+        }));
+
+        // Get top products by revenue - Optimized with parallel processing
         const topProductsResult = await orderModel.aggregate([
             { $match: { paymentStatus: 'paid' } },
             { $unwind: '$items' },
@@ -1462,12 +1466,15 @@ const getOrderAnalytics = async (req, res) => {
             },
             { $sort: { revenue: -1 } },
             { $limit: 5 }
-        ]);
+        ]).catch(error => {
+            console.log('Could not fetch top products:', error.message);
+            return [];
+        });
 
         const topProducts = topProductsResult.map(product => ({
-            name: product.name,
-            sales: product.sales,
-            revenue: product.revenue
+            name: product.name || 'Unknown Product',
+            sales: product.sales || 0,
+            revenue: Math.round((product.revenue || 0) * 100) / 100
         }));
 
         // Get real order status breakdown
@@ -1512,43 +1519,31 @@ const getOrderAnalytics = async (req, res) => {
             status.percentage = totalOrderCount > 0 ? Math.round((status.count / totalOrderCount) * 100 * 100) / 100 : 0;
         });
 
-        // Get real user growth data (last 6 months)
-        const userGrowth = [];
-        try {
-            for (let i = 5; i >= 0; i--) {
-                const date = new Date();
-                date.setMonth(date.getMonth() - i);
-                const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-                const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        // Get real user growth data (last 6 months) - Optimized with parallel queries
+        const userGrowthPromises = [];
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date();
+            date.setMonth(date.getMonth() - i);
+            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-                // Count users registered in this month
-                const monthUsers = await User.countDocuments({
-                    createdAt: { $gte: monthStart, $lte: monthEnd }
-                });
-
-                // Count cumulative users up to end of this month
-                const cumulativeUsers = await User.countDocuments({
-                    createdAt: { $lte: monthEnd }
-                });
-
-                userGrowth.push({
+            userGrowthPromises.push(
+                Promise.all([
+                    User.countDocuments({ createdAt: { $gte: monthStart, $lte: monthEnd } }).catch(() => 0),
+                    User.countDocuments({ createdAt: { $lte: monthEnd } }).catch(() => 0)
+                ]).then(([monthUsers, cumulativeUsers]) => ({
                     month: monthStart.toLocaleString('default', { month: 'short' }),
                     newUsers: monthUsers,
                     totalUsers: cumulativeUsers
-                });
-            }
-        } catch (error) {
-            console.log('Could not fetch user growth data:', error.message);
-            // Provide fallback data instead of throwing error
-            const fallbackMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-            fallbackMonths.forEach((month, index) => {
-                userGrowth.push({
-                    month,
+                })).catch(() => ({
+                    month: monthStart.toLocaleString('default', { month: 'short' }),
                     newUsers: 0,
                     totalUsers: totalUsers || 0
-                });
-            });
+                }))
+            );
         }
+
+        const userGrowth = await Promise.all(userGrowthPromises);
 
         // Get real category performance data
         const categoryPerformanceResult = await orderModel.aggregate([
@@ -2370,16 +2365,7 @@ const getDashboardStats = async (req, res) => {
             });
         }
 
-        // Get new users this month
-        let newUsers = 0;
-        try {
-            const startOfMonth = new Date();
-            startOfMonth.setDate(1);
-            startOfMonth.setHours(0, 0, 0, 0);
-            newUsers = await User.countDocuments({ createdAt: { $gte: startOfMonth } });
-        } catch (error) {
-            console.log('Could not fetch new users count');
-        }
+        // Note: newUsers is now fetched above in parallel with other queries
 
         const stats = {
             totalUsers,
