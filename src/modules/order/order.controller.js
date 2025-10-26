@@ -54,6 +54,12 @@ const getAllOrders = async (req, res) => {
             } else if (paymentFilter === 'refunded') {
                 query.paymentStatus = 'refunded';
             }
+
+            // Debug: Log the payment filter being applied
+            if (paymentFilter) {
+                console.log(`🔍 Applying payment filter: ${paymentFilter}`);
+                console.log(`🔍 Query paymentStatus:`, query.paymentStatus);
+            }
         }
 
         // Add debug logging to see what orders are being queried
@@ -79,6 +85,13 @@ const getAllOrders = async (req, res) => {
         orders.forEach(order => {
             console.log(`📦 Order ${order.orderNumber}: paymentStatus=${order.paymentStatus}, orderStatus=${order.orderStatus}, paidAt=${order.paidAt}, transactionStatus=${order.transactionStatus}, isPaid=${order.paymentStatus === 'paid'}, canProcess=${order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus)}`);
         });
+
+        // Additional debug: Count orders by payment status
+        const statusCounts = orders.reduce((acc, order) => {
+            acc[order.paymentStatus] = (acc[order.paymentStatus] || 0) + 1;
+            return acc;
+        }, {});
+        console.log(`📈 Order status breakdown:`, statusCounts);
 
         // Format orders for admin view with enhanced payment information
         const formattedOrders = orders.map(order => ({
