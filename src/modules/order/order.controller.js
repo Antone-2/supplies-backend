@@ -2284,31 +2284,37 @@ const getDashboardStats = async (req, res) => {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
+        // Initialize variables
+        let totalOrders = 0;
+        let pendingOrders = 0;
+        let totalRevenue = 0;
+        let totalUsers = 0;
+        let totalProducts = 0;
+        let lowStockProducts = 0;
+        let newUsers = 0;
+
         // Get total orders count
-        const totalOrders = await orderModel.countDocuments();
+        totalOrders = await orderModel.countDocuments();
 
         // Get pending orders count
-        const pendingOrders = await orderModel.countDocuments({ orderStatus: 'pending' });
+        pendingOrders = await orderModel.countDocuments({ orderStatus: 'pending' });
 
         // Get total revenue (paid orders only)
         const revenueResult = await orderModel.aggregate([
             { $match: { paymentStatus: 'paid' } },
             { $group: { _id: null, total: { $sum: '$totalAmount' } } }
         ]);
-        const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+        totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
         // Get user count
-        let totalUsers = 0;
         try {
             totalUsers = await User.countDocuments();
         } catch (error) {
             console.log('User model query failed:', error.message);
-            throw new Error('Failed to fetch user data');
+            totalUsers = 0;
         }
 
         // Get product count and low stock products
-        let totalProducts = 0;
-        let lowStockProducts = 0;
         try {
             // Use raw MongoDB query to avoid mongoose schema validation issues
             const db = mongoose.connection.db;
@@ -2346,6 +2352,17 @@ const getDashboardStats = async (req, res) => {
             timestamp: new Date(order.createdAt).toLocaleString()
         }));
 
+        // Get new users this month
+        try {
+            const startOfMonth = new Date();
+            startOfMonth.setDate(1);
+            startOfMonth.setHours(0, 0, 0, 0);
+            newUsers = await User.countDocuments({ createdAt: { $gte: startOfMonth } });
+        } catch (error) {
+            console.log('Could not fetch new users count:', error.message);
+            newUsers = 0;
+        }
+
         // Get alerts
         const alerts = [];
         if (pendingOrders > 0) {
@@ -2364,8 +2381,6 @@ const getDashboardStats = async (req, res) => {
                 action: 'View Inventory'
             });
         }
-
-        // Note: newUsers is now fetched above in parallel with other queries
 
         const stats = {
             totalUsers,
