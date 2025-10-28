@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const adminNotificationSchema = new mongoose.Schema({
     type: { type: String, required: true }, // alert, error, log
@@ -7,4 +7,5 @@ const adminNotificationSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('AdminNotification', adminNotificationSchema);
+const AdminNotification = mongoose.model('AdminNotification', adminNotificationSchema);
+export default AdminNotification;
