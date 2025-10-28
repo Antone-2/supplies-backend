@@ -6,6 +6,7 @@ const router = express.Router();
 // Public routes
 router.get('/tree', getCategoryTree);
 router.get('/counts', getCategoriesWithCounts);
+router.get('/', getCategoriesWithCounts); // Add public categories endpoint
 router.get('/:id', getCategoryById);
 
 // Admin routes

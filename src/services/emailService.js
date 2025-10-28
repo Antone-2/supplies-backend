@@ -72,18 +72,26 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
         // Try Brevo first - only if API key is valid (not placeholder)
         if (process.env.BREVO_API_KEY &&
             process.env.BREVO_API_KEY &&
-            !process.env.BREVO_API_KEY.includes('xyz')) {
+            !process.env.BREVO_API_KEY.includes('xyz') &&
+            process.env.BREVO_API_KEY.startsWith('xkeysib-')) {
             console.log('🔑 Attempting Brevo API with key:', process.env.BREVO_API_KEY.substring(0, 20) + '...');
-            const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-            const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-            sendSmtpEmail.subject = subject;
-            sendSmtpEmail.htmlContent = htmlContent;
-            sendSmtpEmail.sender = { name: process.env.COMPANY_NAME || 'Medhelm Supplies', email: process.env.EMAIL_FROM };
-            sendSmtpEmail.to = [{ email: toEmail }];
-            console.log('📧 Sending email via Brevo API to:', toEmail);
-            await apiInstance.sendTransacEmail(sendSmtpEmail);
-            console.log('✅ Brevo email sent successfully!');
-            return { success: true, provider: 'brevo' };
+            try {
+                const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+                const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+                sendSmtpEmail.subject = subject;
+                sendSmtpEmail.htmlContent = htmlContent;
+                sendSmtpEmail.sender = { name: process.env.COMPANY_NAME || 'Medhelm Supplies', email: process.env.EMAIL_FROM };
+                sendSmtpEmail.to = [{ email: toEmail }];
+                console.log('📧 Sending email via Brevo API to:', toEmail);
+                const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+                console.log('✅ Brevo email sent successfully!', result);
+                return { success: true, provider: 'brevo', messageId: result.messageId };
+            } catch (brevoError) {
+                console.error('❌ Brevo API error:', brevoError.message);
+                if (brevoError.code === 'unauthorized') {
+                    console.log('⚠️ Brevo API key appears to be invalid or expired');
+                }
+            }
         } else {
             console.log('⚠️ Brevo API key not configured or invalid');
         }
@@ -98,7 +106,7 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
             const transporter = createTransporter();
 
             const mailOptions = {
-                from: `"Medhelm Supplies" <${process.env.EMAIL_FROM}>`,
+                from: `"${process.env.COMPANY_NAME || 'Medhelm Supplies'}" <${process.env.EMAIL_FROM}>`,
                 to: toEmail,
                 subject,
                 html: htmlContent
@@ -110,6 +118,9 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
 
         } catch (error) {
             console.error('❌ SMTP email failed:', error.message);
+            if (error.code === 'EAUTH') {
+                console.log('⚠️ SMTP authentication failed - check EMAIL_USER and EMAIL_PASS');
+            }
             // Continue to development fallback
         }
     }
@@ -121,6 +132,28 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
         console.log(`Subject: ${subject}`);
         console.log(`Content: ${htmlContent.substring(0, 200)}...`);
         return { success: true, provider: 'development-log' };
+    }
+
+    // Production fallback - try to send via SMTP even if Brevo fails
+    if (process.env.NODE_ENV === 'production' && process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        try {
+            console.log('📧 Attempting production fallback via SMTP...');
+            const transporter = createTransporter();
+
+            const mailOptions = {
+                from: `"${process.env.COMPANY_NAME || 'Medhelm Supplies'}" <${process.env.EMAIL_FROM}>`,
+                to: toEmail,
+                subject,
+                html: htmlContent
+            };
+
+            const result = await transporter.sendMail(mailOptions);
+            console.log('✅ Email sent successfully via SMTP fallback:', result.messageId);
+            return { success: true, provider: 'smtp-fallback', messageId: result.messageId };
+
+        } catch (error) {
+            console.error('❌ SMTP fallback also failed:', error.message);
+        }
     }
 
     return { success: false, error: 'No email providers configured' };

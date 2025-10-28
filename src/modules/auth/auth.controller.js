@@ -11,6 +11,13 @@ const register = async function register(req, res) {
     console.log('Registration input:', { email: req.body.email, name: req.body.name });
     try {
         const { email, password, name } = req.body;
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Email already exists. Please use a different email or log in.' });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
         // Generate a mock verification token
         const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -65,7 +72,7 @@ const register = async function register(req, res) {
     } catch (err) {
         console.log('Registration error:', err);
         // Handle duplicate email error
-        if (err.code === 11000 && err.keyPattern && err.keyPattern.email) {
+        if (err.code === 11000 && err.keyValue && err.keyValue.email) {
             return res.status(400).json({ message: 'Email already exists. Please use a different email or log in.' });
         }
         res.status(400).json({ message: err.message || 'Registration failed' });

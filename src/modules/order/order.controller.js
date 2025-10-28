@@ -9,6 +9,7 @@ import Category from '../../../Database/models/category.model.js';
 import { sendOrderEmail, sendOrderConfirmation } from '../../services/emailService.js';
 import { sendOrderConfirmationSMS } from '../../services/smsService.js';
 import { initiatePesapalPayment, getTransactionStatus } from '../../services/pesapalService.js';
+import { createAdminNotification } from '../../controllers/adminNotificationController.js';
 
 const getAllOrders = async (req, res) => {
     try {
@@ -747,6 +748,19 @@ const createOrder = async (req, res) => {
 
         await order.save();
 
+        // Create admin notification for new order
+        try {
+            await createAdminNotification(
+                'order_created',
+                `New order ${order.orderNumber} placed by ${shippingAddress.fullName} for KES ${totalAmount.toLocaleString()}`,
+                `New Order: ${order.orderNumber}`,
+                'high'
+            );
+            console.log('Admin notification created for new order');
+        } catch (adminNotificationError) {
+            console.warn('Admin notification creation failed:', adminNotificationError);
+        }
+
         // Send order confirmation email and SMS notification
         try {
             await sendOrderConfirmation({
@@ -993,6 +1007,96 @@ const updateOrderStatus = async (req, res) => {
             }
         }
 
+        // Create admin notification for order status changes
+        if (status && status !== originalStatus) {
+            try {
+                const statusMessages = {
+                    'processing': 'is now being processed',
+                    'fulfilled': 'has been fulfilled and is ready for shipping',
+                    'ready': 'is ready for pickup/shipping',
+                    'shipped': 'has been shipped',
+                    'delivered': 'has been delivered successfully',
+                    'cancelled': 'has been cancelled'
+                };
+
+                await createAdminNotification(
+                    'order_status_update',
+                    `Order ${order.orderNumber} ${statusMessages[status] || `status changed to ${status}`}`,
+                    `Order ${status.toUpperCase()}: ${order.orderNumber}`,
+                    status === 'cancelled' ? 'high' : 'medium'
+                );
+                console.log(`Admin notification created for order status change: ${originalStatus} → ${status}`);
+            } catch (adminNotificationError) {
+                console.warn('Admin notification creation failed for status update:', adminNotificationError);
+            }
+        }
+
+        // Create admin notification for payment status changes
+        if (paymentStatus && paymentStatus !== originalPaymentStatus) {
+            try {
+                const paymentMessages = {
+                    'paid': 'payment has been confirmed',
+                    'failed': 'payment has failed',
+                    'refunded': 'payment has been refunded'
+                };
+
+                await createAdminNotification(
+                    'payment_status_update',
+                    `Payment for order ${order.orderNumber} ${paymentMessages[paymentStatus] || `status changed to ${paymentStatus}`}`,
+                    `Payment ${paymentStatus.toUpperCase()}: ${order.orderNumber}`,
+                    paymentStatus === 'failed' ? 'high' : 'medium'
+                );
+                console.log(`Admin notification created for payment status change: ${originalPaymentStatus} → ${paymentStatus}`);
+            } catch (adminNotificationError) {
+                console.warn('Admin notification creation failed for payment update:', adminNotificationError);
+            }
+        }
+
+        // Create admin notification for order status changes
+        if (status && status !== originalStatus) {
+            try {
+                const statusMessages = {
+                    'processing': 'is now being processed',
+                    'fulfilled': 'has been fulfilled and is ready for shipping',
+                    'ready': 'is ready for pickup/shipping',
+                    'shipped': 'has been shipped',
+                    'delivered': 'has been delivered successfully',
+                    'cancelled': 'has been cancelled'
+                };
+
+                await createAdminNotification(
+                    'order_status_update',
+                    `Order ${order.orderNumber} ${statusMessages[status] || `status changed to ${status}`}`,
+                    `Order ${status.toUpperCase()}: ${order.orderNumber}`,
+                    status === 'cancelled' ? 'high' : 'medium'
+                );
+                console.log(`Admin notification created for order status change: ${originalStatus} → ${status}`);
+            } catch (adminNotificationError) {
+                console.warn('Admin notification creation failed for status update:', adminNotificationError);
+            }
+        }
+
+        // Create admin notification for payment status changes
+        if (paymentStatus && paymentStatus !== originalPaymentStatus) {
+            try {
+                const paymentMessages = {
+                    'paid': 'payment has been confirmed',
+                    'failed': 'payment has failed',
+                    'refunded': 'payment has been refunded'
+                };
+
+                await createAdminNotification(
+                    'payment_status_update',
+                    `Payment for order ${order.orderNumber} ${paymentMessages[paymentStatus] || `status changed to ${paymentStatus}`}`,
+                    `Payment ${paymentStatus.toUpperCase()}: ${order.orderNumber}`,
+                    paymentStatus === 'failed' ? 'high' : 'medium'
+                );
+                console.log(`Admin notification created for payment status change: ${originalPaymentStatus} → ${paymentStatus}`);
+            } catch (adminNotificationError) {
+                console.warn('Admin notification creation failed for payment update:', adminNotificationError);
+            }
+        }
+
         res.json({
             success: true,
             message: `Order ${order.orderNumber} processed successfully`,
@@ -1198,6 +1302,61 @@ const refreshPaymentStatus = async (req, res) => {
 
         console.log(`✅ Payment status refreshed for order ${order.orderNumber}: ${order.paymentStatus} → ${paymentStatus} (${transactionStatus})`);
 
+        // Send payment confirmation notification if payment was just completed
+        if (newPaymentStatus === 'paid' && originalPaymentStatus !== 'paid') {
+            try {
+                await sendPaymentConfirmation({
+                    email: order.shippingAddress.email,
+                    name: order.shippingAddress.fullName,
+                    orderId: order.orderNumber,
+                    totalAmount: order.totalAmount,
+                    paymentMethod: order.paymentMethod || 'pesapal'
+                });
+
+                // Send SMS payment confirmation
+                if (order.shippingAddress.phone) {
+                    let phoneNumber = order.shippingAddress.phone;
+                    if (phoneNumber.startsWith('0')) {
+                        phoneNumber = '+254' + phoneNumber.substring(1);
+                    } else if (!phoneNumber.startsWith('+')) {
+                        phoneNumber = '+254' + phoneNumber;
+                    }
+
+                    await sendPaymentConfirmationSMS(phoneNumber, {
+                        name: order.shippingAddress.fullName,
+                        orderId: order.orderNumber,
+                        totalAmount: order.totalAmount
+                    });
+                }
+
+                console.log(`💳 Payment confirmation notifications sent for order ${order.orderNumber}`);
+            } catch (notificationError) {
+                console.warn('Payment confirmation notification failed:', notificationError);
+            }
+        }
+
+        // Create admin notification for payment status changes from refresh
+        if (newPaymentStatus !== originalPaymentStatus) {
+            try {
+                const paymentMessages = {
+                    'paid': 'payment has been confirmed via refresh',
+                    'failed': 'payment has failed (refreshed)',
+                    'pending': 'payment is still pending (refreshed)',
+                    'refunded': 'payment has been refunded (refreshed)'
+                };
+
+                await createAdminNotification(
+                    'payment_refresh_update',
+                    `Payment status refreshed for order ${order.orderNumber}: ${paymentMessages[newPaymentStatus] || `status changed to ${newPaymentStatus}`}`,
+                    `Payment Refresh: ${order.orderNumber}`,
+                    newPaymentStatus === 'paid' ? 'high' : 'medium'
+                );
+                console.log(`Admin notification created for payment refresh: ${originalPaymentStatus} → ${newPaymentStatus}`);
+            } catch (adminNotificationError) {
+                console.warn('Admin notification creation failed for payment refresh:', adminNotificationError);
+            }
+        }
+
         res.json({
             success: true,
             message: `Payment status refreshed successfully`,
@@ -1209,7 +1368,10 @@ const refreshPaymentStatus = async (req, res) => {
                 paidAt: updatedOrder.paidAt,
                 lastPaymentCheck: updatedOrder.lastPaymentCheck
             },
-            transactionData
+            transactionData,
+            notifications: {
+                paymentConfirmed: newPaymentStatus === 'paid' && originalPaymentStatus !== 'paid'
+            }
         });
 
     } catch (error) {
@@ -1584,7 +1746,7 @@ const getOrderAnalytics = async (req, res) => {
                 }
             },
             { $sort: { revenue: -1 } },
-            { $limit: 5 }
+            { $limit: 10 }
         ]);
 
         const categoryPerformance = categoryPerformanceResult.map(cat => ({
