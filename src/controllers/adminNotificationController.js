@@ -1,6 +1,6 @@
 import AdminNotification from '../../Database/models/adminNotification.model.js';
 
-exports.getNotifications = async (req, res) => {
+export const getNotifications = async (req, res) => {
     try {
         const notifications = await AdminNotification.find().sort({ createdAt: -1 }).limit(100);
         res.json(notifications);
@@ -9,7 +9,7 @@ exports.getNotifications = async (req, res) => {
     }
 };
 
-exports.markAsRead = async (req, res) => {
+export const markAsRead = async (req, res) => {
     try {
         const { id } = req.params;
         const notification = await AdminNotification.findByIdAndUpdate(id, { read: true }, { new: true });
@@ -20,7 +20,7 @@ exports.markAsRead = async (req, res) => {
     }
 };
 
-exports.createNotification = async (req, res) => {
+export const createNotification = async (req, res) => {
     try {
         const { type, message, title, priority = 'medium' } = req.body;
         const notification = new AdminNotification({
@@ -36,7 +36,7 @@ exports.createNotification = async (req, res) => {
     }
 };
 
-exports.deleteNotification = async (req, res) => {
+export const deleteNotification = async (req, res) => {
     try {
         const { id } = req.params;
         const notification = await AdminNotification.findByIdAndDelete(id);
