@@ -220,7 +220,7 @@ const sendShippingNotification = async (orderData) => {
 
 // Payment confirmation notification
 const sendPaymentConfirmation = async (orderData) => {
-    const { email, name, orderId, totalAmount, paymentMethod } = orderData;
+    const { email, name, orderId, totalAmount, paymentMethod, trackingNumber } = orderData;
 
     const content = `
         <h2>Payment Confirmed!</h2>
@@ -231,6 +231,12 @@ const sendPaymentConfirmation = async (orderData) => {
         <p><strong>Order ID:</strong> ${orderId}</p>
         <p><strong>Amount Paid:</strong> KES ${totalAmount.toLocaleString()}</p>
         <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+
+        ${trackingNumber ? `
+        <h3>Tracking Information</h3>
+        <p><strong>Tracking Number:</strong> ${trackingNumber}</p>
+        <p>You can use this tracking number to monitor your order status.</p>
+        ` : ''}
 
         <p>Your order is now being prepared for shipment. We'll send you another notification when it ships.</p>
         <a href="${process.env.FRONTEND_URL}/orders" class="button">View Order</a>

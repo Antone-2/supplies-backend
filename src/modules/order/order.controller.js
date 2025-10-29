@@ -834,9 +834,22 @@ const getSpecificOrder = async (req, res) => {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
-        const order = await orderModel.findById(orderId)
-            .populate('user', 'name email')
-            .select('-paymentResult -notes -activityLog'); // Exclude sensitive data for public tracking
+        let order;
+
+        // Check if the parameter is a valid MongoDB ObjectId
+        if (mongoose.Types.ObjectId.isValid(orderId)) {
+            // Try to find by _id first
+            order = await orderModel.findById(orderId)
+                .populate('user', 'name email')
+                .select('-paymentResult -notes -activityLog');
+        }
+
+        // If not found by _id or not a valid ObjectId, try to find by orderNumber
+        if (!order) {
+            order = await orderModel.findOne({ orderNumber: orderId })
+                .populate('user', 'name email')
+                .select('-paymentResult -notes -activityLog');
+        }
 
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
@@ -845,7 +858,7 @@ const getSpecificOrder = async (req, res) => {
         // Format response for tracking
         const trackingData = {
             orderId: order._id,
-            orderNumber: order._id,
+            orderNumber: order.orderNumber || order._id,
             status: order.orderStatus,
             paymentStatus: order.paymentStatus,
             totalAmount: order.totalAmount,
@@ -1305,12 +1318,20 @@ const refreshPaymentStatus = async (req, res) => {
         // Send payment confirmation notification if payment was just completed
         if (newPaymentStatus === 'paid' && originalPaymentStatus !== 'paid') {
             try {
+                // Generate tracking number for the order when payment is confirmed
+                const trackingNumber = `TRK-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+                order.trackingNumber = trackingNumber;
+                await order.save();
+
+                console.log(`📦 Generated tracking number: ${trackingNumber} for order ${order.orderNumber}`);
+
                 await sendPaymentConfirmation({
                     email: order.shippingAddress.email,
                     name: order.shippingAddress.fullName,
                     orderId: order.orderNumber,
                     totalAmount: order.totalAmount,
-                    paymentMethod: order.paymentMethod || 'pesapal'
+                    paymentMethod: order.paymentMethod || 'pesapal',
+                    trackingNumber: trackingNumber
                 });
 
                 // Send SMS payment confirmation
@@ -1325,11 +1346,12 @@ const refreshPaymentStatus = async (req, res) => {
                     await sendPaymentConfirmationSMS(phoneNumber, {
                         name: order.shippingAddress.fullName,
                         orderId: order.orderNumber,
-                        totalAmount: order.totalAmount
+                        totalAmount: order.totalAmount,
+                        trackingNumber: trackingNumber
                     });
                 }
 
-                console.log(`💳 Payment confirmation notifications sent for order ${order.orderNumber}`);
+                console.log(`💳 Payment confirmation notifications with tracking code sent for order ${order.orderNumber}`);
             } catch (notificationError) {
                 console.warn('Payment confirmation notification failed:', notificationError);
             }
@@ -1345,9 +1367,14 @@ const refreshPaymentStatus = async (req, res) => {
                     'refunded': 'payment has been refunded (refreshed)'
                 };
 
+                const adminMessage = `Payment status refreshed for order ${order.orderNumber}: ${paymentMessages[newPaymentStatus] || `status changed to ${newPaymentStatus}`}`;
+                if (newPaymentStatus === 'paid' && order.trackingNumber) {
+                    adminMessage += ` | Tracking Code: ${order.trackingNumber}`;
+                }
+
                 await createAdminNotification(
                     'payment_refresh_update',
-                    `Payment status refreshed for order ${order.orderNumber}: ${paymentMessages[newPaymentStatus] || `status changed to ${newPaymentStatus}`}`,
+                    adminMessage,
                     `Payment Refresh: ${order.orderNumber}`,
                     newPaymentStatus === 'paid' ? 'high' : 'medium'
                 );

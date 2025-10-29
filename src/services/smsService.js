@@ -67,9 +67,9 @@ const sendOrderConfirmationSMS = async (phoneNumber, orderData) => {
 
 // Payment confirmation SMS
 const sendPaymentConfirmationSMS = async (phoneNumber, orderData) => {
-    const { name, orderId, totalAmount } = orderData;
+    const { name, orderId, totalAmount, trackingNumber } = orderData;
 
-    const message = `Hi ${name}, payment of KES ${totalAmount.toLocaleString()} for order ${orderId} confirmed. Your order is being prepared. - Medhelm Supplies`;
+    const message = `Hi ${name}, payment of KES ${totalAmount.toLocaleString()} for order ${orderId} confirmed${trackingNumber ? `. Tracking: ${trackingNumber}` : ''}. Your order is being prepared. - Medhelm Supplies`;
 
     return await sendSMS(phoneNumber, message);
 };
