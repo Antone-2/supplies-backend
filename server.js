@@ -108,8 +108,14 @@ app.use(session({
 // Structured request logging
 app.use(pinoHttp({ logger }));
 
-// Static file serving for uploads
-app.use('/uploads', express.static(resolve(__dirname, 'uploads')));
+// Static file serving for uploads with CORS headers
+app.use('/uploads', express.static(resolve(__dirname, 'uploads'), {
+    setHeaders: (res, path) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+        res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
+}));
 
 // Routes
 import authRoutes from './src/routes/authRoutes.js';
