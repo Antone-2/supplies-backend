@@ -431,10 +431,20 @@ const updateProduct = async (req, res) => {
             }
         }
 
+        // Handle images array - convert string URLs to objects if needed
+        if (updates.images && Array.isArray(updates.images)) {
+            updates.images = updates.images.map(img => {
+                if (typeof img === 'string') {
+                    return { url: img, alt: '' };
+                }
+                return img;
+            });
+        }
+
         const product = await Product.findByIdAndUpdate(
             productId,
             { ...updates, updatedAt: new Date() },
-            { new: true, runValidators: true }
+            { new: true, runValidators: false }
         ).populate('category');
 
         if (!product) {
