@@ -337,7 +337,13 @@ router.post('/products/upload-image', upload.single('file'), (req, res) => {
         // Return the uploaded file path - ensure it starts with /
         const imageUrl = `/uploads/${req.file.filename}`;
         console.log('Image uploaded successfully:', imageUrl);
-        res.json({ imageUrl });
+        console.log('Full URL would be:', `${req.protocol}://${req.get('host')}${imageUrl}`);
+
+        // Return both relative and full URL for flexibility
+        res.json({
+            imageUrl,
+            fullUrl: `${req.protocol}://${req.get('host')}${imageUrl}`
+        });
     } catch (error) {
         console.error('Image upload error:', error);
         res.status(500).json({ message: 'Failed to upload image', error: error.message });

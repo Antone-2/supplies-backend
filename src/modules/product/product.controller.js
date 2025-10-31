@@ -595,6 +595,11 @@ const getAllProducts = async (req, res) => {
             .lean();
 
         console.log('All products found:', products.length);
+        console.log('Sample product categories:', products.slice(0, 3).map(p => ({
+            name: p.name,
+            category: p.category,
+            categoryName: p.category?.name
+        })));
 
         // Format products for admin view
         const formattedProducts = products.map(product => ({
