@@ -346,7 +346,7 @@ const createProduct = async (req, res) => {
             category: categoryId,
             brand: productData.brand || undefined,
             countInStock: Number(productData.countInStock) || 0,
-            image: productData.image || '',
+            image: productData.image || (productData.images && productData.images.length > 0 ? productData.images[0]?.url || productData.images[0] : ''),
             images: productData.images || [],
             isFeatured: productData.isFeatured || false,
             featured: productData.featured || false,
