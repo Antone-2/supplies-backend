@@ -27,7 +27,10 @@ const __dirname = path.dirname(__filename);
 // Multer setup for product image uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, path.join(__dirname, '../../uploads'));
+        const uploadPath = path.join(__dirname, '../../uploads');
+        // Ensure uploads directory exists
+        require('fs').mkdirSync(uploadPath, { recursive: true });
+        cb(null, uploadPath);
     },
     filename: function (req, file, cb) {
         const ext = path.extname(file.originalname);
@@ -330,12 +333,13 @@ router.post('/products/upload-image', upload.single('file'), (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        // Return the uploaded file path
+        // Return the uploaded file path - ensure it starts with /
         const imageUrl = `/uploads/${req.file.filename}`;
+        console.log('Image uploaded successfully:', imageUrl);
         res.json({ imageUrl });
     } catch (error) {
         console.error('Image upload error:', error);
-        res.status(500).json({ message: 'Failed to upload image' });
+        res.status(500).json({ message: 'Failed to upload image', error: error.message });
     }
 });
 

@@ -179,7 +179,7 @@ const getFeaturedProducts = async (req, res) => {
                 isActive: true
             },
             {
-                // Only select necessary fields to reduce data transfer
+                // Select all necessary fields to match the all products format
                 name: 1,
                 price: 1,
                 image: 1,
@@ -192,14 +192,45 @@ const getFeaturedProducts = async (req, res) => {
                 featured: 1,
                 discount: 1,
                 description: 1,
-                brand: 1
+                brand: 1,
+                sku: 1,
+                originalPrice: 1,
+                isActive: 1,
+                createdAt: 1,
+                updatedAt: 1
             }
         )
+            .populate('category', 'name')
+            .sort({ createdAt: -1 })
             .limit(parseInt(limit))
             .lean(); // Use lean() for faster queries
 
         console.log('Featured products found:', products.length);
-        const response = { products };
+
+        // Format products to match the all products format
+        const formattedProducts = products.map(product => ({
+            id: product._id,
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            originalPrice: product.originalPrice,
+            category: product.category?.name || product.category || 'Uncategorized',
+            brand: product.brand,
+            countInStock: product.countInStock,
+            image: product.image,
+            images: product.images,
+            isFeatured: product.isFeatured,
+            featured: product.featured,
+            discount: product.discount,
+            rating: product.rating,
+            numReviews: product.numReviews,
+            isActive: product.isActive,
+            sku: product.sku,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt
+        }));
+
+        const response = { products: formattedProducts };
 
         // Temporarily skip Redis caching
         // await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
