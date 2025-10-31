@@ -313,31 +313,28 @@ const createProduct = async (req, res) => {
         // Handle category - if it's a string, find the category ObjectId
         let categoryId = productData.category;
         if (typeof categoryId === 'string') {
-            const category = await Category.findOne({ name: categoryId });
-            if (category) {
-                categoryId = category._id;
-            } else {
-                // Generate slug for new category
-                let slug = categoryId
-                    .toLowerCase()
-                    .trim()
-                    .replace(/[^a-z0-9\s-]/g, '')
-                    .replace(/\s+/g, '-')
-                    .replace(/-+/g, '-')
-                    .replace(/^-|-$/g, '');
-
-                // Ensure uniqueness
-                let uniqueSlug = slug;
-                let counter = 1;
-                while (await Category.findOne({ slug: uniqueSlug })) {
-                    uniqueSlug = `${slug}-${counter}`;
-                    counter++;
+            // First check if it's a valid ObjectId
+            if (mongoose.Types.ObjectId.isValid(categoryId)) {
+                const category = await Category.findById(categoryId);
+                if (category) {
+                    categoryId = category._id;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid category ID provided'
+                    });
                 }
-
-                // Create category if it doesn't exist
-                const newCategory = new Category({ name: categoryId, slug: uniqueSlug });
-                await newCategory.save();
-                categoryId = newCategory._id;
+            } else {
+                // If not a valid ObjectId, treat as category name and find existing category
+                const category = await Category.findOne({ name: categoryId });
+                if (category) {
+                    categoryId = category._id;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Category "${categoryId}" does not exist. Please select an existing category from the dropdown.`
+                    });
+                }
             }
         }
 
@@ -366,7 +363,7 @@ const createProduct = async (req, res) => {
 
         // Create admin notification for successful product creation
         try {
-            const { createAdminNotification } = await import('../controllers/adminNotificationController.js');
+            const { createAdminNotification } = await import('../../controllers/adminNotificationController.js');
             await createAdminNotification(
                 'product_created',
                 `New product "${product.name}" has been added to the catalog`,
@@ -434,31 +431,28 @@ const updateProduct = async (req, res) => {
 
         // Handle category update - if it's a string, find the category ObjectId
         if (updates.category && typeof updates.category === 'string') {
-            const category = await Category.findOne({ name: updates.category });
-            if (category) {
-                updates.category = category._id;
-            } else {
-                // Generate slug for new category
-                let slug = updates.category
-                    .toLowerCase()
-                    .trim()
-                    .replace(/[^a-z0-9\s-]/g, '')
-                    .replace(/\s+/g, '-')
-                    .replace(/-+/g, '-')
-                    .replace(/^-|-$/g, '');
-
-                // Ensure uniqueness
-                let uniqueSlug = slug;
-                let counter = 1;
-                while (await Category.findOne({ slug: uniqueSlug })) {
-                    uniqueSlug = `${slug}-${counter}`;
-                    counter++;
+            // First check if it's a valid ObjectId
+            if (mongoose.Types.ObjectId.isValid(updates.category)) {
+                const category = await Category.findById(updates.category);
+                if (category) {
+                    updates.category = category._id;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid category ID provided'
+                    });
                 }
-
-                // Create category if it doesn't exist
-                const newCategory = new Category({ name: updates.category, slug: uniqueSlug });
-                await newCategory.save();
-                updates.category = newCategory._id;
+            } else {
+                // If not a valid ObjectId, treat as category name and find existing category
+                const category = await Category.findOne({ name: updates.category });
+                if (category) {
+                    updates.category = category._id;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Category "${updates.category}" does not exist. Please select an existing category from the dropdown.`
+                    });
+                }
             }
         }
 
