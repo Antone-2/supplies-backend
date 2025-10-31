@@ -4,6 +4,7 @@ import admin from '../middleware/admin.js';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import {
     getUsers,
     createUser,
@@ -29,7 +30,7 @@ const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadPath = path.join(__dirname, '../../uploads');
         // Ensure uploads directory exists
-        require('fs').mkdirSync(uploadPath, { recursive: true });
+        fs.mkdirSync(uploadPath, { recursive: true });
         cb(null, uploadPath);
     },
     filename: function (req, file, cb) {

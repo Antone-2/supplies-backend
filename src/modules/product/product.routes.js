@@ -16,7 +16,7 @@ router.get('/category/:category', getProductsByCategory);
 router.get('/', getProducts);
 
 // Get all featured products
-router.get('/featured/all', getFeaturedProducts);
+router.get('/featured', getFeaturedProducts);
 
 // Get a single product by ID
 router.get('/:id', getProductById);

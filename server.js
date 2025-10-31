@@ -108,6 +108,9 @@ app.use(session({
 // Structured request logging
 app.use(pinoHttp({ logger }));
 
+// Static file serving for uploads
+app.use('/uploads', express.static(resolve(__dirname, 'uploads')));
+
 // Routes
 import authRoutes from './src/routes/authRoutes.js';
 import passwordRoutes from './src/routes/passwordRoutes.js';
