@@ -310,32 +310,37 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // Handle category - if it's a string, find the category ObjectId
+        // Handle category - ensure it's a valid ObjectId from the dropdown
         let categoryId = productData.category;
+        console.log('Processing category:', categoryId, typeof categoryId);
+
         if (typeof categoryId === 'string') {
-            // First check if it's a valid ObjectId
+            // Check if it's a valid ObjectId
             if (mongoose.Types.ObjectId.isValid(categoryId)) {
                 const category = await Category.findById(categoryId);
                 if (category) {
                     categoryId = category._id;
+                    console.log('Category found by ID:', category.name);
                 } else {
                     return res.status(400).json({
                         success: false,
-                        message: 'Invalid category ID provided'
+                        message: `Category with ID "${categoryId}" does not exist. Please select a valid category from the dropdown.`
                     });
                 }
             } else {
-                // If not a valid ObjectId, treat as category name and find existing category
-                const category = await Category.findOne({ name: categoryId });
-                if (category) {
-                    categoryId = category._id;
-                } else {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Category "${categoryId}" does not exist. Please select an existing category from the dropdown.`
-                    });
-                }
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid category ID format: "${categoryId}". Please select a category from the dropdown.`
+                });
             }
+        } else if (categoryId && typeof categoryId === 'object' && categoryId._id) {
+            // If it's already an object with _id, use the _id
+            categoryId = categoryId._id;
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Category is required. Please select a category from the dropdown.'
+            });
         }
 
         const product = new Product({
