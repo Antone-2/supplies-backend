@@ -1252,12 +1252,12 @@ const initiateSplitPayment = async (req, res) => {
         }
 
         // Check each split amount doesn't exceed PesaPal limit
-        const PESAPAL_LIMIT = 1000000;
-        const invalidSplits = splitAmounts.filter(amount => amount > PESAPAL_LIMIT);
+        const PESAPAL_TRANSACTION_LIMIT = 100000;
+        const invalidSplits = splitAmounts.filter(amount => amount > PESAPAL_TRANSACTION_LIMIT);
         if (invalidSplits.length > 0) {
             return res.status(400).json({
                 success: false,
-                message: `Each split payment cannot exceed KES ${PESAPAL_LIMIT.toLocaleString()}`
+                message: `Each split payment cannot exceed KES ${PESAPAL_TRANSACTION_LIMIT.toLocaleString()}`
             });
         }
 
@@ -2456,31 +2456,25 @@ const initiatePayment = async (req, res) => {
             }
         }
 
-        // Check if payment amount exceeds PesaPal limit and suggest alternatives
-        const PESAPAL_LIMIT = 1000000; // KES 1,000,000 limit
-        if (totalAmount > PESAPAL_LIMIT) {
-            console.log(`Payment amount ${totalAmount} exceeds PesaPal limit of ${PESAPAL_LIMIT}`);
+        // Check if payment amount exceeds PesaPal single transaction limit and suggest alternatives
+        const PESAPAL_TRANSACTION_LIMIT = 100000; // KES 100,000 per transaction (PesaPal limit)
+        const BUSINESS_USER_LIMIT = 1000000; // KES 1,000,000 per user (business limit)
 
-            // For large payments, suggest alternative payment methods
+        if (totalAmount > BUSINESS_USER_LIMIT) {
+            // Amount exceeds business limit - require bank transfer or contact sales
             return res.status(400).json({
                 success: false,
-                message: `Payment amount (KES ${totalAmount.toLocaleString()}) exceeds our standard payment limit. Please contact our sales team for large orders.`,
+                message: `Payment amount (KES ${totalAmount.toLocaleString()}) exceeds our maximum limit of KES ${BUSINESS_USER_LIMIT.toLocaleString()} per customer.`,
                 errorType: 'PAYMENT_AMOUNT_TOO_LARGE',
                 suggestedActions: [
                     {
                         action: 'contact_sales',
                         title: 'Contact Sales Team',
-                        description: 'Get assistance with large orders over KES 1,000,000',
+                        description: 'Get assistance with very large orders over KES 1,000,000',
                         contact: {
                             email: 'sales@medhelmsupplies.co.ke',
                             phone: '+254-XXX-XXXXXX'
                         }
-                    },
-                    {
-                        action: 'split_payment',
-                        title: 'Split Payment',
-                        description: 'Divide your order into smaller payments',
-                        maxAmount: PESAPAL_LIMIT
                     },
                     {
                         action: 'bank_transfer',
@@ -2489,136 +2483,163 @@ const initiatePayment = async (req, res) => {
                         instructions: 'Contact us for bank transfer details'
                     }
                 ],
-                maxPaymentAmount: PESAPAL_LIMIT,
+                maxPaymentAmount: BUSINESS_USER_LIMIT,
+                currentAmount: totalAmount
+            });
+        } else if (totalAmount > PESAPAL_TRANSACTION_LIMIT) {
+            // Amount exceeds single PesaPal transaction but within business limit - suggest split payment
+            return res.status(400).json({
+                success: false,
+                message: `Payment amount (KES ${totalAmount.toLocaleString()}) exceeds PesaPal's single transaction limit of KES ${PESAPAL_TRANSACTION_LIMIT.toLocaleString()}.`,
+                errorType: 'PAYMENT_NEEDS_SPLIT',
+                suggestedActions: [
+                    {
+                        action: 'split_payment',
+                        title: 'Split Payment',
+                        description: `Divide into multiple payments (max KES ${PESAPAL_TRANSACTION_LIMIT.toLocaleString()} each)`,
+                        maxAmount: PESAPAL_TRANSACTION_LIMIT
+                    },
+                    {
+                        action: 'bank_transfer',
+                        title: 'Bank Transfer',
+                        description: 'Direct bank transfer (no transaction limits)',
+                        instructions: 'Contact us for bank transfer details'
+                    }
+                ],
+                maxSingleTransaction: PESAPAL_TRANSACTION_LIMIT,
                 currentAmount: totalAmount
             });
         }
 
+        // If amount is within limits, proceed with normal payment
+        // If amount is within limits, proceed with normal payment
+    }
+
         // Generate unique order ID
         const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        console.log('Generated order ID:', orderId);
+    console.log('Generated order ID:', orderId);
 
-        // Check MongoDB connection
-        if (mongoose.connection.readyState !== 1) {
-            console.log('MongoDB not connected, using test database for payment initiation');
-            // For test mode, return a mock payment URL
-            return res.json({
-                success: true,
-                message: 'Payment initiated successfully (test mode)',
-                paymentUrl: 'https://sandbox.pesapal.com/test-payment',
-                orderId: orderId
-            });
-        }
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+        console.log('MongoDB not connected, using test database for payment initiation');
+        // For test mode, return a mock payment URL
+        return res.json({
+            success: true,
+            message: 'Payment initiated successfully (test mode)',
+            paymentUrl: 'https://sandbox.pesapal.com/test-payment',
+            orderId: orderId
+        });
+    }
 
-        console.log('Creating order in database...');
+    console.log('Creating order in database...');
 
-        // Create the order first
-        const order = new orderModel({
-            orderNumber: orderId,
-            items: items.map(item => ({
-                productId: item.productId,
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price
-            })),
-            shippingAddress: {
-                fullName: shippingAddress.fullName,
-                email: shippingAddress.email,
-                phone: shippingAddress.phone,
-                address: shippingAddress.address,
-                city: shippingAddress.city,
-                county: shippingAddress.county,
-                deliveryLocation: shippingAddress.deliveryLocation
-            },
-            totalAmount,
-            paymentMethod: paymentMethod || 'pesapal',
-            orderStatus: 'pending',
-            paymentStatus: 'pending',
-            user: userId, // Associate with user if logged in
-            timeline: [{
-                status: 'pending',
+    // Create the order first
+    const order = new orderModel({
+        orderNumber: orderId,
+        items: items.map(item => ({
+            productId: item.productId,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price
+        })),
+        shippingAddress: {
+            fullName: shippingAddress.fullName,
+            email: shippingAddress.email,
+            phone: shippingAddress.phone,
+            address: shippingAddress.address,
+            city: shippingAddress.city,
+            county: shippingAddress.county,
+            deliveryLocation: shippingAddress.deliveryLocation
+        },
+        totalAmount,
+        paymentMethod: paymentMethod || 'pesapal',
+        orderStatus: 'pending',
+        paymentStatus: 'pending',
+        user: userId, // Associate with user if logged in
+        timeline: [{
+            status: 'pending',
+            changedAt: new Date(),
+            note: 'Order created and payment initiated'
+        }]
+    });
+
+    const savedOrder = await order.save();
+    console.log('Order saved successfully:', savedOrder._id);
+
+    console.log('Initiating PesaPal payment...');
+
+    // Now initiate PesaPal payment
+    const paymentResult = await initiatePesapalPayment(
+        orderId,
+        totalAmount,
+        shippingAddress.phone,
+        shippingAddress.email,
+        `Order payment for ${orderId}`
+    );
+
+    console.log('PesaPal paymentResult:', paymentResult);
+
+    if (!paymentResult || !paymentResult.paymentUrl) {
+        console.error('No paymentUrl returned from PesaPal:', paymentResult);
+
+        // Update order status to failed
+        await orderModel.findByIdAndUpdate(savedOrder._id, {
+            orderStatus: 'failed',
+            paymentStatus: 'failed',
+            timeline: [...savedOrder.timeline, {
+                status: 'failed',
                 changedAt: new Date(),
-                note: 'Order created and payment initiated'
+                note: 'Payment initiation failed - no payment URL received'
             }]
         });
 
-        const savedOrder = await order.save();
-        console.log('Order saved successfully:', savedOrder._id);
-
-        console.log('Initiating PesaPal payment...');
-
-        // Now initiate PesaPal payment
-        const paymentResult = await initiatePesapalPayment(
-            orderId,
-            totalAmount,
-            shippingAddress.phone,
-            shippingAddress.email,
-            `Order payment for ${orderId}`
-        );
-
-        console.log('PesaPal paymentResult:', paymentResult);
-
-        if (!paymentResult || !paymentResult.paymentUrl) {
-            console.error('No paymentUrl returned from PesaPal:', paymentResult);
-
-            // Update order status to failed
-            await orderModel.findByIdAndUpdate(savedOrder._id, {
-                orderStatus: 'failed',
-                paymentStatus: 'failed',
-                timeline: [...savedOrder.timeline, {
-                    status: 'failed',
-                    changedAt: new Date(),
-                    note: 'Payment initiation failed - no payment URL received'
-                }]
-            });
-
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to get payment URL from PesaPal',
-                error: 'No paymentUrl returned'
-            });
-        }
-
-        console.log('Payment initiated successfully, returning payment URL');
-
-        res.json({
-            success: true,
-            message: 'Payment initiated successfully',
-            paymentUrl: paymentResult.paymentUrl,
-            orderId: orderId
-        });
-
-    } catch (error) {
-        console.error('Payment initiation error:', error);
-        console.error('Error stack:', error.stack);
-
-        // Try to extract more specific error information
-        let errorMessage = 'Failed to initiate payment';
-        let errorDetails = error.message;
-        let errorType = 'PAYMENT_ERROR';
-
-        if (error.message && error.message.startsWith('PAYMENT_LIMIT_EXCEEDED:')) {
-            errorType = 'PAYMENT_LIMIT_EXCEEDED';
-            errorMessage = error.message.split(':')[1]; // Extract the user-friendly message
-            errorDetails = 'Payment amount exceeds PesaPal account limit';
-        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-            errorMessage = 'Payment service is currently unavailable. Please try again later.';
-            errorType = 'SERVICE_UNAVAILABLE';
-        } else if (error.response?.status === 401) {
-            errorMessage = 'Payment service authentication failed. Please contact support.';
-            errorType = 'AUTHENTICATION_ERROR';
-        } else if (error.response?.status >= 500) {
-            errorMessage = 'Payment service is experiencing issues. Please try again later.';
-            errorType = 'SERVICE_ERROR';
-        }
-
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: errorMessage,
-            error: errorDetails,
-            errorType: errorType
+            message: 'Failed to get payment URL from PesaPal',
+            error: 'No paymentUrl returned'
         });
     }
+
+    console.log('Payment initiated successfully, returning payment URL');
+
+    res.json({
+        success: true,
+        message: 'Payment initiated successfully',
+        paymentUrl: paymentResult.paymentUrl,
+        orderId: orderId
+    });
+
+} catch (error) {
+    console.error('Payment initiation error:', error);
+    console.error('Error stack:', error.stack);
+
+    // Try to extract more specific error information
+    let errorMessage = 'Failed to initiate payment';
+    let errorDetails = error.message;
+    let errorType = 'PAYMENT_ERROR';
+
+    if (error.message && error.message.startsWith('PAYMENT_LIMIT_EXCEEDED:')) {
+        errorType = 'PAYMENT_LIMIT_EXCEEDED';
+        errorMessage = error.message.split(':')[1]; // Extract the user-friendly message
+        errorDetails = 'Payment amount exceeds PesaPal account limit';
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        errorMessage = 'Payment service is currently unavailable. Please try again later.';
+        errorType = 'SERVICE_UNAVAILABLE';
+    } else if (error.response?.status === 401) {
+        errorMessage = 'Payment service authentication failed. Please contact support.';
+        errorType = 'AUTHENTICATION_ERROR';
+    } else if (error.response?.status >= 500) {
+        errorMessage = 'Payment service is experiencing issues. Please try again later.';
+        errorType = 'SERVICE_ERROR';
+    }
+
+    res.status(500).json({
+        success: false,
+        message: errorMessage,
+        error: errorDetails,
+        errorType: errorType
+    });
+}
 };
 
 // Admin: Update order with comprehensive processing
