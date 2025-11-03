@@ -28,4 +28,8 @@ router.delete('/:id', deleteProduct); // Delete product
 // Product review routes
 router.get('/:productId/reviews', getProductReviews);
 
+// Add review routes to main routes
+import reviewRoutes from './reviewRoutes.js';
+router.use('/reviews', reviewRoutes);
+
 export default router;

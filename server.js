@@ -120,7 +120,7 @@ app.use('/uploads', express.static(resolve(__dirname, 'uploads'), {
 // Routes
 import authRoutes from './src/routes/authRoutes.js';
 import passwordRoutes from './src/routes/passwordRoutes.js';
-import productRoutes from './src/modules/product/product.routes.js';
+import productRoutes from './src/routes/productRoutes.js';
 import categoryRoutes from './src/modules/category/category.routes.js';
 import cartRoutes from './src/routes/cartRoutes.js';
 import wishlistRoutes from './src/routes/wishlistRoutes.js';

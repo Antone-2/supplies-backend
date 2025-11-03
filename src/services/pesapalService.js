@@ -182,7 +182,7 @@ async function submitOrder(orderId, amount, description, callbackUrl, notificati
 
             // Handle specific PesaPal error types
             if (error.code === PESAPAL_ERROR_CODES.AMOUNT_EXCEEDS_LIMIT) {
-                throw new Error(`Payment amount exceeds your PesaPal account limit. ${error.message}`);
+                throw new Error(`PAYMENT_LIMIT_EXCEEDED:Payment amount (KES ${amount.toLocaleString()}) exceeds your PesaPal account limit. Please contact our support team at support@medhelmsupplies.co.ke or +254-XXX-XXXXXX to arrange alternative payment methods for large orders.`);
             } else {
                 throw new Error(`PesaPal error: ${error.message || 'Unknown error'}`);
             }

@@ -1229,6 +1229,265 @@ const payAirtelMoney = async (req, res) => {
     res.json({ message: 'Airtel Money payment initiated' });
 };
 
+// Initiate split payment for large orders
+const initiateSplitPayment = async (req, res) => {
+    try {
+        const { items, shippingAddress, totalAmount, paymentMethod, splitAmounts } = req.body;
+        const userId = req.user?.id || null;
+
+        // Validate split amounts
+        if (!splitAmounts || !Array.isArray(splitAmounts) || splitAmounts.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Split amounts are required for split payment'
+            });
+        }
+
+        const totalSplitAmount = splitAmounts.reduce((sum, amount) => sum + amount, 0);
+        if (Math.abs(totalSplitAmount - totalAmount) > 1) { // Allow small rounding differences
+            return res.status(400).json({
+                success: false,
+                message: 'Split amounts must equal the total order amount'
+            });
+        }
+
+        // Check each split amount doesn't exceed PesaPal limit
+        const PESAPAL_LIMIT = 1000000;
+        const invalidSplits = splitAmounts.filter(amount => amount > PESAPAL_LIMIT);
+        if (invalidSplits.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Each split payment cannot exceed KES ${PESAPAL_LIMIT.toLocaleString()}`
+            });
+        }
+
+        // Generate main order ID
+        const mainOrderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Create main order
+        const mainOrder = new orderModel({
+            orderNumber: mainOrderId,
+            items: items.map(item => ({
+                productId: item.productId,
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            shippingAddress: {
+                fullName: shippingAddress.fullName,
+                email: shippingAddress.email,
+                phone: shippingAddress.phone,
+                address: shippingAddress.address,
+                city: shippingAddress.city,
+                county: shippingAddress.county,
+                deliveryLocation: shippingAddress.deliveryLocation
+            },
+            totalAmount,
+            paymentMethod: 'split_payment',
+            orderStatus: 'pending_split_payment',
+            paymentStatus: 'pending',
+            user: userId,
+            splitPayments: splitAmounts.map((amount, index) => ({
+                splitNumber: index + 1,
+                amount: amount,
+                status: 'pending',
+                orderId: `${mainOrderId}-SPLIT-${index + 1}`
+            })),
+            timeline: [{
+                status: 'pending_split_payment',
+                changedAt: new Date(),
+                note: `Split payment initiated: ${splitAmounts.length} payments totaling KES ${totalAmount.toLocaleString()}`
+            }]
+        });
+
+        const savedMainOrder = await mainOrder.save();
+
+        // Create individual payment URLs for each split
+        const splitPaymentResults = [];
+
+        for (let i = 0; i < splitAmounts.length; i++) {
+            const splitOrderId = `${mainOrderId}-SPLIT-${i + 1}`;
+            const splitAmount = splitAmounts[i];
+
+            try {
+                const paymentResult = await initiatePesapalPayment(
+                    splitOrderId,
+                    splitAmount,
+                    shippingAddress.phone,
+                    shippingAddress.email,
+                    `Split payment ${i + 1}/${splitAmounts.length} for order ${mainOrderId}`
+                );
+
+                splitPaymentResults.push({
+                    splitNumber: i + 1,
+                    orderId: splitOrderId,
+                    amount: splitAmount,
+                    paymentUrl: paymentResult.paymentUrl,
+                    status: 'initiated'
+                });
+            } catch (error) {
+                console.error(`Failed to initiate split payment ${i + 1}:`, error);
+
+                // Mark this split as failed
+                splitPaymentResults.push({
+                    splitNumber: i + 1,
+                    orderId: splitOrderId,
+                    amount: splitAmount,
+                    status: 'failed',
+                    error: error.message
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'Split payment initiated successfully',
+            mainOrderId: mainOrderId,
+            totalAmount: totalAmount,
+            splitCount: splitAmounts.length,
+            splitPayments: splitPaymentResults,
+            instructions: 'Please complete each payment in sequence. The order will be processed once all payments are confirmed.'
+        });
+
+    } catch (error) {
+        console.error('Split payment initiation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to initiate split payment',
+            error: error.message
+        });
+    }
+};
+
+// Initiate bank transfer for large orders
+const initiateBankTransfer = async (req, res) => {
+    try {
+        const { items, shippingAddress, totalAmount, bankTransferDetails } = req.body;
+        const userId = req.user?.id || null;
+
+        // Generate order ID
+        const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Create order with bank transfer payment method
+        const order = new orderModel({
+            orderNumber: orderId,
+            items: items.map(item => ({
+                productId: item.productId,
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            shippingAddress: {
+                fullName: shippingAddress.fullName,
+                email: shippingAddress.email,
+                phone: shippingAddress.phone,
+                address: shippingAddress.address,
+                city: shippingAddress.city,
+                county: shippingAddress.county,
+                deliveryLocation: shippingAddress.deliveryLocation
+            },
+            totalAmount,
+            paymentMethod: 'bank_transfer',
+            orderStatus: 'pending_bank_transfer',
+            paymentStatus: 'pending',
+            user: userId,
+            bankTransferDetails: bankTransferDetails || {},
+            timeline: [{
+                status: 'pending_bank_transfer',
+                changedAt: new Date(),
+                note: `Bank transfer payment initiated for KES ${totalAmount.toLocaleString()}`
+            }]
+        });
+
+        const savedOrder = await order.save();
+
+        // Create admin notification for bank transfer order
+        try {
+            await createAdminNotification(
+                'bank_transfer_order',
+                `New bank transfer order ${orderId} for KES ${totalAmount.toLocaleString()} by ${shippingAddress.fullName}`,
+                `Bank Transfer Order: ${orderId}`,
+                'high'
+            );
+        } catch (adminNotificationError) {
+            console.warn('Admin notification creation failed for bank transfer:', adminNotificationError);
+        }
+
+        // Send order confirmation with bank transfer instructions
+        try {
+            await sendOrderEmail(
+                shippingAddress.email,
+                'Bank Transfer Payment Instructions - Medhelm Supplies',
+                `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Bank Transfer Payment Instructions</h2>
+                    <p>Dear ${shippingAddress.fullName},</p>
+                    <p>Thank you for your order! You've chosen bank transfer as your payment method.</p>
+
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3>Order Details:</h3>
+                        <p><strong>Order ID:</strong> ${orderId}</p>
+                        <p><strong>Total Amount:</strong> KES ${totalAmount.toLocaleString()}</p>
+                    </div>
+
+                    <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3>Bank Transfer Details:</h3>
+                        <p><strong>Bank Name:</strong> [Your Bank Name]</p>
+                        <p><strong>Account Name:</strong> Medhelm Supplies Ltd</p>
+                        <p><strong>Account Number:</strong> [Your Account Number]</p>
+                        <p><strong>Branch:</strong> [Branch Name]</p>
+                        <p><strong>Swift Code:</strong> [Swift Code]</p>
+                    </div>
+
+                    <p><strong>Important:</strong></p>
+                    <ul>
+                        <li>Please include your Order ID (${orderId}) in the payment reference</li>
+                        <li>Send payment confirmation to: payments@medhelmsupplies.co.ke</li>
+                        <li>Processing typically takes 1-2 business days after payment confirmation</li>
+                    </ul>
+
+                    <p>Once we confirm receipt of your payment, we'll process and ship your order immediately.</p>
+
+                    <p>Thank you for choosing Medhelm Supplies!</p>
+                </div>
+                `
+            );
+        } catch (emailError) {
+            console.warn('Bank transfer email failed:', emailError);
+        }
+
+        res.json({
+            success: true,
+            message: 'Bank transfer order created successfully',
+            orderId: orderId,
+            totalAmount: totalAmount,
+            paymentMethod: 'bank_transfer',
+            instructions: 'Please transfer the amount to the provided bank details and send confirmation to payments@medhelmsupplies.co.ke',
+            bankDetails: {
+                bankName: '[Your Bank Name]',
+                accountName: 'Medhelm Supplies Ltd',
+                accountNumber: '[Your Account Number]',
+                branch: '[Branch Name]',
+                swiftCode: '[Swift Code]'
+            },
+            nextSteps: [
+                'Transfer the exact amount to the bank account',
+                'Include order ID in payment reference',
+                'Send payment confirmation email',
+                'Wait for payment verification (1-2 business days)'
+            ]
+        });
+
+    } catch (error) {
+        console.error('Bank transfer initiation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to initiate bank transfer payment',
+            error: error.message
+        });
+    }
+};
+
 const createCheckOutSession = async (req, res) => {
     // Placeholder
     res.json({ session: {} });
@@ -2197,6 +2456,44 @@ const initiatePayment = async (req, res) => {
             }
         }
 
+        // Check if payment amount exceeds PesaPal limit and suggest alternatives
+        const PESAPAL_LIMIT = 1000000; // KES 1,000,000 limit
+        if (totalAmount > PESAPAL_LIMIT) {
+            console.log(`Payment amount ${totalAmount} exceeds PesaPal limit of ${PESAPAL_LIMIT}`);
+
+            // For large payments, suggest alternative payment methods
+            return res.status(400).json({
+                success: false,
+                message: `Payment amount (KES ${totalAmount.toLocaleString()}) exceeds our standard payment limit. Please contact our sales team for large orders.`,
+                errorType: 'PAYMENT_AMOUNT_TOO_LARGE',
+                suggestedActions: [
+                    {
+                        action: 'contact_sales',
+                        title: 'Contact Sales Team',
+                        description: 'Get assistance with large orders over KES 1,000,000',
+                        contact: {
+                            email: 'sales@medhelmsupplies.co.ke',
+                            phone: '+254-XXX-XXXXXX'
+                        }
+                    },
+                    {
+                        action: 'split_payment',
+                        title: 'Split Payment',
+                        description: 'Divide your order into smaller payments',
+                        maxAmount: PESAPAL_LIMIT
+                    },
+                    {
+                        action: 'bank_transfer',
+                        title: 'Bank Transfer',
+                        description: 'Direct bank transfer for large amounts',
+                        instructions: 'Contact us for bank transfer details'
+                    }
+                ],
+                maxPaymentAmount: PESAPAL_LIMIT,
+                currentAmount: totalAmount
+            });
+        }
+
         // Generate unique order ID
         const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         console.log('Generated order ID:', orderId);
@@ -2298,19 +2595,28 @@ const initiatePayment = async (req, res) => {
         // Try to extract more specific error information
         let errorMessage = 'Failed to initiate payment';
         let errorDetails = error.message;
+        let errorType = 'PAYMENT_ERROR';
 
-        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        if (error.message && error.message.startsWith('PAYMENT_LIMIT_EXCEEDED:')) {
+            errorType = 'PAYMENT_LIMIT_EXCEEDED';
+            errorMessage = error.message.split(':')[1]; // Extract the user-friendly message
+            errorDetails = 'Payment amount exceeds PesaPal account limit';
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
             errorMessage = 'Payment service is currently unavailable. Please try again later.';
+            errorType = 'SERVICE_UNAVAILABLE';
         } else if (error.response?.status === 401) {
             errorMessage = 'Payment service authentication failed. Please contact support.';
+            errorType = 'AUTHENTICATION_ERROR';
         } else if (error.response?.status >= 500) {
             errorMessage = 'Payment service is experiencing issues. Please try again later.';
+            errorType = 'SERVICE_ERROR';
         }
 
         res.status(500).json({
             success: false,
             message: errorMessage,
-            error: errorDetails
+            error: errorDetails,
+            errorType: errorType
         });
     }
 };
@@ -3357,6 +3663,8 @@ const orderController = {
     refreshPaymentStatus,
     bulkRefreshPaymentStatus,
     refreshOrderPaymentStatus,
+    initiateSplitPayment,
+    initiateBankTransfer,
 };
 
 export default orderController;
