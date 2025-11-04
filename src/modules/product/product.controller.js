@@ -1,7 +1,6 @@
 import Product from '../../../Database/models/product.model.js';
 import Category from '../../../Database/models/category.model.js';
 import mongoose from 'mongoose';
-import redisClient from '../../lib/redisClient.js';
 import Order from '../../../Database/models/order.model.js';
 import Cart from '../../../Database/models/cart.model.js';
 import Wishlist from '../../../Database/models/wishlist.model.js';
@@ -11,23 +10,8 @@ const getProducts = async (req, res) => {
     try {
         console.log('getProducts called with query:', req.query);
         const { page = 1, limit = 12, category, sortBy = 'name', sortOrder = 'asc', inStock, admin, showAll, includeInactive } = req.query;
-        const cacheKey = `products:${page}:${limit}:${category || ''}:${sortBy}:${sortOrder}:${inStock || ''}`;
-        // Enable Redis caching with timeout for better performance
-        try {
-            const cached = await Promise.race([
-                redisClient.get(cacheKey),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Redis timeout')), 1000) // Reduced to 1 second
-                )
-            ]);
-            if (cached) {
-                console.log('✅ Serving products from Redis cache');
-                return res.json(JSON.parse(cached));
-            }
-        } catch (redisError) {
-            console.warn('Redis cache miss or error:', redisError.message);
-            // Continue to database query - don't fail the request
-        }
+        // Direct database queries - no Redis caching for maximum reliability
+        console.log('🔄 Fetching products directly from database');
 
         // Allow admin access to all products or inactive products if specified
         let query = {};
@@ -98,7 +82,7 @@ const getProducts = async (req, res) => {
                 Product.countDocuments(query)
             ]),
             new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Database query timeout')), 5000) // Reduced to 5 seconds for faster feedback
+                setTimeout(() => reject(new Error('Database query timeout')), 3000) // Reduced to 3 seconds for much faster feedback
             )
         ]);
 
@@ -110,19 +94,8 @@ const getProducts = async (req, res) => {
             total,
             totalPages: Math.ceil(total / parseInt(limit))
         };
-        // Cache the response in Redis for 60 seconds (only if Redis is available)
-        try {
-            await Promise.race([
-                redisClient.setEx(cacheKey, 60, JSON.stringify(response)),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Redis cache timeout')), 1000)
-                )
-            ]);
-            console.log('✅ Products cached in Redis for 60 seconds');
-        } catch (redisError) {
-            console.warn('Failed to cache products in Redis:', redisError.message);
-            // Continue without caching - don't fail the request
-        }
+        // Skip Redis caching - return response directly from database
+        console.log('✅ Products fetched directly from database');
         res.json(response);
     } catch (err) {
         console.error('Error fetching products:', err);
@@ -131,13 +104,22 @@ const getProducts = async (req, res) => {
         if (err.message === 'Database query timeout') {
             console.log('Database timeout, trying simplified query...');
             try {
-                const products = await Product.find({ isActive: true })
-                    .select('name price image category countInStock rating numReviews isFeatured discount brand')
-                    .sort({ createdAt: -1 })
-                    .limit(20)
-                    .lean();
+                // Even simpler fallback - just get basic product info
+                const products = await Promise.race([
+                    Product.find({ isActive: true })
+                        .select('name price image category countInStock rating numReviews isFeatured discount brand')
+                        .sort({ createdAt: -1 })
+                        .limit(20)
+                        .lean(),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Fallback query timeout')), 2000)
+                    )
+                ]);
 
-                const total = await Product.countDocuments({ isActive: true });
+                const total = await Promise.race([
+                    Product.countDocuments({ isActive: true }),
+                    new Promise((resolve) => resolve(0)) // Default to 0 if count fails
+                ]);
 
                 const response = {
                     products: products || [],
@@ -151,6 +133,14 @@ const getProducts = async (req, res) => {
                 return res.json(response);
             } catch (fallbackErr) {
                 console.error('Fallback query also failed:', fallbackErr);
+                // Return empty results instead of error
+                return res.json({
+                    products: [],
+                    page: 1,
+                    limit: 20,
+                    total: 0,
+                    totalPages: 0
+                });
             }
         }
 
@@ -219,61 +209,48 @@ const getFeaturedProducts = async (req, res) => {
     try {
         console.log('getFeaturedProducts called with query:', req.query);
         const { limit = 8 } = req.query;
-        const cacheKey = `featured_products:${limit}`;
 
-        // Enable Redis caching for featured products
-        try {
-            const cached = await Promise.race([
-                redisClient.get(cacheKey),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Redis timeout')), 1000)
-                )
-            ]);
-            if (cached) {
-                console.log('✅ Serving featured products from Redis cache');
-                return res.json(JSON.parse(cached));
-            }
-        } catch (redisError) {
-            console.warn('Redis cache miss for featured products:', redisError.message);
-            // Continue to database query - don't fail the request
-        }
+        // Direct database queries - no Redis caching for maximum reliability
+        console.log('🔄 Fetching featured products directly from database');
         console.log('Querying database for featured products...');
 
-        // Optimized query with selected fields only
-        const products = await Product.find(
-            {
-                $or: [
-                    { isFeatured: true },
-                    { featured: true }
-                ],
-                isActive: true
-            },
-            {
-                // Select all necessary fields to match the all products format
-                name: 1,
-                price: 1,
-                image: 1,
-                images: 1,
-                category: 1,
-                countInStock: 1,
-                rating: 1,
-                numReviews: 1,
-                isFeatured: 1,
-                featured: 1,
-                discount: 1,
-                description: 1,
-                brand: 1,
-                sku: 1,
-                originalPrice: 1,
-                isActive: 1,
-                createdAt: 1,
-                updatedAt: 1
-            }
-        )
-            .populate('category', 'name')
-            .sort({ createdAt: -1 })
-            .limit(parseInt(limit))
-            .lean(); // Use lean() for faster queries
+        // Optimized query with selected fields only - add timeout protection
+        const products = await Promise.race([
+            Product.find(
+                {
+                    $or: [
+                        { isFeatured: true },
+                        { featured: true }
+                    ],
+                    isActive: true
+                },
+                {
+                    // Select only essential fields for faster queries
+                    name: 1,
+                    price: 1,
+                    image: 1,
+                    images: 1,
+                    category: 1,
+                    countInStock: 1,
+                    rating: 1,
+                    numReviews: 1,
+                    isFeatured: 1,
+                    featured: 1,
+                    discount: 1,
+                    brand: 1,
+                    sku: 1,
+                    originalPrice: 1,
+                    isActive: 1,
+                    createdAt: 1
+                }
+            )
+                .sort({ createdAt: -1 }) // Remove populate for faster queries
+                .limit(parseInt(limit))
+                .lean(), // Use lean() for faster queries
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Featured products database query timeout')), 2000) // Reduced to 2 seconds
+            )
+        ]);
 
         console.log('Featured products found:', products.length);
 
@@ -302,23 +279,41 @@ const getFeaturedProducts = async (req, res) => {
 
         const response = { products: formattedProducts };
 
-        // Cache featured products for 5 minutes (300 seconds) (only if Redis is available)
-        try {
-            await Promise.race([
-                redisClient.setEx(cacheKey, 300, JSON.stringify(response)),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Redis cache timeout')), 1000)
-                )
-            ]);
-            console.log('✅ Featured products cached in Redis for 5 minutes');
-        } catch (redisError) {
-            console.warn('Failed to cache featured products in Redis:', redisError.message);
-            // Continue without caching - don't fail the request
-        }
+        // Skip Redis caching - return featured products directly from database
+        console.log('✅ Featured products fetched directly from database');
 
         res.json(response);
     } catch (err) {
         console.error('Error fetching featured products:', err);
+
+        // If it's a timeout error, try a simpler query
+        if (err.message === 'Featured products database query timeout') {
+            console.log('Featured products timeout, trying simplified query...');
+            try {
+                const products = await Promise.race([
+                    Product.find(
+                        { isActive: true, $or: [{ isFeatured: true }, { featured: true }] }
+                    )
+                        .select('name price image category countInStock rating numReviews isFeatured discount brand')
+                        .sort({ createdAt: -1 })
+                        .limit(parseInt(limit))
+                        .lean(),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Fallback featured products timeout')), 1500)
+                    )
+                ]);
+
+                console.log('✅ Fallback featured products query successful, returning', products.length, 'products');
+
+                const response = { products: products.map(productService.transformProduct) };
+                return res.json(response);
+            } catch (fallbackErr) {
+                console.error('Fallback featured products query also failed:', fallbackErr);
+                // Return empty array instead of error
+                return res.json({ products: [] });
+            }
+        }
+
         res.status(500).json({ message: 'Failed to fetch featured products', details: err.message });
     }
 };
