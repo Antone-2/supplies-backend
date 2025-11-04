@@ -25,15 +25,36 @@ const getProducts = async (req, res) => {
         if (category) {
             // Handle category - if it's a string, find the category ObjectId
             if (typeof category === 'string') {
-                // First try to find by name
-                let categoryDoc = await Category.findOne({ name: category });
+                console.log('🔍 Searching for category:', category);
+
+                // First try to find by name (case-insensitive)
+                let categoryDoc = await Category.findOne({
+                    name: { $regex: new RegExp(`^${category}$`, 'i') }
+                });
+
                 if (categoryDoc) {
                     query.category = categoryDoc._id;
+                    console.log('✅ Found category by name:', categoryDoc.name, 'ID:', categoryDoc._id);
                 } else {
                     // If not found by name, check if it's a valid ObjectId
                     if (mongoose.Types.ObjectId.isValid(category)) {
-                        query.category = category;
+                        const categoryById = await Category.findById(category);
+                        if (categoryById) {
+                            query.category = categoryById._id;
+                            console.log('✅ Found category by ID:', categoryById.name, 'ID:', categoryById._id);
+                        } else {
+                            console.log('❌ Category ID not found:', category);
+                            // If category not found, return empty results
+                            return res.json({
+                                products: [],
+                                page: parseInt(page),
+                                limit: parseInt(limit),
+                                total: 0,
+                                totalPages: 0
+                            });
+                        }
                     } else {
+                        console.log('❌ Invalid category format:', category);
                         // If category not found, return empty results
                         return res.json({
                             products: [],
@@ -388,31 +409,49 @@ const createProduct = async (req, res) => {
 
         // Handle category - ensure it's a valid ObjectId from the dropdown
         let categoryId = productData.category;
-        console.log('Processing category:', categoryId, typeof categoryId);
+        console.log('🔄 Processing category input:', categoryId, typeof categoryId);
 
         if (typeof categoryId === 'string') {
-            // Check if it's a valid ObjectId
+            console.log('🔍 Category is string, checking if ObjectId or name...');
+
+            // First check if it's a valid ObjectId
             if (mongoose.Types.ObjectId.isValid(categoryId)) {
+                console.log('✅ Valid ObjectId format, looking up by ID...');
                 const category = await Category.findById(categoryId);
                 if (category) {
                     categoryId = category._id;
-                    console.log('Category found by ID:', category.name);
+                    console.log('✅ Category found by ID:', category.name);
                 } else {
+                    console.log('❌ Category ID not found in database');
                     return res.status(400).json({
                         success: false,
                         message: `Category with ID "${categoryId}" does not exist. Please select a valid category from the dropdown.`
                     });
                 }
             } else {
-                return res.status(400).json({
-                    success: false,
-                    message: `Invalid category ID format: "${categoryId}". Please select a category from the dropdown.`
+                // Try to find by name (case-insensitive)
+                console.log('🔍 Not a valid ObjectId, trying to find by name...');
+                const category = await Category.findOne({
+                    name: { $regex: new RegExp(`^${categoryId}$`, 'i') }
                 });
+
+                if (category) {
+                    categoryId = category._id;
+                    console.log('✅ Category found by name:', category.name);
+                } else {
+                    console.log('❌ Category name not found in database');
+                    return res.status(400).json({
+                        success: false,
+                        message: `Category "${categoryId}" does not exist. Please select a valid category from the dropdown.`
+                    });
+                }
             }
         } else if (categoryId && typeof categoryId === 'object' && categoryId._id) {
             // If it's already an object with _id, use the _id
             categoryId = categoryId._id;
+            console.log('✅ Category provided as object with _id');
         } else {
+            console.log('❌ Invalid category format provided');
             return res.status(400).json({
                 success: false,
                 message: 'Category is required. Please select a category from the dropdown.'
@@ -460,6 +499,7 @@ const createProduct = async (req, res) => {
             id: product._id,
             name: product.name,
             category: product.category?.name || product.category,
+            categoryId: product.category?._id || product.category,
             price: product.price,
             countInStock: product.countInStock,
             isActive: product.isActive
