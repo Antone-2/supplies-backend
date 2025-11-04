@@ -4,17 +4,25 @@ import redis from 'redis';
 let client;
 
 try {
-    client = redis.createClient({ url: process.env.REDIS_URL });
-    client.on('error', (err) => { }); // Suppress error logging
+    client = redis.createClient({
+        url: process.env.REDIS_URL,
+        socket: {
+            connectTimeout: 5000, // 5 second timeout
+            lazyConnect: true
+        }
+    });
+    client.on('error', (err) => {
+        console.warn('Redis connection error:', err.message);
+    });
 
     // Connect to Redis asynchronously
     (async () => {
         try {
             await client.connect();
-            console.log('Connected to Redis');
+            console.log('✅ Connected to Redis successfully');
         } catch (err) {
-            console.error('Failed to connect to Redis:', err.message);
-            console.log('Server will continue without Redis caching');
+            console.warn('Failed to connect to Redis:', err.message);
+            console.log('Server will continue without Redis caching - products will load from database only');
             // Create a mock client that does nothing
             client = {
                 get: async () => null,
@@ -25,8 +33,8 @@ try {
         }
     })();
 } catch (err) {
-    console.error('Failed to create Redis client:', err.message);
-    console.log('Server will continue without Redis caching');
+    console.warn('Failed to create Redis client:', err.message);
+    console.log('Server will continue without Redis caching - products will load from database only');
     // Create a mock client that does nothing
     client = {
         get: async () => null,

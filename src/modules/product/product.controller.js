@@ -17,7 +17,7 @@ const getProducts = async (req, res) => {
             const cached = await Promise.race([
                 redisClient.get(cacheKey),
                 new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Redis timeout')), 2000)
+                    setTimeout(() => reject(new Error('Redis timeout')), 1000) // Reduced to 1 second
                 )
             ]);
             if (cached) {
@@ -26,6 +26,7 @@ const getProducts = async (req, res) => {
             }
         } catch (redisError) {
             console.warn('Redis cache miss or error:', redisError.message);
+            // Continue to database query - don't fail the request
         }
 
         // Allow admin access to all products or inactive products if specified
@@ -97,7 +98,7 @@ const getProducts = async (req, res) => {
                 Product.countDocuments(query)
             ]),
             new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Database query timeout')), 10000)
+                setTimeout(() => reject(new Error('Database query timeout')), 5000) // Reduced to 5 seconds for faster feedback
             )
         ]);
 
@@ -109,12 +110,18 @@ const getProducts = async (req, res) => {
             total,
             totalPages: Math.ceil(total / parseInt(limit))
         };
-        // Cache the response in Redis for 60 seconds
+        // Cache the response in Redis for 60 seconds (only if Redis is available)
         try {
-            await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
+            await Promise.race([
+                redisClient.setEx(cacheKey, 60, JSON.stringify(response)),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Redis cache timeout')), 1000)
+                )
+            ]);
             console.log('✅ Products cached in Redis for 60 seconds');
         } catch (redisError) {
             console.warn('Failed to cache products in Redis:', redisError.message);
+            // Continue without caching - don't fail the request
         }
         res.json(response);
     } catch (err) {
@@ -216,13 +223,19 @@ const getFeaturedProducts = async (req, res) => {
 
         // Enable Redis caching for featured products
         try {
-            const cached = await redisClient.get(cacheKey);
+            const cached = await Promise.race([
+                redisClient.get(cacheKey),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Redis timeout')), 1000)
+                )
+            ]);
             if (cached) {
                 console.log('✅ Serving featured products from Redis cache');
                 return res.json(JSON.parse(cached));
             }
         } catch (redisError) {
             console.warn('Redis cache miss for featured products:', redisError.message);
+            // Continue to database query - don't fail the request
         }
         console.log('Querying database for featured products...');
 
@@ -289,12 +302,18 @@ const getFeaturedProducts = async (req, res) => {
 
         const response = { products: formattedProducts };
 
-        // Cache featured products for 5 minutes (300 seconds)
+        // Cache featured products for 5 minutes (300 seconds) (only if Redis is available)
         try {
-            await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+            await Promise.race([
+                redisClient.setEx(cacheKey, 300, JSON.stringify(response)),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Redis cache timeout')), 1000)
+                )
+            ]);
             console.log('✅ Featured products cached in Redis for 5 minutes');
         } catch (redisError) {
             console.warn('Failed to cache featured products in Redis:', redisError.message);
+            // Continue without caching - don't fail the request
         }
 
         res.json(response);
