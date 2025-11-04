@@ -57,7 +57,10 @@ app.use(helmet());
 const corsOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()) : [];
 if (process.env.NODE_ENV === 'production') {
     // Ensure both www and non-www domains are included for production
-    const requiredOrigins = ['https://medhelmsupplies.co.ke', 'https://www.medhelmsupplies.co.ke'];
+    const requiredOrigins = [
+        'https://medhelmsupplies.co.ke',
+        'https://www.medhelmsupplies.co.ke',
+    ];
     requiredOrigins.forEach(origin => {
         if (!corsOrigins.includes(origin)) {
             corsOrigins.push(origin);
@@ -72,7 +75,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Add admin panel domain for production
 if (process.env.NODE_ENV === 'production') {
-    corsOrigins.push('https://admin.medhelmsupplies.co.ke');
+    corsOrigins.push('https://admin.medhelmsupplies.co.ke', 'http://admin.medhelmsupplies.co.ke');
 }
 
 // Log CORS origins for debugging
