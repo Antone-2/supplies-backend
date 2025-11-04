@@ -339,10 +339,14 @@ router.post('/products/upload-image', upload.single('file'), (req, res) => {
         console.log('Image uploaded successfully:', imageUrl);
         console.log('Full URL would be:', `${req.protocol}://${req.get('host')}${imageUrl}`);
 
-        // Return both relative and full URL for flexibility
+        // Return the full URL that the frontend can use directly
+        const fullUrl = `${req.protocol}://${req.get('host')}${imageUrl}`;
+        console.log('Returning full URL to frontend:', fullUrl);
+
         res.json({
-            imageUrl,
-            fullUrl: `${req.protocol}://${req.get('host')}${imageUrl}`
+            imageUrl: fullUrl, // Use full URL as primary
+            fullUrl: fullUrl,
+            relativeUrl: imageUrl // Keep relative for reference
         });
     } catch (error) {
         console.error('Image upload error:', error);

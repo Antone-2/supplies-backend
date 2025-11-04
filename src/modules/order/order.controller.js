@@ -1252,7 +1252,7 @@ const initiateSplitPayment = async (req, res) => {
         }
 
         // Check each split amount doesn't exceed PesaPal limit
-        const PESAPAL_TRANSACTION_LIMIT = 100000;
+        const PESAPAL_TRANSACTION_LIMIT = 1000;
         const invalidSplits = splitAmounts.filter(amount => amount > PESAPAL_TRANSACTION_LIMIT);
         if (invalidSplits.length > 0) {
             return res.status(400).json({
@@ -2457,8 +2457,8 @@ const initiatePayment = async (req, res) => {
         }
 
         // Check if payment amount exceeds PesaPal single transaction limit and suggest alternatives
-        const PESAPAL_TRANSACTION_LIMIT = 100000; // KES 100,000 per transaction (PesaPal limit)
-        const BUSINESS_USER_LIMIT = 1000000; // KES 1,000,000 per user (business limit)
+        const PESAPAL_TRANSACTION_LIMIT = 1000; // KES 1,000 per transaction (very conservative limit for testing)
+        const BUSINESS_USER_LIMIT = 5000000; // KES 5,000,000 per user (increased business limit)
 
         if (totalAmount > BUSINESS_USER_LIMIT) {
             // Amount exceeds business limit - require bank transfer or contact sales
@@ -2470,7 +2470,7 @@ const initiatePayment = async (req, res) => {
                     {
                         action: 'contact_sales',
                         title: 'Contact Sales Team',
-                        description: 'Get assistance with very large orders over KES 1,000,000',
+                        description: 'Get assistance with very large orders over KES 5,000,000',
                         contact: {
                             email: 'sales@medhelmsupplies.co.ke',
                             phone: '+254-XXX-XXXXXX'
