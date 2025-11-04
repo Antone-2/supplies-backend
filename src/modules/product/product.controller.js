@@ -12,11 +12,16 @@ const getProducts = async (req, res) => {
         console.log('getProducts called with query:', req.query);
         const { page = 1, limit = 12, category, sortBy = 'name', sortOrder = 'asc', inStock, admin, showAll, includeInactive } = req.query;
         const cacheKey = `products:${page}:${limit}:${category || ''}:${sortBy}:${sortOrder}:${inStock || ''}`;
-        // Temporarily skip Redis
-        // const cached = await redisClient.get(cacheKey);
-        // if (cached) {
-        //     return res.json(JSON.parse(cached));
-        // }
+        // Enable Redis caching for better performance
+        try {
+            const cached = await redisClient.get(cacheKey);
+            if (cached) {
+                console.log('✅ Serving products from Redis cache');
+                return res.json(JSON.parse(cached));
+            }
+        } catch (redisError) {
+            console.warn('Redis cache miss or error:', redisError.message);
+        }
 
         // Allow admin access to all products or inactive products if specified
         let query = {};
@@ -63,7 +68,7 @@ const getProducts = async (req, res) => {
         // Run both queries in parallel for better performance
         const [products, total] = await Promise.all([
             Product.find(query, {
-                // Only select necessary fields
+                // Only select necessary fields for performance
                 name: 1,
                 price: 1,
                 image: 1,
@@ -82,7 +87,8 @@ const getProducts = async (req, res) => {
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(parseInt(limit))
-                .lean(),
+                .lean()
+                .explain ? Product.find(query).sort(sortOptions).skip(skip).limit(parseInt(limit)).lean() : Product.find(query).sort(sortOptions).skip(skip).limit(parseInt(limit)).lean(), // Use explain for debugging if needed
             Product.countDocuments(query)
         ]);
 
@@ -94,8 +100,13 @@ const getProducts = async (req, res) => {
             total,
             totalPages: Math.ceil(total / parseInt(limit))
         };
-        // Temporarily skip Redis caching for debugging
-        // await redisClient.setEx(cacheKey, 60, JSON.stringify(response)); // cache for 60 seconds
+        // Cache the response in Redis for 60 seconds
+        try {
+            await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
+            console.log('✅ Products cached in Redis for 60 seconds');
+        } catch (redisError) {
+            console.warn('Failed to cache products in Redis:', redisError.message);
+        }
         res.json(response);
     } catch (err) {
         console.error('Error fetching products:', err);
@@ -162,11 +173,16 @@ const getFeaturedProducts = async (req, res) => {
         const { limit = 8 } = req.query;
         const cacheKey = `featured_products:${limit}`;
 
-        // Temporarily skip Redis to debug the issue
-        // const cached = await redisClient.get(cacheKey);
-        // if (cached) {
-        //     return res.json(JSON.parse(cached));
-        // }
+        // Enable Redis caching for featured products
+        try {
+            const cached = await redisClient.get(cacheKey);
+            if (cached) {
+                console.log('✅ Serving featured products from Redis cache');
+                return res.json(JSON.parse(cached));
+            }
+        } catch (redisError) {
+            console.warn('Redis cache miss for featured products:', redisError.message);
+        }
         console.log('Querying database for featured products...');
 
         // Optimized query with selected fields only
@@ -232,8 +248,13 @@ const getFeaturedProducts = async (req, res) => {
 
         const response = { products: formattedProducts };
 
-        // Temporarily skip Redis caching
-        // await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+        // Cache featured products for 5 minutes (300 seconds)
+        try {
+            await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+            console.log('✅ Featured products cached in Redis for 5 minutes');
+        } catch (redisError) {
+            console.warn('Failed to cache featured products in Redis:', redisError.message);
+        }
 
         res.json(response);
     } catch (err) {
