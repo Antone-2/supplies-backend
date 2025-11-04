@@ -12,9 +12,14 @@ const getProducts = async (req, res) => {
         console.log('getProducts called with query:', req.query);
         const { page = 1, limit = 12, category, sortBy = 'name', sortOrder = 'asc', inStock, admin, showAll, includeInactive } = req.query;
         const cacheKey = `products:${page}:${limit}:${category || ''}:${sortBy}:${sortOrder}:${inStock || ''}`;
-        // Enable Redis caching for better performance
+        // Enable Redis caching with timeout for better performance
         try {
-            const cached = await redisClient.get(cacheKey);
+            const cached = await Promise.race([
+                redisClient.get(cacheKey),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Redis timeout')), 2000)
+                )
+            ]);
             if (cached) {
                 console.log('✅ Serving products from Redis cache');
                 return res.json(JSON.parse(cached));
@@ -65,31 +70,35 @@ const getProducts = async (req, res) => {
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Run both queries in parallel for better performance
-        const [products, total] = await Promise.all([
-            Product.find(query, {
-                // Only select necessary fields for performance
-                name: 1,
-                price: 1,
-                image: 1,
-                images: 1,
-                category: 1,
-                countInStock: 1,
-                rating: 1,
-                numReviews: 1,
-                isFeatured: 1,
-                featured: 1,
-                discount: 1,
-                description: 1,
-                brand: 1,
-                sku: 1
-            })
-                .sort(sortOptions)
-                .skip(skip)
-                .limit(parseInt(limit))
-                .lean()
-                .explain ? Product.find(query).sort(sortOptions).skip(skip).limit(parseInt(limit)).lean() : Product.find(query).sort(sortOptions).skip(skip).limit(parseInt(limit)).lean(), // Use explain for debugging if needed
-            Product.countDocuments(query)
+        // Run both queries in parallel with timeout for better performance
+        const [products, total] = await Promise.race([
+            Promise.all([
+                Product.find(query, {
+                    // Only select necessary fields for performance
+                    name: 1,
+                    price: 1,
+                    image: 1,
+                    images: 1,
+                    category: 1,
+                    countInStock: 1,
+                    rating: 1,
+                    numReviews: 1,
+                    isFeatured: 1,
+                    featured: 1,
+                    discount: 1,
+                    description: 1,
+                    brand: 1,
+                    sku: 1
+                })
+                    .sort(sortOptions)
+                    .skip(skip)
+                    .limit(parseInt(limit))
+                    .lean(),
+                Product.countDocuments(query)
+            ]),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Database query timeout')), 10000)
+            )
         ]);
 
         console.log('Products found:', products.length);
@@ -110,7 +119,39 @@ const getProducts = async (req, res) => {
         res.json(response);
     } catch (err) {
         console.error('Error fetching products:', err);
-        res.status(500).json({ message: 'Failed to fetch products', details: err.message });
+
+        // If it's a timeout error, try a simpler query
+        if (err.message === 'Database query timeout') {
+            console.log('Database timeout, trying simplified query...');
+            try {
+                const products = await Product.find({ isActive: true })
+                    .select('name price image category countInStock rating numReviews isFeatured discount brand')
+                    .sort({ createdAt: -1 })
+                    .limit(20)
+                    .lean();
+
+                const total = await Product.countDocuments({ isActive: true });
+
+                const response = {
+                    products: products || [],
+                    page: 1,
+                    limit: 20,
+                    total: total || 0,
+                    totalPages: Math.ceil((total || 0) / 20)
+                };
+
+                console.log('✅ Fallback query successful, returning', products.length, 'products');
+                return res.json(response);
+            } catch (fallbackErr) {
+                console.error('Fallback query also failed:', fallbackErr);
+            }
+        }
+
+        res.status(500).json({
+            message: 'Failed to fetch products',
+            details: err.message,
+            errorType: err.message === 'Database query timeout' ? 'TIMEOUT' : 'DATABASE_ERROR'
+        });
     }
 };
 
