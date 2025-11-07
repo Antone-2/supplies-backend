@@ -574,7 +574,7 @@ const createProduct = async (req, res) => {
             brand: productData.brand || undefined,
             countInStock: Number(productData.countInStock) || 0,
             image: primaryImage,
-            images: processedImages,
+            images: processedImages.map(img => ({ url: img, alt: '' })),
             isFeatured: productData.isFeatured || false,
             featured: productData.featured || false,
             discount: Number(productData.discount) || 0,
