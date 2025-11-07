@@ -7,25 +7,20 @@ import * as emailService from '../../services/emailService.js';
 
 const register = async function register(req, res) {
     console.log('Register endpoint hit', req.body);
-    // Debug: Log registration input
     console.log('Registration input:', { email: req.body.email, name: req.body.name });
     try {
         const { email, password, name } = req.body;
 
-        // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: 'Email already exists. Please use a different email or log in.' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        // Generate a mock verification token
         const verificationToken = crypto.randomBytes(32).toString('hex');
         const user = new User({ email, password: hashedPassword, name, isVerified: false, verificationToken });
         await user.save();
-        // Debug: Log saved user
         console.log('User saved:', user);
-        // In a real app, send verification email here
         const verificationUrl = `${process.env.BACKEND_URL}/api/v1/auth/verify-email?token=${verificationToken}`;
         const logoUrl = process.env.LOGO_URL;
         const html = `
@@ -44,22 +39,19 @@ const register = async function register(req, res) {
             </div>
         `;
         await emailService.sendEmail(email, 'Verify your email', html);
-
-        // Generate token for auto-login after registration
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
 
-        // Set HTTP-only cookie
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 6 * 60 * 60 * 1000, // 6 hours
+            maxAge: 6 * 60 * 60 * 1000, 
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
             domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
         });
 
         res.status(201).json({
             message: 'Registration successful! You are now logged in. Please check your email to verify your account.',
-            token: token, // Include token in response for localStorage backup
+            token: token, 
             user: {
                 id: user._id,
                 email: user.email,

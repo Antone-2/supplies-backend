@@ -19,9 +19,7 @@ router.post('/:id/ship', admin, orderController.updateOrderStatus);
 router.post('/:id/deliver', admin, orderController.updateOrderStatus);
 router.post('/:id/cancel', admin, orderController.updateOrderStatus);
 
-// Payment endpoints
-router.post('/pay/mpesa', orderController.payMpesa);
-router.post('/pay/airtel', orderController.payAirtelMoney);
+// Payment endpoints - Only PesaPal is supported
 
 // Shipping calculation
 router.post('/calculate-shipping', orderController.calculateShippingFee);

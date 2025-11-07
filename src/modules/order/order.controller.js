@@ -1251,15 +1251,7 @@ const initiateSplitPayment = async (req, res) => {
             });
         }
 
-        // Check each split amount doesn't exceed PesaPal limit
-        const PESAPAL_TRANSACTION_LIMIT = 1000;
-        const invalidSplits = splitAmounts.filter(amount => amount > PESAPAL_TRANSACTION_LIMIT);
-        if (invalidSplits.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: `Each split payment cannot exceed KES ${PESAPAL_TRANSACTION_LIMIT.toLocaleString()}`
-            });
-        }
+        // No transaction limits for PesaPal payments
 
         // Generate main order ID
         const mainOrderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -2456,63 +2448,7 @@ const initiatePayment = async (req, res) => {
             }
         }
 
-        // Check if payment amount exceeds PesaPal single transaction limit and suggest alternatives
-        const PESAPAL_TRANSACTION_LIMIT = 1000; // KES 1,000 per transaction (very conservative limit for testing)
-        const BUSINESS_USER_LIMIT = 5000000; // KES 5,000,000 per user (increased business limit)
-
-        if (totalAmount > BUSINESS_USER_LIMIT) {
-            // Amount exceeds business limit - require bank transfer or contact sales
-            return res.status(400).json({
-                success: false,
-                message: `Payment amount (KES ${totalAmount.toLocaleString()}) exceeds our maximum limit of KES ${BUSINESS_USER_LIMIT.toLocaleString()} per customer.`,
-                errorType: 'PAYMENT_AMOUNT_TOO_LARGE',
-                suggestedActions: [
-                    {
-                        action: 'contact_sales',
-                        title: 'Contact Sales Team',
-                        description: 'Get assistance with very large orders over KES 5,000,000',
-                        contact: {
-                            email: 'sales@medhelmsupplies.co.ke',
-                            phone: '+254-XXX-XXXXXX'
-                        }
-                    },
-                    {
-                        action: 'bank_transfer',
-                        title: 'Bank Transfer',
-                        description: 'Direct bank transfer for large amounts',
-                        instructions: 'Contact us for bank transfer details'
-                    }
-                ],
-                maxPaymentAmount: BUSINESS_USER_LIMIT,
-                currentAmount: totalAmount
-            });
-        } else if (totalAmount > PESAPAL_TRANSACTION_LIMIT) {
-            // Amount exceeds single PesaPal transaction but within business limit - suggest split payment
-            return res.status(400).json({
-                success: false,
-                message: `Payment amount (KES ${totalAmount.toLocaleString()}) exceeds PesaPal's single transaction limit of KES ${PESAPAL_TRANSACTION_LIMIT.toLocaleString()}.`,
-                errorType: 'PAYMENT_NEEDS_SPLIT',
-                suggestedActions: [
-                    {
-                        action: 'split_payment',
-                        title: 'Split Payment',
-                        description: `Divide into multiple payments (max KES ${PESAPAL_TRANSACTION_LIMIT.toLocaleString()} each)`,
-                        maxAmount: PESAPAL_TRANSACTION_LIMIT
-                    },
-                    {
-                        action: 'bank_transfer',
-                        title: 'Bank Transfer',
-                        description: 'Direct bank transfer (no transaction limits)',
-                        instructions: 'Contact us for bank transfer details'
-                    }
-                ],
-                maxSingleTransaction: PESAPAL_TRANSACTION_LIMIT,
-                currentAmount: totalAmount
-            });
-        }
-
-        // If amount is within limits, proceed with normal payment
-        // If amount is within limits, proceed with normal payment
+        // No transaction limits - proceed with PesaPal payment for any amount
         // Generate unique order ID
         const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         console.log('Generated order ID:', orderId);

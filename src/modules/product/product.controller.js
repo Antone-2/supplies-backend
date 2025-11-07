@@ -458,6 +458,113 @@ const createProduct = async (req, res) => {
             });
         }
 
+        // Handle image processing - ensure images are properly formatted
+        let processedImages = [];
+        let primaryImage = '';
+
+        console.log('🔍 Processing images for product:', productData.name);
+        console.log('📸 Raw image data:', { image: productData.image, images: productData.images });
+
+        if (productData.images && Array.isArray(productData.images)) {
+            // Process images array - handle different formats
+            processedImages = productData.images.map((img, index) => {
+                console.log(`🖼️ Processing image ${index}:`, img, typeof img);
+
+                if (typeof img === 'string') {
+                    // If it's a string, it could be a URL or file path
+                    if (img.startsWith('http://') || img.startsWith('https://')) {
+                        console.log(`✅ Image ${index} is already a full URL`);
+                        return img;
+                    } else if (img.startsWith('/uploads/') || img.startsWith('uploads/')) {
+                        // Convert relative upload paths to full URLs
+                        const baseUrl = 'https://supplies-backend.onrender.com';
+                        const fullUrl = img.startsWith('/') ? `${baseUrl}${img}` : `${baseUrl}/${img}`;
+                        console.log(`🔄 Converted upload path ${index}:`, img, '→', fullUrl);
+                        return fullUrl;
+                    } else if (img.startsWith('data:')) {
+                        // Handle base64 data URLs
+                        console.log(`📷 Image ${index} is base64 data URL`);
+                        return img;
+                    } else {
+                        // Assume it's a filename that needs full URL construction
+                        const baseUrl = 'https://supplies-backend.onrender.com/uploads';
+                        const fullUrl = `${baseUrl}/${img}`;
+                        console.log(`🔄 Constructed URL for ${index}:`, img, '→', fullUrl);
+                        return fullUrl;
+                    }
+                } else if (typeof img === 'object' && img !== null) {
+                    // Handle object format { url: string, alt?: string }
+                    if (img.url) {
+                        if (img.url.startsWith('http://') || img.url.startsWith('https://')) {
+                            console.log(`✅ Image ${index} object has full URL`);
+                            return img.url;
+                        } else if (img.url.startsWith('/uploads/') || img.url.startsWith('uploads/')) {
+                            const baseUrl = 'https://supplies-backend.onrender.com';
+                            const fullUrl = img.url.startsWith('/') ? `${baseUrl}${img.url}` : `${baseUrl}/${img.url}`;
+                            console.log(`🔄 Converted object upload path ${index}:`, img.url, '→', fullUrl);
+                            return fullUrl;
+                        } else {
+                            const baseUrl = 'https://supplies-backend.onrender.com/uploads';
+                            const fullUrl = `${baseUrl}/${img.url}`;
+                            console.log(`🔄 Constructed object URL for ${index}:`, img.url, '→', fullUrl);
+                            return fullUrl;
+                        }
+                    }
+                }
+
+                console.log(`⚠️ Unrecognized image format ${index}, skipping`);
+                return null;
+            }).filter(img => img !== null); // Remove null entries
+
+            console.log('📸 Processed images array:', processedImages);
+
+            // Set primary image from first processed image
+            if (processedImages.length > 0) {
+                primaryImage = processedImages[0];
+                console.log('🏷️ Set primary image from array:', primaryImage);
+            }
+        }
+
+        // Handle single image field as fallback
+        if (!primaryImage && productData.image) {
+            console.log('🔄 Processing single image field:', productData.image);
+
+            if (productData.image.startsWith('http://') || productData.image.startsWith('https://')) {
+                primaryImage = productData.image;
+                console.log('✅ Single image is already full URL');
+            } else if (productData.image.startsWith('/uploads/') || productData.image.startsWith('uploads/')) {
+                const baseUrl = 'https://supplies-backend.onrender.com';
+                primaryImage = productData.image.startsWith('/') ? `${baseUrl}${productData.image}` : `${baseUrl}/${productData.image}`;
+                console.log('🔄 Converted single image upload path:', productData.image, '→', primaryImage);
+            } else if (productData.image.startsWith('data:')) {
+                primaryImage = productData.image;
+                console.log('📷 Single image is base64 data URL');
+            } else {
+                const baseUrl = 'https://supplies-backend.onrender.com/uploads';
+                primaryImage = `${baseUrl}/${productData.image}`;
+                console.log('🔄 Constructed single image URL:', productData.image, '→', primaryImage);
+            }
+
+            // Add to processed images if not already there
+            if (primaryImage && !processedImages.includes(primaryImage)) {
+                processedImages.unshift(primaryImage);
+                console.log('📸 Added primary image to processed images array');
+            }
+        }
+
+        // Ensure we have at least a placeholder if no images
+        if (!primaryImage) {
+            primaryImage = 'https://via.placeholder.com/400x400?text=No+Image';
+            processedImages = [primaryImage];
+            console.log('⚠️ No images provided, using placeholder');
+        }
+
+        console.log('✅ Final image processing result:', {
+            primaryImage,
+            imagesCount: processedImages.length,
+            images: processedImages
+        });
+
         const product = new Product({
             name: productData.name,
             description: productData.description || '',
@@ -466,8 +573,8 @@ const createProduct = async (req, res) => {
             category: categoryId,
             brand: productData.brand || undefined,
             countInStock: Number(productData.countInStock) || 0,
-            image: productData.image || (productData.images && productData.images.length > 0 ? productData.images[0]?.url || productData.images[0] : ''),
-            images: productData.images || [],
+            image: primaryImage,
+            images: processedImages,
             isFeatured: productData.isFeatured || false,
             featured: productData.featured || false,
             discount: Number(productData.discount) || 0,
