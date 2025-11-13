@@ -78,14 +78,37 @@ if (process.env.NODE_ENV === 'production') {
     corsOrigins.push('https://admin.medhelmsupplies.co.ke', 'http://admin.medhelmsupplies.co.ke');
 }
 
+// Add additional origins for frontend access
+corsOrigins.push('https://medhelmsupplies.co.ke');
+
 // Log CORS origins for debugging
 console.log('CORS Origins configured:', corsOrigins);
 
 app.use(cors({
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        // Check if the origin is in our allowed list
+        if (corsOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        // Allow localhost origins for development
+        if (origin.startsWith('http://localhost:')) {
+            return callback(null, true);
+        }
+
+        // Allow the specific domain
+        if (origin === 'https://medhelmsupplies.co.ke') {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Requested-With', 'Access-Control-Request-Method', 'Access-Control-Request-Headers']
 }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.text({ limit: '1mb', type: 'text/plain' }));
