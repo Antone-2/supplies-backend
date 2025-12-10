@@ -1,4 +1,3 @@
-// newsletter.model.js
 import mongoose from 'mongoose';
 
 const newsletterSchema = new mongoose.Schema({
@@ -44,7 +43,7 @@ const newsletterSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Index for better performance
+
 newsletterSchema.index({ email: 1 });
 newsletterSchema.index({ subscribed: 1 });
 newsletterSchema.index({ subscribedAt: -1 });

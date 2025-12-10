@@ -8,7 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import { validateProfile } from './user.validation.js';
 
-// Admin: Bulk delete users
+
 export async function bulkDeleteUsers(req, res) {
     try {
         const { userIds } = req.body;
@@ -17,7 +17,7 @@ export async function bulkDeleteUsers(req, res) {
             return res.status(400).json({ message: 'User IDs array is required' });
         }
 
-        // Prevent deleting super admins
+
         const users = await User.find({ _id: { $in: userIds } });
         const superAdmins = users.filter(user => user.role === 'super_admin');
 
@@ -40,7 +40,7 @@ export async function bulkDeleteUsers(req, res) {
     }
 }
 
-// Admin: Bulk update users
+
 export async function bulkUpdateUsers(req, res) {
     try {
         const { userIds, updates } = req.body;
@@ -53,7 +53,7 @@ export async function bulkUpdateUsers(req, res) {
             return res.status(400).json({ message: 'Updates object is required' });
         }
 
-        // Validate allowed update fields
+
         const allowedFields = ['role', 'active'];
         const invalidFields = Object.keys(updates).filter(field => !allowedFields.includes(field));
 
@@ -64,7 +64,7 @@ export async function bulkUpdateUsers(req, res) {
             });
         }
 
-        // Prevent changing super admin roles
+
         if (updates.role) {
             const users = await User.find({ _id: { $in: userIds } });
             const superAdmins = users.filter(user => user.role === 'super_admin');
@@ -92,17 +92,17 @@ export async function bulkUpdateUsers(req, res) {
         res.status(500).json({ message: 'Failed to update users' });
     }
 }
-// POST /api/v1/users/2fa/request
+
 export async function request2FA(req, res) {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found' });
-    // Generate OTP
+
     const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
     user.twoFactorOTP = otp;
-    user.twoFactorOTPExpires = Date.now() + 10 * 60 * 1000; // 10 min expiry
+    user.twoFactorOTPExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
-    // Send OTP via email
+
     const transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST,
         port: process.env.EMAIL_PORT,
@@ -120,7 +120,7 @@ export async function request2FA(req, res) {
     res.json({ message: 'OTP sent to email' });
 }
 
-// POST /api/v1/users/2fa/verify
+
 export async function verify2FA(req, res) {
     const { email, otp } = req.body;
     const user = await User.findOne({ email });
@@ -140,18 +140,18 @@ export async function verify2FA(req, res) {
     await user.save();
     res.json({ message: '2FA verified' });
 }
-// Admin: Get paginated list of users with enhanced management features
+
 export async function getUsers(req, res) {
     try {
         const { page = 1, limit = 20, role, sortBy = 'createdAt', sortOrder = 'desc', search, status } = req.query;
         const query = {};
         if (role) query.role = role;
 
-        // Add status filter (active/inactive)
+
         if (status === 'active') query.active = true;
         else if (status === 'inactive') query.active = false;
 
-        // Add search functionality for name and email
+
         if (search && search.trim()) {
             const searchRegex = new RegExp(search.trim(), 'i');
             query.$or = [
@@ -171,17 +171,17 @@ export async function getUsers(req, res) {
             .limit(parseInt(limit));
         const total = await User.countDocuments(query);
 
-        // Enhance user data with management information and real statistics
+
         const enhancedUsers = await Promise.all(users.map(async (user) => {
             const userObj = user.toObject();
 
-            // Add management flags
+
             userObj.canEdit = user.role !== 'super_admin' || req.user?.role === 'super_admin';
             userObj.canDelete = user.role !== 'super_admin' && !user.active;
             userObj.isInactive = !user.active;
             userObj.lastActive = user.lastLogin || user.updatedAt;
 
-            // Add action permissions
+
             userObj.actions = {
                 edit: userObj.canEdit,
                 delete: userObj.canDelete,
@@ -190,17 +190,17 @@ export async function getUsers(req, res) {
                 resetPassword: user.role !== 'super_admin'
             };
 
-            // Fetch real account statistics
+
             const userOrders = await Order.find({ user: user._id });
             const totalOrders = userOrders.length;
             const totalSpent = userOrders
                 .filter(order => order.paymentStatus === 'paid')
                 .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
-            // Calculate average order value
+
             const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
 
-            // Get order history (recent 10 orders)
+
             const orderHistory = userOrders
                 .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                 .slice(0, 10)
@@ -212,7 +212,7 @@ export async function getUsers(req, res) {
                     items: order.items?.length || 0
                 }));
 
-            // Create activity log (mock for now, but could be real from audit logs)
+
             const activityLog = [
                 {
                     action: 'Account created',
@@ -231,20 +231,20 @@ export async function getUsers(req, res) {
                 }] : [])
             ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-            // Add real statistics
+
             userObj.orders = totalOrders;
             userObj.totalSpent = totalSpent;
             userObj.avgOrderValue = avgOrderValue;
             userObj.orderHistory = orderHistory;
             userObj.activityLog = activityLog;
 
-            // Add verification status
+
             userObj.verified = user.emailVerified || user.isVerified || false;
 
             return userObj;
         }));
 
-        // Get summary statistics
+
         const totalActive = await User.countDocuments({ ...query, active: true });
         const totalInactive = await User.countDocuments({ ...query, active: false });
         const totalAdmins = await User.countDocuments({ ...query, role: 'admin' });
@@ -274,21 +274,21 @@ export async function getUsers(req, res) {
     }
 }
 
-// Admin: Create new user
+
 export async function createUser(req, res) {
     try {
         const { name, email, password, role = 'user', phone, active = true } = req.body;
 
-        // Check if user already exists
+
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: 'User with this email already exists' });
         }
 
-        // Hash password
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
+
         const user = new User({
             name,
             email,
@@ -300,7 +300,7 @@ export async function createUser(req, res) {
 
         await user.save();
 
-        // Return user without password
+
         const userResponse = user.toObject();
         delete userResponse.password;
 
@@ -311,7 +311,7 @@ export async function createUser(req, res) {
     }
 }
 
-// Admin: Update user with enhanced validation and logging
+
 export async function updateUser(req, res) {
     try {
         const { id } = req.params;
@@ -325,7 +325,7 @@ export async function updateUser(req, res) {
             });
         }
 
-        // Store original values for change tracking
+
         const originalValues = {
             name: user.name,
             email: user.email,
@@ -334,7 +334,7 @@ export async function updateUser(req, res) {
             active: user.active
         };
 
-        // Validate role changes
+
         if (role && role !== user.role) {
             const validRoles = ['user', 'admin', 'super_admin'];
             if (!validRoles.includes(role)) {
@@ -344,7 +344,7 @@ export async function updateUser(req, res) {
                 });
             }
 
-            // Prevent changing super admin role unless current user is super admin
+
             if (user.role === 'super_admin' && req.user?.role !== 'super_admin') {
                 return res.status(403).json({
                     success: false,
@@ -354,7 +354,7 @@ export async function updateUser(req, res) {
             }
         }
 
-        // Check if email is being changed and if it's already taken
+
         if (email && email !== user.email) {
             const existingUser = await User.findOne({ email: email.toLowerCase() });
             if (existingUser) {
@@ -366,24 +366,24 @@ export async function updateUser(req, res) {
             user.email = email.toLowerCase();
         }
 
-        // Update fields
+
         if (name) user.name = name.trim();
         if (role) user.role = role;
         if (phone !== undefined) user.phone = phone;
         if (active !== undefined) user.active = active;
 
-        // Handle password reset
+
         if (resetPassword) {
             const tempPassword = Math.random().toString(36).slice(-8);
             user.password = await bcrypt.hash(tempPassword, 10);
-            console.log(`🔑 Password reset for user ${user.name}: ${tempPassword}`);
+            console.log(` Password reset for user ${user.name}: ${tempPassword}`);
         } else if (password) {
             user.password = await bcrypt.hash(password, 10);
         }
 
         await user.save();
 
-        // Track changes made
+
         const changes = [];
         if (originalValues.name !== user.name) changes.push(`name: "${originalValues.name}" → "${user.name}"`);
         if (originalValues.email !== user.email) changes.push(`email: "${originalValues.email}" → "${user.email}"`);
@@ -393,15 +393,15 @@ export async function updateUser(req, res) {
         if (resetPassword) changes.push('password reset');
         else if (password) changes.push('password changed');
 
-        console.log(`✅ User ${user.name} updated:`, changes.length > 0 ? changes.join(', ') : 'no changes');
+        console.log(` User ${user.name} updated:`, changes.length > 0 ? changes.join(', ') : 'no changes');
 
-        // Return user without password
+
         const userResponse = user.toObject();
         delete userResponse.password;
         delete userResponse.twoFactorOTP;
         delete userResponse.twoFactorOTPExpires;
 
-        // Add change summary
+
         userResponse.changes = changes;
         userResponse.lastModified = new Date();
 
@@ -422,7 +422,7 @@ export async function updateUser(req, res) {
     }
 }
 
-// Admin: Delete user with enhanced validation
+
 export async function deleteUser(req, res) {
     try {
         const { id } = req.params;
@@ -435,7 +435,7 @@ export async function deleteUser(req, res) {
             });
         }
 
-        // Prevent deleting super admin
+
         if (user.role === 'super_admin') {
             return res.status(403).json({
                 success: false,
@@ -444,7 +444,7 @@ export async function deleteUser(req, res) {
             });
         }
 
-        // Check if user has active orders (paid but not delivered)
+
         const activeOrders = await Order.countDocuments({
             user: id,
             paymentStatus: 'paid',
@@ -460,10 +460,10 @@ export async function deleteUser(req, res) {
             });
         }
 
-        // Log the deletion for audit trail
-        console.log(`🗑️ Admin deleting user: ${user.name} (${user.email}) - ID: ${id}`);
 
-        // Store user info before deletion for response
+        console.log(`️ Admin deleting user: ${user.name} (${user.email}) - ID: ${id}`);
+
+
         const deletedUserInfo = {
             id: user._id,
             name: user.name,
@@ -474,7 +474,7 @@ export async function deleteUser(req, res) {
 
         await User.findByIdAndDelete(id);
 
-        console.log(`✅ User ${user.name} successfully deleted`);
+        console.log(` User ${user.name} successfully deleted`);
 
         res.json({
             success: true,
@@ -490,7 +490,7 @@ export async function deleteUser(req, res) {
         });
     }
 }
-// POST /api/v1/users/avatar
+
 export async function uploadAvatar(req, res) {
     try {
         if (!req.file) {
@@ -499,7 +499,7 @@ export async function uploadAvatar(req, res) {
         const userId = req.user.id;
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
-        // Save avatar URL (local path)
+
         const avatarUrl = `/uploads/${req.file.filename}`;
         user.avatar = avatarUrl;
         await user.save();
@@ -535,15 +535,15 @@ export async function updateProfile(req, res) {
         if (password) user.password = await bcrypt.hash(password, 10);
         if (phone) user.phone = phone;
         await user.save();
-        // Send notification (email and in-app) for profile update
+
         try {
             const notificationController = await import('../modules/notification/notification.controller.js');
             const { sendEmail } = notificationController;
             const title = 'Profile Updated';
             const message = 'Your account profile has been updated.';
-            // Send email notification
+
             await sendEmail(user.email, title, `<p>${message}</p>`);
-            // Create in-app notification
+
             if (typeof notificationController.createNotification === 'function') {
                 await notificationController.createNotification({
                     body: {

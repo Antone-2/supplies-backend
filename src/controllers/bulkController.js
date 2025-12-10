@@ -4,7 +4,7 @@ const Order = require('../../Database/models/order.model');
 const csv = require('fast-csv');
 const fs = require('fs');
 
-// Bulk export products to CSV
+
 exports.exportProducts = async (req, res) => {
     const products = await Product.find();
     const ws = fs.createWriteStream('products_export.csv');
@@ -14,7 +14,7 @@ exports.exportProducts = async (req, res) => {
     });
 };
 
-// Bulk import products from CSV
+
 exports.importProducts = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'CSV file required' });
     const products = [];
@@ -27,7 +27,7 @@ exports.importProducts = async (req, res) => {
         });
 };
 
-// Bulk export users to CSV
+
 exports.exportUsers = async (req, res) => {
     const users = await User.find();
     const ws = fs.createWriteStream('users_export.csv');
@@ -37,7 +37,7 @@ exports.exportUsers = async (req, res) => {
     });
 };
 
-// Bulk import users from CSV
+
 exports.importUsers = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'CSV file required' });
     const users = [];
@@ -50,7 +50,7 @@ exports.importUsers = async (req, res) => {
         });
 };
 
-// Bulk export orders to CSV
+
 exports.exportOrders = async (req, res) => {
     const orders = await Order.find();
     const ws = fs.createWriteStream('orders_export.csv');
@@ -60,7 +60,7 @@ exports.exportOrders = async (req, res) => {
     });
 };
 
-// Bulk import orders from CSV
+
 exports.importOrders = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'CSV file required' });
     const orders = [];

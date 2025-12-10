@@ -16,7 +16,7 @@ exports.exportUserData = async (req, res) => {
 exports.requestUserDeletion = async (req, res) => {
     try {
         const { userId } = req.params;
-        // Mark user for deletion, do not delete immediately
+
         const user = await User.findByIdAndUpdate(userId, { deletionRequested: true }, { new: true });
         if (!user) return res.status(404).json({ error: 'User not found' });
         res.json({ message: 'Deletion request received', user });

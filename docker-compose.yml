@@ -1,11 +1,10 @@
-# Docker Compose for Production Deployment
 version: '3.8'
 
 services:
   # MongoDB Database
   mongodb:
     image: mongo:7.0
-    container_name: medhelm-mongodb
+    container_name: Medhelm-mongodb
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
@@ -17,7 +16,7 @@ services:
       - mongodb_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
-      - medhelm-network
+      - Medhelm-network
     command: --auth --bind_ip_all
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
@@ -29,14 +28,14 @@ services:
   # Redis Cache (Optional)
   redis:
     image: redis:7-alpine
-    container_name: medhelm-redis
+    container_name: Medhelm-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - medhelm-network
+      - Medhelm-network
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
@@ -50,7 +49,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    container_name: medhelm-backend
+    container_name: Medhelm-backend
     restart: unless-stopped
     depends_on:
       mongodb:
@@ -58,8 +57,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGO_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/${MONGO_DB_NAME}?authSource=admin
-      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      MONGO_URI: mongodb:
+      REDIS_URL: redis:
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       SESSION_SECRET: ${SESSION_SECRET}
@@ -86,7 +85,7 @@ services:
       - uploads_data:/app/uploads
       - logs_data:/app/logs
     networks:
-      - medhelm-network
+      - Medhelm-network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
       interval: 30s
@@ -102,7 +101,7 @@ services:
   # Nginx Reverse Proxy (Production)
   nginx:
     image: nginx:1.25-alpine
-    container_name: medhelm-nginx
+    container_name: Medhelm-nginx
     restart: unless-stopped
     depends_on:
       - backend
@@ -114,7 +113,7 @@ services:
       - ./ssl:/etc/nginx/ssl:ro
       - nginx_cache:/var/cache/nginx
     networks:
-      - medhelm-network
+      - Medhelm-network
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
@@ -122,7 +121,7 @@ services:
       retries: 3
 
 networks:
-  medhelm-network:
+  Medhelm-network:
     driver: bridge
 
 volumes:

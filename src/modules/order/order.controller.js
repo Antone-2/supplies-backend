@@ -1,6 +1,3 @@
-// ...order controller logic...
-// Example: createCashOrder, getSpecificOrder, getAllOrders, createCheckOutSession, createOnlineOrder, updateOrderStatus, addOrderNote, getOrderHistory, getOrderAnalytics, downloadOrderInvoice, bulkUpdateOrderStatus, calculateShippingFee, payAirtelMoney, payMpesa, verifyOrder
-
 import orderModel from '../../../Database/models/order.model.js';
 import mongoose from 'mongoose';
 import User from '../../../Database/models/user.model.js';
@@ -20,26 +17,26 @@ const getAllOrders = async (req, res) => {
             paymentStatus,
             sortBy = 'createdAt',
             sortOrder = 'desc',
-            paymentFilter = 'all', // 'all', 'paid', 'unpaid', 'pending', 'processing', 'failed', 'refunded'
-            history = false // New parameter to fetch historical paid orders
+            paymentFilter = 'all',
+            history = false
         } = req.query;
 
-        // Check if MongoDB is connected
+
         if (mongoose.connection.readyState !== 1) {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         const query = {};
 
-        // Handle history mode - fetch all paid orders regardless of current status
+
         if (history === 'true' || history === true) {
             query.paymentStatus = 'paid';
-            console.log('📚 History mode: Fetching all paid orders');
+            console.log(' History mode: Fetching all paid orders');
         } else {
-            // Handle status filter
+
             if (status) query.orderStatus = status;
 
-            // Handle payment status filter with enhanced options
+
             if (paymentStatus) {
                 query.paymentStatus = paymentStatus;
             } else if (paymentFilter === 'paid') {
@@ -56,18 +53,18 @@ const getAllOrders = async (req, res) => {
                 query.paymentStatus = 'refunded';
             }
 
-            // Debug: Log the payment filter being applied
+
             if (paymentFilter) {
-                console.log(`🔍 Applying payment filter: ${paymentFilter}`);
-                console.log(`🔍 Query paymentStatus:`, query.paymentStatus);
+                console.log(` Applying payment filter: ${paymentFilter}`);
+                console.log(` Query paymentStatus:`, query.paymentStatus);
             }
         }
 
-        // Add debug logging to see what orders are being queried
+
         console.log('Order query:', JSON.stringify(query, null, 2));
         console.log('Payment filter:', paymentFilter);
         console.log('Request query params:', req.query);
-        // 'all' means no payment filter
+
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
@@ -80,21 +77,21 @@ const getAllOrders = async (req, res) => {
             .limit(parseInt(limit));
         const total = await orderModel.countDocuments(query);
 
-        // Debug: Log found orders with enhanced payment info
-        console.log(`📊 Found ${orders.length} orders out of ${total} total matching query`);
-        console.log(`🔍 Payment filter applied: ${paymentFilter || 'none'}, History mode: ${history}`);
+
+        console.log(` Found ${orders.length} orders out of ${total} total matching query`);
+        console.log(` Payment filter applied: ${paymentFilter || 'none'}, History mode: ${history}`);
         orders.forEach(order => {
-            console.log(`📦 Order ${order.orderNumber}: paymentStatus=${order.paymentStatus}, orderStatus=${order.orderStatus}, paidAt=${order.paidAt}, transactionStatus=${order.transactionStatus}, isPaid=${order.paymentStatus === 'paid'}, canProcess=${order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus)}`);
+            console.log(` Order ${order.orderNumber}: paymentStatus=${order.paymentStatus}, orderStatus=${order.orderStatus}, paidAt=${order.paidAt}, transactionStatus=${order.transactionStatus}, isPaid=${order.paymentStatus === 'paid'}, canProcess=${order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus)}`);
         });
 
-        // Additional debug: Count orders by payment status
+
         const statusCounts = orders.reduce((acc, order) => {
             acc[order.paymentStatus] = (acc[order.paymentStatus] || 0) + 1;
             return acc;
         }, {});
-        console.log(`📈 Order status breakdown:`, statusCounts);
+        console.log(` Order status breakdown:`, statusCounts);
 
-        // Format orders for admin view with enhanced payment information
+
         const formattedOrders = orders.map(order => ({
             id: order._id,
             orderNumber: order.orderNumber || order._id,
@@ -104,30 +101,30 @@ const getAllOrders = async (req, res) => {
             items: order.items || [],
             total: order.totalAmount || 0,
             subtotal: order.subtotal || order.totalAmount || 0,
-            tax: 0, // Not stored separately
+            tax: 0,
             shipping: order.shippingFee || 0,
             status: order.orderStatus || 'pending',
             paymentStatus: order.paymentStatus || 'pending',
             paymentMethod: order.paymentMethod || 'pesapal',
             shippingAddress: order.shippingAddress || {},
-            billingAddress: order.shippingAddress || {}, // Same as shipping for now
+            billingAddress: order.shippingAddress || {},
             createdAt: order.createdAt,
             updatedAt: order.updatedAt,
             deliveryDate: null,
             trackingNumber: order.trackingNumber || 'Not assigned',
             transactionTrackingId: order.transactionTrackingId || 'N/A',
             transactionStatus: order.transactionStatus || 'N/A',
-            // Enhanced payment info for admin
+
             isPaid: order.paymentStatus === 'paid',
             canProcess: order.paymentStatus === 'paid' && ['pending', 'processing'].includes(order.orderStatus),
             processingPriority: order.paymentStatus === 'paid' ? 'high' : 'normal',
-            // History mode indicators
+
             isCompleted: ['delivered', 'picked_up'].includes(order.orderStatus),
             isInProgress: ['processing', 'fulfilled', 'ready', 'shipped'].includes(order.orderStatus),
             paymentCompletedAt: order.paidAt,
             daysSincePayment: order.paidAt ? Math.floor((new Date() - new Date(order.paidAt)) / (1000 * 60 * 60 * 24)) : null,
 
-            // Simple action icons for order management
+
             actionIcons: [
                 {
                     id: 'process',
@@ -173,7 +170,7 @@ const getAllOrders = async (req, res) => {
                 }
             ],
 
-            // Enhanced UI/UX click handlers for action icons
+
             onActionClick: `function(orderId, action, iconElement) {
                 const actionConfig = {
                     process: {
@@ -379,7 +376,7 @@ const getAllOrders = async (req, res) => {
                 });
             }`,
 
-            // CSS styles for enhanced UI/UX
+
             iconStyles: `
                 .order-action-icon {
                     display: inline-flex;
@@ -468,7 +465,7 @@ const getAllOrders = async (req, res) => {
                     to { transform: translateX(0); }
                 }
 
-                /* Responsive design */
+
                 @media (max-width: 768px) {
                     .order-action-icon {
                         width: 36px;
@@ -485,7 +482,7 @@ const getAllOrders = async (req, res) => {
                     }
                 }
 
-                /* Notification styles */
+
                 .notification-toast {
                     position: fixed;
                     top: 20px;
@@ -509,7 +506,7 @@ const getAllOrders = async (req, res) => {
                     to { transform: translateX(0); opacity: 1; }
                 }
 
-                /* Loading overlay */
+
                 .global-loading-overlay {
                     position: fixed;
                     top: 0;
@@ -538,7 +535,7 @@ const getAllOrders = async (req, res) => {
                 }
             `,
 
-            // Quick action handlers for frontend
+
             quickActions: {
                 handleOrderAction: `function(orderId, action, extraData = {}) {
                     // Show loading state
@@ -640,7 +637,7 @@ const getAllOrders = async (req, res) => {
                 }`
             },
 
-            // Legacy action permissions for backward compatibility
+
             actions: {
                 canProcess: order.paymentStatus === 'paid' && order.orderStatus === 'pending',
                 canFulfill: order.paymentStatus === 'paid' && order.orderStatus === 'processing',
@@ -655,7 +652,7 @@ const getAllOrders = async (req, res) => {
             }
         }));
 
-        // Add enhanced summary statistics
+
         const paidOrders = formattedOrders.filter(order => order.isPaid).length;
         const processableOrders = formattedOrders.filter(order => order.canProcess).length;
         const pendingPaymentOrders = formattedOrders.filter(order => order.paymentStatus === 'pending').length;
@@ -663,9 +660,9 @@ const getAllOrders = async (req, res) => {
         const completedOrders = formattedOrders.filter(order => ['delivered', 'picked_up'].includes(order.status)).length;
         const inProgressOrders = formattedOrders.filter(order => ['processing', 'fulfilled', 'ready', 'shipped'].includes(order.status)).length;
 
-        console.log(`📈 Summary: ${paidOrders} paid, ${processableOrders} processable, ${completedOrders} completed, ${inProgressOrders} in progress`);
+        console.log(` Summary: ${paidOrders} paid, ${processableOrders} processable, ${completedOrders} completed, ${inProgressOrders} in progress`);
         if (history === 'true' || history === true) {
-            console.log(`📚 History mode: Showing all ${total} paid orders across all statuses`);
+            console.log(` History mode: Showing all ${total} paid orders across all statuses`);
         }
 
         res.json({
@@ -707,7 +704,7 @@ const createOrder = async (req, res) => {
     try {
         const { orderId, items, shippingAddress, totalAmount, paymentMethod } = req.body;
 
-        // Validate required fields
+
         if (!orderId || !items || !shippingAddress || !totalAmount) {
             return res.status(400).json({
                 success: false,
@@ -717,9 +714,9 @@ const createOrder = async (req, res) => {
 
 
 
-        // Create new order (let MongoDB generate the _id, use orderId as orderNumber)
+
         const order = new orderModel({
-            orderNumber: orderId, // Use custom orderId as orderNumber
+            orderNumber: orderId,
             items: items.map(item => ({
                 productId: item.productId,
                 name: item.name,
@@ -748,7 +745,7 @@ const createOrder = async (req, res) => {
 
         await order.save();
 
-        // Create admin notification for new order
+
         try {
             await createAdminNotification(
                 'order_created',
@@ -761,7 +758,7 @@ const createOrder = async (req, res) => {
             console.warn('Admin notification creation failed:', adminNotificationError);
         }
 
-        // Send order confirmation email and SMS notification
+
         try {
             await sendOrderConfirmation({
                 email: shippingAddress.email,
@@ -777,10 +774,10 @@ const createOrder = async (req, res) => {
             console.warn('Order confirmation email failed:', emailError);
         }
 
-        // Send order confirmation SMS if phone number is provided
+
         if (shippingAddress.phone) {
             try {
-                // Format phone number to international format if needed (assuming Kenyan numbers)
+
                 let phoneNumber = shippingAddress.phone;
                 if (phoneNumber.startsWith('0')) {
                     phoneNumber = '+254' + phoneNumber.substring(1);
@@ -816,12 +813,12 @@ const createOrder = async (req, res) => {
 };
 
 const createCashOrder = async (req, res) => {
-    // Validation removed for now
-    // const { error } = validateOrder(req.body);
-    // if (error) {
-    //     return res.status(400).json({ message: 'Validation error', details: error.details });
-    // }
-    // ...implementation...
+
+
+
+
+
+
     res.json({ message: 'Cash order created' });
 };
 
@@ -829,22 +826,22 @@ const getSpecificOrder = async (req, res) => {
     try {
         const orderId = req.params.id;
 
-        // Check if MongoDB is connected
+
         if (mongoose.connection.readyState !== 1) {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
         let order;
 
-        // Check if the parameter is a valid MongoDB ObjectId
+
         if (mongoose.Types.ObjectId.isValid(orderId)) {
-            // Try to find by _id first
+
             order = await orderModel.findById(orderId)
                 .populate('user', 'name email')
                 .select('-paymentResult -notes -activityLog');
         }
 
-        // If not found by _id or not a valid ObjectId, try to find by orderNumber
+
         if (!order) {
             order = await orderModel.findOne({ orderNumber: orderId })
                 .populate('user', 'name email')
@@ -855,7 +852,7 @@ const getSpecificOrder = async (req, res) => {
             return res.status(404).json({ message: 'Order not found' });
         }
 
-        // Format response for tracking
+
         const trackingData = {
             orderId: order._id,
             orderNumber: order.orderNumber || order._id,
@@ -889,7 +886,7 @@ const getSpecificOrder = async (req, res) => {
     }
 };
 
-// Dummy notification function (replace with real email/SMS/in-app logic)
+
 const sendOrderNotification = async (userId, message) => {
     const user = await User.findById(userId);
     if (!user || !user.email) return false;
@@ -898,13 +895,13 @@ const sendOrderNotification = async (userId, message) => {
     return await sendOrderEmail(user.email, subject, htmlContent);
 };
 
-// Process order status update with comprehensive workflow
+
 const updateOrderStatus = async (req, res) => {
     try {
         const orderId = req.params.id;
         const { status, paymentStatus, note, trackingNumber } = req.body;
 
-        // Validate required fields
+
         if (!status && !paymentStatus && !note && !trackingNumber) {
             return res.status(400).json({
                 success: false,
@@ -912,7 +909,7 @@ const updateOrderStatus = async (req, res) => {
             });
         }
 
-        // Check if MongoDB is connected
+
         if (mongoose.connection.readyState !== 1) {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
@@ -925,7 +922,7 @@ const updateOrderStatus = async (req, res) => {
             });
         }
 
-        // Validate status transitions (business rules)
+
         if (status) {
             const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
             if (!validStatuses.includes(status)) {
@@ -935,7 +932,7 @@ const updateOrderStatus = async (req, res) => {
                 });
             }
 
-            // Business rule: Cannot change status of delivered orders
+
             if (order.orderStatus === 'delivered' && status !== 'delivered') {
                 return res.status(400).json({
                     success: false,
@@ -943,7 +940,7 @@ const updateOrderStatus = async (req, res) => {
                 });
             }
 
-            // Business rule: Cannot change status of cancelled orders
+
             if (order.orderStatus === 'cancelled' && status !== 'cancelled') {
                 return res.status(400).json({
                     success: false,
@@ -951,28 +948,28 @@ const updateOrderStatus = async (req, res) => {
                 });
             }
 
-            // Generate tracking number for shipped orders
+
             if (status === 'shipped' && !order.trackingNumber && !trackingNumber) {
                 const generatedTrackingNumber = `TRK-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
                 order.trackingNumber = generatedTrackingNumber;
-                console.log(`📦 Generated tracking number: ${generatedTrackingNumber} for order ${order.orderNumber}`);
+                console.log(` Generated tracking number: ${generatedTrackingNumber} for order ${order.orderNumber}`);
             }
 
-            // Generate transaction tracking ID if not present (for payment tracking)
+
             if (!order.transactionTrackingId) {
                 const generatedTransactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
                 order.transactionTrackingId = generatedTransactionId;
-                console.log(`💳 Generated transaction tracking ID: ${generatedTransactionId} for order ${order.orderNumber}`);
+                console.log(` Generated transaction tracking ID: ${generatedTransactionId} for order ${order.orderNumber}`);
             }
 
-            // Set transaction status to N/A if not set
+
             if (!order.transactionStatus || order.transactionStatus === '') {
                 order.transactionStatus = 'N/A';
-                console.log(`📊 Set transaction status to N/A for order ${order.orderNumber}`);
+                console.log(` Set transaction status to N/A for order ${order.orderNumber}`);
             }
         }
 
-        // Validate payment status transitions
+
         if (paymentStatus) {
             const validPaymentStatuses = ['pending', 'paid', 'failed', 'refunded'];
             if (!validPaymentStatuses.includes(paymentStatus)) {
@@ -983,16 +980,16 @@ const updateOrderStatus = async (req, res) => {
             }
         }
 
-        // Store original values for comparison
+
         const originalStatus = order.orderStatus;
         const originalPaymentStatus = order.paymentStatus;
 
-        // Update fields
+
         if (status) order.orderStatus = status;
         if (paymentStatus) order.paymentStatus = paymentStatus;
         if (trackingNumber) order.trackingNumber = trackingNumber;
 
-        // Add timeline entry
+
         const timelineEntry = {
             status: status || order.orderStatus,
             changedAt: new Date(),
@@ -1002,7 +999,7 @@ const updateOrderStatus = async (req, res) => {
 
         await order.save();
 
-        console.log(`✅ Order ${orderId} processed:`, {
+        console.log(` Order ${orderId} processed:`, {
             orderNumber: order.orderNumber,
             statusChange: originalStatus !== order.orderStatus ? `${originalStatus} → ${order.orderStatus}` : 'unchanged',
             paymentChange: originalPaymentStatus !== order.paymentStatus ? `${originalPaymentStatus} → ${order.paymentStatus}` : 'unchanged',
@@ -1010,17 +1007,17 @@ const updateOrderStatus = async (req, res) => {
             hasNote: !!note
         });
 
-        // Send notifications for status changes
+
         if (status && status !== originalStatus && order.shippingAddress?.email) {
             try {
                 await sendOrderStatusNotifications(order, status, note);
             } catch (notificationError) {
                 console.warn('Order status notification failed:', notificationError);
-                // Don't fail the update if notifications fail
+
             }
         }
 
-        // Create admin notification for order status changes
+
         if (status && status !== originalStatus) {
             try {
                 const statusMessages = {
@@ -1044,7 +1041,7 @@ const updateOrderStatus = async (req, res) => {
             }
         }
 
-        // Create admin notification for payment status changes
+
         if (paymentStatus && paymentStatus !== originalPaymentStatus) {
             try {
                 const paymentMessages = {
@@ -1065,7 +1062,7 @@ const updateOrderStatus = async (req, res) => {
             }
         }
 
-        // Create admin notification for order status changes
+
         if (status && status !== originalStatus) {
             try {
                 const statusMessages = {
@@ -1089,7 +1086,7 @@ const updateOrderStatus = async (req, res) => {
             }
         }
 
-        // Create admin notification for payment status changes
+
         if (paymentStatus && paymentStatus !== originalPaymentStatus) {
             try {
                 const paymentMessages = {
@@ -1138,11 +1135,11 @@ const updateOrderStatus = async (req, res) => {
     }
 };
 
-// Helper function to send order status notifications
+
 const sendOrderStatusNotifications = async (order, newStatus, note) => {
     const notifications = [];
 
-    // Email notification
+
     if (order.shippingAddress?.email) {
         try {
             let emailFunction;
@@ -1171,13 +1168,13 @@ const sendOrderStatusNotifications = async (order, newStatus, note) => {
             });
 
             notifications.push('email');
-            console.log(`📧 Order status email sent for ${order.orderNumber}: ${newStatus}`);
+            console.log(` Order status email sent for ${order.orderNumber}: ${newStatus}`);
         } catch (emailError) {
-            console.warn(`📧❌ Failed to send email notification for order ${order.orderNumber}:`, emailError);
+            console.warn(` Failed to send email notification for order ${order.orderNumber}:`, emailError);
         }
     }
 
-    // SMS notification
+
     if (order.shippingAddress?.phone) {
         try {
             let phoneNumber = order.shippingAddress.phone;
@@ -1210,9 +1207,9 @@ const sendOrderStatusNotifications = async (order, newStatus, note) => {
             });
 
             notifications.push('sms');
-            console.log(`📱 Order status SMS sent for ${order.orderNumber}: ${newStatus}`);
+            console.log(` Order status SMS sent for ${order.orderNumber}: ${newStatus}`);
         } catch (smsError) {
-            console.warn(`📱❌ Failed to send SMS notification for order ${order.orderNumber}:`, smsError);
+            console.warn(` Failed to send SMS notification for order ${order.orderNumber}:`, smsError);
         }
     }
 
@@ -1220,22 +1217,22 @@ const sendOrderStatusNotifications = async (order, newStatus, note) => {
 };
 
 const payMpesa = async (req, res) => {
-    // Placeholder
+
     res.json({ message: 'Mpesa payment initiated' });
 };
 
 const payAirtelMoney = async (req, res) => {
-    // Placeholder
+
     res.json({ message: 'Airtel Money payment initiated' });
 };
 
-// Initiate split payment for large orders
+
 const initiateSplitPayment = async (req, res) => {
     try {
         const { items, shippingAddress, totalAmount, paymentMethod, splitAmounts } = req.body;
         const userId = req.user?.id || null;
 
-        // Validate split amounts
+
         if (!splitAmounts || !Array.isArray(splitAmounts) || splitAmounts.length === 0) {
             return res.status(400).json({
                 success: false,
@@ -1244,19 +1241,19 @@ const initiateSplitPayment = async (req, res) => {
         }
 
         const totalSplitAmount = splitAmounts.reduce((sum, amount) => sum + amount, 0);
-        if (Math.abs(totalSplitAmount - totalAmount) > 1) { // Allow small rounding differences
+        if (Math.abs(totalSplitAmount - totalAmount) > 1) {
             return res.status(400).json({
                 success: false,
                 message: 'Split amounts must equal the total order amount'
             });
         }
 
-        // No transaction limits for PesaPal payments
 
-        // Generate main order ID
+
+
         const mainOrderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // Create main order
+
         const mainOrder = new orderModel({
             orderNumber: mainOrderId,
             items: items.map(item => ({
@@ -1294,7 +1291,7 @@ const initiateSplitPayment = async (req, res) => {
 
         const savedMainOrder = await mainOrder.save();
 
-        // Create individual payment URLs for each split
+
         const splitPaymentResults = [];
 
         for (let i = 0; i < splitAmounts.length; i++) {
@@ -1320,7 +1317,7 @@ const initiateSplitPayment = async (req, res) => {
             } catch (error) {
                 console.error(`Failed to initiate split payment ${i + 1}:`, error);
 
-                // Mark this split as failed
+
                 splitPaymentResults.push({
                     splitNumber: i + 1,
                     orderId: splitOrderId,
@@ -1351,16 +1348,16 @@ const initiateSplitPayment = async (req, res) => {
     }
 };
 
-// Initiate bank transfer for large orders
+
 const initiateBankTransfer = async (req, res) => {
     try {
         const { items, shippingAddress, totalAmount, bankTransferDetails } = req.body;
         const userId = req.user?.id || null;
 
-        // Generate order ID
+
         const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // Create order with bank transfer payment method
+
         const order = new orderModel({
             orderNumber: orderId,
             items: items.map(item => ({
@@ -1393,7 +1390,7 @@ const initiateBankTransfer = async (req, res) => {
 
         const savedOrder = await order.save();
 
-        // Create admin notification for bank transfer order
+
         try {
             await createAdminNotification(
                 'bank_transfer_order',
@@ -1405,7 +1402,7 @@ const initiateBankTransfer = async (req, res) => {
             console.warn('Admin notification creation failed for bank transfer:', adminNotificationError);
         }
 
-        // Send order confirmation with bank transfer instructions
+
         try {
             await sendOrderEmail(
                 shippingAddress.email,
@@ -1425,7 +1422,7 @@ const initiateBankTransfer = async (req, res) => {
                     <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
                         <h3>Bank Transfer Details:</h3>
                         <p><strong>Bank Name:</strong> [Your Bank Name]</p>
-                        <p><strong>Account Name:</strong> Medhelm Supplies Ltd</p>
+                        <p><strong>Account Name:</strong> Medhelm Supplies </p>
                         <p><strong>Account Number:</strong> [Your Account Number]</p>
                         <p><strong>Branch:</strong> [Branch Name]</p>
                         <p><strong>Swift Code:</strong> [Swift Code]</p>
@@ -1434,7 +1431,7 @@ const initiateBankTransfer = async (req, res) => {
                     <p><strong>Important:</strong></p>
                     <ul>
                         <li>Please include your Order ID (${orderId}) in the payment reference</li>
-                        <li>Send payment confirmation to: payments@medhelmsupplies.co.ke</li>
+                        <li>Send payment confirmation to: payments@Medhelmsupplies.co.ke</li>
                         <li>Processing typically takes 1-2 business days after payment confirmation</li>
                     </ul>
 
@@ -1454,10 +1451,10 @@ const initiateBankTransfer = async (req, res) => {
             orderId: orderId,
             totalAmount: totalAmount,
             paymentMethod: 'bank_transfer',
-            instructions: 'Please transfer the amount to the provided bank details and send confirmation to payments@medhelmsupplies.co.ke',
+            instructions: 'Please transfer the amount to the provided bank details and send confirmation to payments@Medhelmsupplies.co.ke',
             bankDetails: {
                 bankName: '[Your Bank Name]',
-                accountName: 'Medhelm Supplies Ltd',
+                accountName: 'Medhelm Supplies ',
                 accountNumber: '[Your Account Number]',
                 branch: '[Branch Name]',
                 swiftCode: '[Swift Code]'
@@ -1481,7 +1478,7 @@ const initiateBankTransfer = async (req, res) => {
 };
 
 const createCheckOutSession = async (req, res) => {
-    // Placeholder
+
     res.json({ session: {} });
 };
 
@@ -1495,14 +1492,14 @@ const calculateShippingFee = async (req, res, next) => {
         if (!origin || !destination) {
             return res.status(400).json({ status: 'error', message: 'Origin and destination required' });
         }
-        // ...fee calculation logic...
-        res.json({ fee: 0 }); // Placeholder
+
+        res.json({ fee: 0 });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Failed to calculate shipping fee', error: error.message });
     }
 };
 
-// Refresh payment status from PesaPal for specific order
+
 const refreshPaymentStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -1522,24 +1519,24 @@ const refreshPaymentStatus = async (req, res) => {
             });
         }
 
-        console.log(`🔄 Refreshing payment status for order ${order.orderNumber} with tracking ID: ${order.transactionTrackingId}`);
+        console.log(` Refreshing payment status for order ${order.orderNumber} with tracking ID: ${order.transactionTrackingId}`);
 
-        // Get transaction status from PesaPal
+
         const { getTransactionStatus } = await import('../../services/pesapalService.js');
         const transactionData = await getTransactionStatus(order.transactionTrackingId);
 
         const transactionStatus = transactionData.status || 'unknown';
         const statusLower = transactionStatus.toLowerCase();
 
-        console.log(`📊 PesaPal response for order ${order.orderNumber}:`, {
+        console.log(` PesaPal response for order ${order.orderNumber}:`, {
             transactionStatus,
             paymentMethod: transactionData.paymentMethod,
             amount: transactionData.amount,
             rawResponse: transactionData.rawResponse
         });
 
-        // Update order status based on transaction status with enhanced mapping
-        let paymentStatus = order.paymentStatus; // Keep current if unknown
+
+        let paymentStatus = order.paymentStatus;
         let updateFields = {
             transactionStatus: transactionStatus,
             lastPaymentCheck: new Date()
@@ -1561,20 +1558,20 @@ const refreshPaymentStatus = async (req, res) => {
             updateFields.paymentStatus = paymentStatus;
         }
 
-        // Update order
+
         const updatedOrder = await orderModel.findByIdAndUpdate(id, updateFields, { new: true });
 
-        console.log(`✅ Payment status refreshed for order ${order.orderNumber}: ${order.paymentStatus} → ${paymentStatus} (${transactionStatus})`);
+        console.log(` Payment status refreshed for order ${order.orderNumber}: ${order.paymentStatus} → ${paymentStatus} (${transactionStatus})`);
 
-        // Send payment confirmation notification if payment was just completed
+
         if (newPaymentStatus === 'paid' && originalPaymentStatus !== 'paid') {
             try {
-                // Generate tracking number for the order when payment is confirmed
+
                 const trackingNumber = `TRK-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
                 order.trackingNumber = trackingNumber;
                 await order.save();
 
-                console.log(`📦 Generated tracking number: ${trackingNumber} for order ${order.orderNumber}`);
+                console.log(` Generated tracking number: ${trackingNumber} for order ${order.orderNumber}`);
 
                 await sendPaymentConfirmation({
                     email: order.shippingAddress.email,
@@ -1585,7 +1582,7 @@ const refreshPaymentStatus = async (req, res) => {
                     trackingNumber: trackingNumber
                 });
 
-                // Send SMS payment confirmation
+
                 if (order.shippingAddress.phone) {
                     let phoneNumber = order.shippingAddress.phone;
                     if (phoneNumber.startsWith('0')) {
@@ -1602,13 +1599,13 @@ const refreshPaymentStatus = async (req, res) => {
                     });
                 }
 
-                console.log(`💳 Payment confirmation notifications with tracking code sent for order ${order.orderNumber}`);
+                console.log(` Payment confirmation notifications with tracking code sent for order ${order.orderNumber}`);
             } catch (notificationError) {
                 console.warn('Payment confirmation notification failed:', notificationError);
             }
         }
 
-        // Create admin notification for payment status changes from refresh
+
         if (newPaymentStatus !== originalPaymentStatus) {
             try {
                 const paymentMessages = {
@@ -1662,7 +1659,7 @@ const refreshPaymentStatus = async (req, res) => {
     }
 };
 
-// Bulk refresh payment status for multiple orders
+
 const bulkRefreshPaymentStatus = async (req, res) => {
     try {
         const { orderIds } = req.body;
@@ -1684,20 +1681,20 @@ const bulkRefreshPaymentStatus = async (req, res) => {
 
         for (const order of orders) {
             try {
-                console.log(`🔄 Bulk refreshing payment status for order ${order.orderNumber} with tracking ID: ${order.transactionTrackingId}`);
+                console.log(` Bulk refreshing payment status for order ${order.orderNumber} with tracking ID: ${order.transactionTrackingId}`);
 
                 const transactionData = await getTransactionStatus(order.transactionTrackingId);
                 const transactionStatus = transactionData.status || 'unknown';
                 const statusLower = transactionStatus.toLowerCase();
 
-                console.log(`📊 PesaPal response for order ${order.orderNumber}:`, {
+                console.log(` PesaPal response for order ${order.orderNumber}:`, {
                     transactionStatus,
                     paymentMethod: transactionData.paymentMethod,
                     amount: transactionData.amount
                 });
 
-                // Update order status based on transaction status with enhanced mapping
-                let paymentStatus = order.paymentStatus; // Keep current if unknown
+
+                let paymentStatus = order.paymentStatus;
                 let updateFields = {
                     transactionStatus: transactionStatus,
                     lastPaymentCheck: new Date()
@@ -1719,10 +1716,10 @@ const bulkRefreshPaymentStatus = async (req, res) => {
                     updateFields.paymentStatus = paymentStatus;
                 }
 
-                // Update order
+
                 await orderModel.findByIdAndUpdate(order._id, updateFields);
 
-                console.log(`✅ Bulk payment status refreshed for order ${order.orderNumber}: ${order.paymentStatus} → ${paymentStatus} (${transactionStatus})`);
+                console.log(` Bulk payment status refreshed for order ${order.orderNumber}: ${order.paymentStatus} → ${paymentStatus} (${transactionStatus})`);
 
                 results.push({
                     orderId: order._id,
@@ -1768,43 +1765,43 @@ const bulkRefreshPaymentStatus = async (req, res) => {
     }
 };
 
-// Analytics endpoint for admin dashboard - Optimized for performance
+
 const getOrderAnalytics = async (req, res) => {
     try {
-        // Check if MongoDB is connected
+
         if (mongoose.connection.readyState !== 1) {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
-        console.log('📊 Starting analytics calculation...');
+        console.log(' Starting analytics calculation...');
 
-        // Initialize product variables early to avoid initialization errors
+
         let totalProducts = 0;
         let lowStockProducts = 0;
 
-        // Use Promise.all for parallel execution of independent queries
+
         const [
             totalOrdersResult,
             pendingOrdersResult,
             revenueResult,
             userResult
         ] = await Promise.all([
-            // Get total orders count (only paid orders for dashboard display)
+
             orderModel.countDocuments({ paymentStatus: 'paid' }),
 
-            // Get pending orders count (orders that are pending but payment is completed)
+
             orderModel.countDocuments({
                 orderStatus: 'pending',
                 paymentStatus: 'paid'
             }),
 
-            // Get total revenue (paid orders only)
+
             orderModel.aggregate([
                 { $match: { paymentStatus: 'paid' } },
                 { $group: { _id: null, total: { $sum: '$totalAmount' } } }
             ]),
 
-            // Get user count with error handling
+
             User.countDocuments().catch(error => {
                 console.log('User model query failed:', error.message);
                 return 0;
@@ -1816,26 +1813,26 @@ const getOrderAnalytics = async (req, res) => {
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
         const totalUsers = userResult;
 
-        // Get product count and low stock products - Optimized with parallel queries
+
         const productQueries = Promise.all([
             Product.countDocuments({}).catch(() => 0),
             Product.countDocuments({ countInStock: { $lt: 10 } }).catch(() => 0),
             Category.countDocuments({ isActive: true }).catch(() => 0)
         ]);
 
-        // Get new users this month - Optimized
+
         const newUsersQuery = User.countDocuments({
             createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
         }).catch(() => 0);
 
-        // Execute all product and category queries in parallel
+
         const [totalProductsResult, lowStockProductsResult, totalCategoriesResult] = await productQueries;
         totalProducts = totalProductsResult;
         lowStockProducts = lowStockProductsResult;
         const totalCategories = totalCategoriesResult;
         const newUsersLast30Days = await newUsersQuery;
 
-        // Get new users this month
+
         let newUsers = 0;
         try {
             const startOfMonth = new Date();
@@ -1847,7 +1844,7 @@ const getOrderAnalytics = async (req, res) => {
             throw new Error('Failed to fetch user growth data');
         }
 
-        // Get real monthly revenue data (last 6 months) - Optimized with parallel queries
+
         const monthlyRevenuePromises = [];
         for (let i = 5; i >= 0; i--) {
             const date = new Date();
@@ -1892,7 +1889,7 @@ const getOrderAnalytics = async (req, res) => {
             avgOrderValue: Math.round(item.result.avgOrderValue * 100) / 100
         }));
 
-        // Get top products by revenue - Optimized with parallel processing
+
         const topProductsResult = await orderModel.aggregate([
             { $match: { paymentStatus: 'paid' } },
             { $unwind: '$items' },
@@ -1917,7 +1914,7 @@ const getOrderAnalytics = async (req, res) => {
             revenue: Math.round((product.revenue || 0) * 100) / 100
         }));
 
-        // Get real order status breakdown
+
         const orderStatuses = await orderModel.aggregate([
             {
                 $group: {
@@ -1953,13 +1950,13 @@ const getOrderAnalytics = async (req, res) => {
             }
         });
 
-        // Calculate percentages based on total orders
+
         const totalOrderCount = orderStatusBreakdown.reduce((sum, status) => sum + status.count, 0);
         orderStatusBreakdown.forEach(status => {
             status.percentage = totalOrderCount > 0 ? Math.round((status.count / totalOrderCount) * 100 * 100) / 100 : 0;
         });
 
-        // Get real user growth data (last 6 months) - Optimized with parallel queries
+
         const userGrowthPromises = [];
         for (let i = 5; i >= 0; i--) {
             const date = new Date();
@@ -1985,7 +1982,7 @@ const getOrderAnalytics = async (req, res) => {
 
         const userGrowth = await Promise.all(userGrowthPromises);
 
-        // Get real category performance data
+
         const categoryPerformanceResult = await orderModel.aggregate([
             { $match: { paymentStatus: 'paid' } },
             { $unwind: '$items' },
@@ -2034,18 +2031,18 @@ const getOrderAnalytics = async (req, res) => {
             orders: cat.orderCount || 0
         }));
 
-        // If no real data, provide fallback
+
         if (categoryPerformance.length === 0) {
             categoryPerformance.push(
                 { category: 'No sales data available', sales: 0, revenue: 0, orders: 0 }
             );
         }
 
-        // Get payment methods breakdown - include ALL Pesapal transactions
+
         const paymentMethodsResult = await orderModel.aggregate([
             {
                 $match: {
-                    transactionTrackingId: { $exists: true, $ne: null } // Only orders with Pesapal transactions
+                    transactionTrackingId: { $exists: true, $ne: null }
                 }
             },
             {
@@ -2129,7 +2126,7 @@ const getOrderAnalytics = async (req, res) => {
             failureRate: Math.round(method.failureRate * 100) / 100
         }));
 
-        // Get geographic sales data (based on shipping addresses)
+
         const geographicResult = await orderModel.aggregate([
             { $match: { paymentStatus: 'paid' } },
             {
@@ -2164,18 +2161,32 @@ const getOrderAnalytics = async (req, res) => {
             customers: geo.customers || 0
         }));
 
-        // Get traffic and conversion data (enhanced with real patterns)
+
+        const recentOrders = await orderModel.find({ paymentStatus: 'paid' })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .select('orderNumber orderStatus paymentStatus totalAmount createdAt shippingAddress.fullName')
+            .lean();
+
+        const recentActivity = recentOrders.map(order => ({
+            id: order._id.toString(),
+            type: 'order',
+            message: `Order #${order.orderNumber} placed by ${order.shippingAddress?.fullName || 'Customer'} for KES ${order.totalAmount.toLocaleString()}`,
+            timestamp: new Date(order.createdAt).toLocaleString()
+        }));
+
+
         const paidOrdersCount = await orderModel.countDocuments({ paymentStatus: 'paid' });
         const totalOrdersCount = await orderModel.countDocuments();
 
-        // Calculate real traffic metrics based on order patterns
-        const totalVisitors = Math.round(paidOrdersCount * 4.2); // More realistic conversion estimate
-        const conversionRate = totalVisitors > 0 ? Math.round((paidOrdersCount / totalVisitors) * 100 * 100) / 100 : 0;
-        const bounceRate = Math.max(0, Math.min(100, 100 - conversionRate - 20)); // More realistic bounce rate
-        const avgSessionDuration = Math.round(240 + (conversionRate * 2)); // Higher duration for converting sessions
 
-        // Get page views estimate based on orders and typical funnel
-        const pageViews = Math.round(totalVisitors * 3.8); // Average 3.8 pages per visitor
+        const totalVisitors = Math.round(paidOrdersCount * 4.2);
+        const conversionRate = totalVisitors > 0 ? Math.round((paidOrdersCount / totalVisitors) * 100 * 100) / 100 : 0;
+        const bounceRate = Math.max(0, Math.min(100, 100 - conversionRate - 20));
+        const avgSessionDuration = Math.round(240 + (conversionRate * 2));
+
+
+        const pageViews = Math.round(totalVisitors * 3.8);
 
         const trafficData = {
             visitors: totalVisitors,
@@ -2183,10 +2194,10 @@ const getOrderAnalytics = async (req, res) => {
             conversionRate: conversionRate,
             bounceRate: bounceRate,
             avgSessionDuration: avgSessionDuration,
-            sessions: Math.round(totalVisitors * 0.85) // 85% of visitors start sessions
+            sessions: Math.round(totalVisitors * 0.85)
         };
 
-        // Get refund and return rates (simulated based on order data)
+
         const refundedOrders = await orderModel.countDocuments({ paymentStatus: 'refunded' });
         const refundRate = paidOrdersCount > 0 ? Math.round((refundedOrders / paidOrdersCount) * 100 * 100) / 100 : 0;
         const refundAmount = await orderModel.aggregate([
@@ -2195,7 +2206,7 @@ const getOrderAnalytics = async (req, res) => {
         ]);
         const refundAmountTotal = refundAmount.length > 0 ? refundAmount[0].total : 0;
 
-        // Get refund trends (last 6 months)
+
         const refundTrends = [];
         for (let i = 5; i >= 0; i--) {
             const date = new Date();
@@ -2229,23 +2240,23 @@ const getOrderAnalytics = async (req, res) => {
 
         const refundReturnRates = {
             refundRate: refundRate,
-            returnRate: Math.round(refundRate * 0.7 * 100) / 100, // Estimate return rate as 70% of refund rate
+            returnRate: Math.round(refundRate * 0.7 * 100) / 100,
             refundAmount: refundAmountTotal,
             returnAmount: Math.round(refundAmountTotal * 0.7 * 100) / 100,
             refundTrends: refundTrends
         };
 
-        // Get notification metrics (simulated)
+
         const notificationMetrics = {
-            emailSent: totalOrders * 3, // Estimate 3 emails per order (confirmation, status updates, etc.)
-            emailOpened: Math.round(totalOrders * 3 * 0.6), // 60% open rate
-            emailClicked: Math.round(totalOrders * 3 * 0.6 * 0.15), // 15% click rate
-            smsSent: totalOrders * 2, // Estimate 2 SMS per order
-            smsDelivered: Math.round(totalOrders * 2 * 0.95), // 95% delivery rate
-            engagementRate: 45.5 // Overall engagement rate
+            emailSent: totalOrders * 3,
+            emailOpened: Math.round(totalOrders * 3 * 0.6),
+            emailClicked: Math.round(totalOrders * 3 * 0.6 * 0.15),
+            smsSent: totalOrders * 2,
+            smsDelivered: Math.round(totalOrders * 2 * 0.95),
+            engagementRate: 45.5
         };
 
-        // Get operational metrics (enhanced with real order processing data)
+
         const deliveredOrders = await orderModel.countDocuments({
             orderStatus: 'delivered',
             paymentStatus: 'paid'
@@ -2261,15 +2272,15 @@ const getOrderAnalytics = async (req, res) => {
             paymentStatus: 'paid'
         });
 
-        // Calculate real operational metrics
-        const avgProcessingTime = processingOrders > 0 ? Math.round((processingOrders / paidOrdersCount) * 48) + 1 : 2.5; // hours
-        const avgShippingTime = shippedOrders > 0 ? Math.round((shippedOrders / paidOrdersCount) * 72) + 12 : 24; // hours
+
+        const avgProcessingTime = processingOrders > 0 ? Math.round((processingOrders / paidOrdersCount) * 48) + 1 : 2.5;
+        const avgShippingTime = shippedOrders > 0 ? Math.round((shippedOrders / paidOrdersCount) * 72) + 12 : 24;
         const fulfillmentEfficiency = paidOrdersCount > 0 ? Math.round((deliveredOrders / paidOrdersCount) * 100 * 100) / 100 : 87.5;
         const onTimeDeliveryRate = deliveredOrders > 0 ? Math.round((deliveredOrders / (deliveredOrders + shippedOrders)) * 100 * 100) / 100 : 92.3;
 
-        // Additional operational KPIs
+
         const orderFulfillmentRate = paidOrdersCount > 0 ? Math.round((deliveredOrders / paidOrdersCount) * 100 * 100) / 100 : 0;
-        const avgOrderProcessingTime = Math.round(avgProcessingTime * 60); // in minutes
+        const avgOrderProcessingTime = Math.round(avgProcessingTime * 60);
         const shippingEfficiency = shippedOrders > 0 ? Math.round((deliveredOrders / shippedOrders) * 100 * 100) / 100 : 0;
 
         const operationalMetrics = {
@@ -2285,11 +2296,11 @@ const getOrderAnalytics = async (req, res) => {
             totalProcessingOrders: processingOrders
         };
 
-        // Get customer demographics (enhanced with real order patterns)
+
         const uniqueCustomers = await orderModel.distinct('user', { paymentStatus: 'paid' });
         const uniqueCustomerCount = uniqueCustomers.length;
 
-        // Calculate real customer segments based on order history
+
         const oneTimeBuyers = await orderModel.aggregate([
             { $match: { paymentStatus: 'paid' } },
             { $group: { _id: '$user', orderCount: { $sum: 1 } } },
@@ -2315,10 +2326,10 @@ const getOrderAnalytics = async (req, res) => {
         const multipleCount = multipleBuyers.length > 0 ? multipleBuyers[0].multipleBuyers : 0;
         const frequentCount = frequentBuyers.length > 0 ? frequentBuyers[0].frequentBuyers : 0;
 
-        // Calculate new vs returning based on registration date vs first order
+
         const newCustomers = await orderModel.countDocuments({
             paymentStatus: 'paid',
-            createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } // Last 90 days
+            createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }
         });
 
         const returningCustomers = uniqueCustomerCount - newCustomers;
@@ -2339,7 +2350,7 @@ const getOrderAnalytics = async (req, res) => {
         };
 
         const stats = {
-            // Core metrics
+
             totalProducts,
             totalOrders,
             totalUsers,
@@ -2348,48 +2359,48 @@ const getOrderAnalytics = async (req, res) => {
             newUsers,
             lowStockProducts,
 
-            // Revenue analytics
+
             monthlyRevenue,
             averageOrderValue: totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0,
 
-            // Product performance
+
             topProducts,
             totalTopProductsRevenue: topProducts.reduce((sum, product) => sum + product.revenue, 0),
 
-            // Order analytics
+
             orderStatusBreakdown,
             orderConversionRate: totalOrders > 0 ? Math.round(((totalOrders - pendingOrders) / totalOrders) * 100 * 100) / 100 : 0,
 
-            // User analytics
+
             userGrowth,
             userRetentionRate: totalUsers > 0 ? Math.round((newUsers / totalUsers) * 100 * 100) / 100 : 0,
 
-            // Category analytics
+
             categoryPerformance,
             totalCategoryRevenue: categoryPerformance.reduce((sum, cat) => sum + cat.revenue, 0),
 
-            // Payment methods analysis
+
             paymentMethodsBreakdown,
 
-            // Geographic sales data
+
             geographicData,
 
-            // Traffic and conversion
+
             trafficData,
 
-            // Refund and return rates
+
             refundReturnRates,
 
-            // Notification engagement
+
             notificationMetrics,
 
-            // Operational metrics
+
             operationalMetrics,
 
-            // Customer demographics
+
             customerDemographics,
 
-            // System health
+
             dataFreshness: new Date().toISOString(),
             analyticsSource: 'real-time'
         };
@@ -2414,11 +2425,11 @@ const initiatePayment = async (req, res) => {
         console.log('Request body:', JSON.stringify(req.body, null, 2));
 
         const { items, shippingAddress, totalAmount, paymentMethod } = req.body;
-        const userId = req.user?.id || null; // Allow null for guest users - authentication is now optional
+        const userId = req.user?.id || null;
 
         console.log('User ID:', userId);
 
-        // Validate required fields
+
         if (!items || !shippingAddress || !totalAmount) {
             console.error('Missing required fields:', { items: !!items, shippingAddress: !!shippingAddress, totalAmount: !!totalAmount });
             return res.status(400).json({
@@ -2427,7 +2438,7 @@ const initiatePayment = async (req, res) => {
             });
         }
 
-        // Validate items array
+
         if (!Array.isArray(items) || items.length === 0) {
             console.error('Invalid items array:', items);
             return res.status(400).json({
@@ -2436,7 +2447,7 @@ const initiatePayment = async (req, res) => {
             });
         }
 
-        // Validate shipping address
+
         const requiredAddressFields = ['fullName', 'email', 'phone', 'address', 'city', 'county', 'deliveryLocation'];
         for (const field of requiredAddressFields) {
             if (!shippingAddress[field]) {
@@ -2448,19 +2459,19 @@ const initiatePayment = async (req, res) => {
             }
         }
 
-        // No transaction limits - proceed with PesaPal payment for any amount
-        // Generate unique order ID
+
+
         const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         console.log('Generated order ID:', orderId);
 
-        // Check MongoDB connection
+
         if (mongoose.connection.readyState !== 1) {
             console.log('MongoDB not connected, using test database for payment initiation');
-            // For test mode, return a mock payment URL
+
             return res.json({
                 success: true,
                 message: 'Payment initiated successfully (test mode)',
-                paymentUrl: 'https://sandbox.pesapal.com/test-payment',
+                paymentUrl: 'https://test-payment-url.com/pay',
                 orderId: orderId
             });
         }
@@ -2675,7 +2686,7 @@ const updateOrder = async (req, res) => {
 
         await order.save();
 
-        console.log(`✅ Order ${id} comprehensively updated:`, {
+        console.log(` Order ${id} comprehensively updated:`, {
             orderNumber: order.orderNumber,
             changes: changes.length,
             hasNote: !!note,
@@ -2871,7 +2882,7 @@ const bulkDeleteOrders = async (req, res) => {
         // Delete orders from MongoDB
         const result = await orderModel.deleteMany({ _id: { $in: orderIds } });
 
-        console.log(`✅ Bulk deleted ${result.deletedCount} orders`);
+        console.log(` Bulk deleted ${result.deletedCount} orders`);
 
         res.json({
             success: true,
@@ -2983,7 +2994,7 @@ const bulkUpdateOrders = async (req, res) => {
             }
         }
 
-        console.log(`✅ Bulk updated ${result.modifiedCount} orders`);
+        console.log(` Bulk updated ${result.modifiedCount} orders`);
 
         res.json({
             success: true,
@@ -3027,12 +3038,12 @@ const deleteOrder = async (req, res) => {
         }
 
         // Log the deletion
-        console.log(`🗑️ Admin deleting order ${order.orderNumber} (ID: ${id})`);
+        console.log(`️ Admin deleting order ${order.orderNumber} (ID: ${id})`);
 
         // Delete the order
         await orderModel.findByIdAndDelete(id);
 
-        console.log(`✅ Order ${order.orderNumber} successfully deleted`);
+        console.log(` Order ${order.orderNumber} successfully deleted`);
 
         res.json({
             success: true,
@@ -3103,7 +3114,7 @@ const addOrderNote = async (req, res) => {
         order.timeline.push(noteEntry);
         await order.save();
 
-        console.log(`✅ Note added to order ${id}:`, {
+        console.log(` Note added to order ${id}:`, {
             orderNumber: order.orderNumber,
             noteType,
             priority,
@@ -3116,7 +3127,7 @@ const addOrderNote = async (req, res) => {
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
-                timeline: order.timeline.slice(-1)[0] // Return just the new note
+                timeline: order.timeline.slice(-1)[0]
             },
             noteDetails: {
                 type: noteType,
@@ -3135,7 +3146,7 @@ const addOrderNote = async (req, res) => {
     }
 };
 
-// Order processing workflow functions
+
 const processOrder = async (req, res) => {
     try {
         const { id } = req.params;
@@ -3146,7 +3157,7 @@ const processOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Check if order is paid before allowing processing
+
         if (order.paymentStatus !== 'paid') {
             return res.status(400).json({
                 success: false,
@@ -3172,7 +3183,7 @@ const processOrder = async (req, res) => {
 
         await order.save();
 
-        // Send notifications
+
         if (order.shippingAddress?.email) {
             await sendOrderStatusNotifications(order, 'processing', note);
         }
@@ -3197,7 +3208,7 @@ const fulfillOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Check if order is paid before allowing fulfillment
+
         if (order.paymentStatus !== 'paid') {
             return res.status(400).json({
                 success: false,
@@ -3243,7 +3254,7 @@ const shipOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Check if order is paid before allowing shipping
+
         if (order.paymentStatus !== 'paid') {
             return res.status(400).json({
                 success: false,
@@ -3260,7 +3271,7 @@ const shipOrder = async (req, res) => {
             });
         }
 
-        // Generate tracking number if not provided
+
         const finalTrackingNumber = trackingNumber || `TRK-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
         order.orderStatus = 'shipped';
@@ -3273,7 +3284,7 @@ const shipOrder = async (req, res) => {
 
         await order.save();
 
-        // Send shipping notification
+
         if (order.shippingAddress?.email) {
             await sendOrderStatusNotifications(order, 'shipped', note);
         }
@@ -3303,7 +3314,7 @@ const deliverOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Check if order is paid before allowing delivery
+
         if (order.paymentStatus !== 'paid') {
             return res.status(400).json({
                 success: false,
@@ -3329,7 +3340,7 @@ const deliverOrder = async (req, res) => {
 
         await order.save();
 
-        // Send delivery notification
+
         if (order.shippingAddress?.email) {
             await sendOrderStatusNotifications(order, 'delivered', note);
         }
@@ -3370,7 +3381,7 @@ const cancelOrder = async (req, res) => {
 
         await order.save();
 
-        // Send cancellation notification
+
         if (order.shippingAddress?.email) {
             await sendOrderStatusNotifications(order, 'cancelled', note);
         }
@@ -3395,7 +3406,7 @@ const markReady = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Check if order is paid before allowing ready status
+
         if (order.paymentStatus !== 'paid') {
             return res.status(400).json({
                 success: false,
@@ -3441,7 +3452,7 @@ const pickupOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Check if order is paid before allowing pickup
+
         if (order.paymentStatus !== 'paid') {
             return res.status(400).json({
                 success: false,
@@ -3477,7 +3488,7 @@ const pickupOrder = async (req, res) => {
     }
 };
 
-// Refresh payment status for a specific order
+
 const refreshOrderPaymentStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -3487,7 +3498,7 @@ const refreshOrderPaymentStatus = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Check if order has a transaction tracking ID
+
         if (!order.transactionTrackingId) {
             return res.status(400).json({
                 success: false,
@@ -3495,25 +3506,25 @@ const refreshOrderPaymentStatus = async (req, res) => {
             });
         }
 
-        // Call Pesapal to get updated transaction status
+
         try {
             const transactionStatus = await getTransactionStatus(order.transactionTrackingId);
 
-            // Update order payment status based on response
+
             let newPaymentStatus = order.paymentStatus;
             let newTransactionStatus = order.transactionStatus;
 
             if (transactionStatus && transactionStatus.status_code) {
                 switch (transactionStatus.status_code) {
-                    case 1: // Completed
+                    case 1:
                         newPaymentStatus = 'paid';
                         newTransactionStatus = 'completed';
                         break;
-                    case 0: // Pending
+                    case 0:
                         newPaymentStatus = 'pending';
                         newTransactionStatus = 'pending';
                         break;
-                    case 2: // Failed
+                    case 2:
                         newPaymentStatus = 'failed';
                         newTransactionStatus = 'failed';
                         break;
@@ -3522,7 +3533,7 @@ const refreshOrderPaymentStatus = async (req, res) => {
                 }
             }
 
-            // Only update if status changed
+
             if (newPaymentStatus !== order.paymentStatus || newTransactionStatus !== order.transactionStatus) {
                 order.paymentStatus = newPaymentStatus;
                 order.transactionStatus = newTransactionStatus;
@@ -3539,7 +3550,7 @@ const refreshOrderPaymentStatus = async (req, res) => {
 
                 await order.save();
 
-                console.log(`✅ Order ${order.orderNumber} payment status refreshed: ${newPaymentStatus}`);
+                console.log(` Order ${order.orderNumber} payment status refreshed: ${newPaymentStatus}`);
 
                 res.json({
                     success: true,

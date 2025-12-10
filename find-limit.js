@@ -5,7 +5,7 @@ async function findLimit() {
 
     for (const amount of testAmounts) {
         try {
-            console.log(`🧪 Testing ${amount} KES...`);
+            console.log(` Testing ${amount} KES...`);
 
             const result = await initiatePesapalPayment(
                 `limit_test_${amount}_${Date.now()}`,
@@ -15,14 +15,14 @@ async function findLimit() {
                 `Test payment - ${amount} KES`
             );
 
-            console.log(`✅ ${amount} KES: SUCCESS`);
+            console.log(` ${amount} KES: SUCCESS`);
 
         } catch (error) {
-            console.log(`❌ ${amount} KES: FAILED - ${error.message}`);
-            break; // Stop at first failure
+            console.log(` ${amount} KES: FAILED - ${error.message}`);
+            break;
         }
 
-        // Small delay between tests
+
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
 }

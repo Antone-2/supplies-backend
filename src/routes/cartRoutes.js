@@ -1,4 +1,3 @@
-// cartRoutes.js
 import express from 'express';
 const router = express.Router();
 import cartController from '../modules/cart/cart.controller.js';

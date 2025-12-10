@@ -10,7 +10,7 @@ import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
 
 const router = express.Router();
 
-// Admin login - uses same login logic but validates admin role
+
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -26,7 +26,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        // Check if user has admin role
+
         if (user.role !== 'admin' && user.role !== 'super_admin') {
             return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
         }
@@ -34,26 +34,26 @@ router.post('/login', async (req, res) => {
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
         const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        // Set HTTP-only cookies
+
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 6 * 60 * 60 * 1000, // 6 hours
+            maxAge: 6 * 60 * 60 * 1000,
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            maxAge: 7 * 24 * 60 * 60 * 1000,
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
 
         res.json({
-            token: token, // Include token in response for localStorage backup
-            refreshToken: refreshToken, // Include refresh token for localStorage backup
+            token: token,
+            refreshToken: refreshToken,
             user: {
                 id: user._id,
                 email: user.email,
@@ -70,17 +70,17 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Admin me - requires JWT auth but not admin middleware (for compatibility)
+
 router.get('/me', jwtAuthMiddleware, async (req, res) => {
     try {
-        // Check for token in multiple places for cross-domain compatibility
+
         let token = req.cookies.token;
 
-        // If no cookie token, check Authorization header
+
         if (!token && req.headers.authorization) {
             const authHeader = req.headers.authorization;
             if (authHeader.startsWith('Bearer ')) {
-                token = authHeader.substring(7); // Remove 'Bearer ' prefix
+                token = authHeader.substring(7);
             }
         }
 
@@ -94,10 +94,10 @@ router.get('/me', jwtAuthMiddleware, async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Ensure user has admin role - but don't block if role check fails for compatibility
+
         if (user.role !== 'admin' && user.role !== 'super_admin') {
             console.warn(`User ${user.email} attempted admin access but has role: ${user.role}`);
-            // Return user data anyway for frontend compatibility
+
         }
 
         res.json({
@@ -119,10 +119,10 @@ router.get('/me', jwtAuthMiddleware, async (req, res) => {
     }
 });
 
-// Admin refresh token - does not require access token, only refresh token
+
 router.post('/refresh', refreshToken);
 
-// Admin password reset routes
+
 router.post('/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
@@ -131,18 +131,18 @@ router.post('/forgot-password', async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Check if user has admin role
+
         if (user.role !== 'admin' && user.role !== 'super_admin') {
             return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
         }
 
-        // Generate reset token
+
         const resetToken = crypto.randomBytes(32).toString('hex');
         user.resetPasswordToken = resetToken;
-        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+        user.resetPasswordExpires = Date.now() + 3600000;
         await user.save();
 
-        // Send reset email with admin-specific URL
+
         const resetUrl = `${process.env.FRONTEND_URL}/admin/reset-password?token=${resetToken}`;
         const logoUrl = process.env.LOGO_URL;
         const html = `
@@ -184,12 +184,12 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ message: 'Invalid or expired token' });
         }
 
-        // Check if user has admin role
+
         if (user.role !== 'admin' && user.role !== 'super_admin') {
             return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
         }
 
-        // Hash new password
+
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         user.password = hashedPassword;
         user.resetPasswordToken = undefined;

@@ -1,12 +1,12 @@
 import passport from 'passport';
 import jwt from 'jsonwebtoken';
 
-// Google OAuth authentication
+
 const googleAuth = passport.authenticate('google', {
     scope: ['profile', 'email']
 });
 
-// Google OAuth callback
+
 const googleCallback = [
     passport.authenticate('google', {
         failureRedirect: process.env.FRONTEND_URL ? process.env.FRONTEND_URL + '/auth' : '/auth',
@@ -22,17 +22,17 @@ const googleCallback = [
                 { expiresIn: '6h' }
             );
 
-            // Set HTTP-only cookie
+
             res.cookie('token', token, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
-                maxAge: 6 * 60 * 60 * 1000, // 6 hours
+                maxAge: 6 * 60 * 60 * 1000,
                 sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
                 domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
             });
 
             const frontendUrl = process.env.FRONTEND_URL;
-            // Redirect to Google callback page which will handle localStorage storage
+
             res.redirect(`${frontendUrl}/auth/google/callback?token=${token}`);
         } catch (error) {
             console.error('Google OAuth callback error:', error);
@@ -41,7 +41,7 @@ const googleCallback = [
     }
 ];
 
-// Get current user
+
 const getCurrentUser = (req, res) => {
     if (req.user) {
         res.json({
@@ -58,7 +58,7 @@ const getCurrentUser = (req, res) => {
     }
 };
 
-// Logout
+
 const logout = (req, res) => {
     req.logout((err) => {
         if (err) {

@@ -2,10 +2,10 @@ import Newsletter from '../../Database/models/newsletter.model.js';
 import { body, validationResult } from 'express-validator';
 import { sendEmail, getEmailTemplate } from '../services/emailService.js';
 
-// Subscribe to newsletter
+
 exports.subscribe = async (req, res) => {
     try {
-        console.log('📧 Newsletter subscription request:', {
+        console.log(' Newsletter subscription request:', {
             email: req.body.email,
             firstName: req.body.firstName || 'N/A',
             source: req.body.source || 'unknown',
@@ -13,10 +13,10 @@ exports.subscribe = async (req, res) => {
             timestamp: new Date().toISOString()
         });
 
-        // Validate request
+
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            console.log('❌ Validation errors:', errors.array());
+            console.log(' Validation errors:', errors.array());
             return res.status(400).json({
                 success: false,
                 message: 'Validation failed',
@@ -26,7 +26,7 @@ exports.subscribe = async (req, res) => {
 
         const { email, firstName, lastName, source = 'website' } = req.body;
 
-        // Additional email validation
+
         if (!email || typeof email !== 'string') {
             return res.status(400).json({
                 success: false,
@@ -42,7 +42,7 @@ exports.subscribe = async (req, res) => {
             });
         }
 
-        // Check if already subscribed
+
         const existingSubscription = await Newsletter.findOne({ email: email.toLowerCase() });
 
         if (existingSubscription) {
@@ -52,7 +52,7 @@ exports.subscribe = async (req, res) => {
                     message: 'Email is already subscribed to our newsletter'
                 });
             } else {
-                // Reactivate subscription
+
                 existingSubscription.subscribed = true;
                 existingSubscription.subscribedAt = new Date();
                 existingSubscription.unsubscribedAt = null;
@@ -65,7 +65,7 @@ exports.subscribe = async (req, res) => {
             }
         }
 
-        // Create new subscription
+
         const subscription = new Newsletter({
             email: email.toLowerCase(),
             firstName: firstName || '',
@@ -77,20 +77,20 @@ exports.subscribe = async (req, res) => {
 
         await subscription.save();
 
-        console.log('✅ Newsletter subscription successful:', {
+        console.log(' Newsletter subscription successful:', {
             email: subscription.email,
             firstName: subscription.firstName,
             source: subscription.source,
             timestamp: new Date().toISOString()
         });
 
-        // Send welcome email
+
         try {
             await sendWelcomeEmail(subscription.email, subscription.firstName || 'Valued Customer');
-            console.log('📧 Welcome email sent to:', subscription.email);
+            console.log(' Welcome email sent to:', subscription.email);
         } catch (emailError) {
-            console.error('📧❌ Failed to send welcome email:', emailError.message);
-            // Don't fail the subscription if email fails
+            console.error(' Failed to send welcome email:', emailError.message);
+
         }
 
         res.status(201).json({
@@ -103,7 +103,7 @@ exports.subscribe = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('📧❌ Newsletter subscription error:', error);
+        console.error(' Newsletter subscription error:', error);
         console.error('Error details:', {
             message: error.message,
             stack: error.stack,
@@ -126,28 +126,28 @@ exports.subscribe = async (req, res) => {
     }
 };
 
-// Get newsletter analytics (admin only)
+
 exports.getAnalytics = async (req, res) => {
     try {
-        // Get total subscriptions
+
         const totalSubscriptions = await Newsletter.countDocuments({ subscribed: true });
         const totalUnsubscribed = await Newsletter.countDocuments({ subscribed: false });
 
-        // Get subscriptions by source
+
         const subscriptionsBySource = await Newsletter.aggregate([
             { $match: { subscribed: true } },
             { $group: { _id: '$source', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
         ]);
 
-        // Get recent subscriptions (last 30 days)
+
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const recentSubscriptions = await Newsletter.countDocuments({
             subscribed: true,
             subscribedAt: { $gte: thirtyDaysAgo }
         });
 
-        // Get monthly growth
+
         const monthlyStats = await Newsletter.aggregate([
             { $match: { subscribed: true } },
             {
@@ -183,7 +183,7 @@ exports.getAnalytics = async (req, res) => {
     }
 };
 
-// Unsubscribe from newsletter
+
 exports.unsubscribe = async (req, res) => {
     try {
         const { email } = req.params;
@@ -222,7 +222,7 @@ exports.unsubscribe = async (req, res) => {
     }
 };
 
-// Get newsletter statistics (admin only)
+
 exports.getStats = async (req, res) => {
     try {
         const [totalSubscribers, activeSubscribers, recentSubscribers] = await Promise.all([
@@ -230,7 +230,7 @@ exports.getStats = async (req, res) => {
             Newsletter.countDocuments({ subscribed: true }),
             Newsletter.countDocuments({
                 subscribed: true,
-                subscribedAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // Last 30 days
+                subscribedAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
             })
         ]);
 
@@ -259,7 +259,7 @@ exports.getStats = async (req, res) => {
     }
 };
 
-// Get all subscribers (admin only)
+
 exports.getAllSubscribers = async (req, res) => {
     try {
         const { page = 1, limit = 50, status = 'active' } = req.query;
@@ -297,12 +297,12 @@ exports.getAllSubscribers = async (req, res) => {
     }
 };
 
-// Send newsletter campaign (admin only)
+
 exports.sendCampaign = async (req, res) => {
     try {
         const { subject, content, recipientType = 'active' } = req.body;
 
-        // Validate required fields
+
         if (!subject || !content) {
             return res.status(400).json({
                 success: false,
@@ -310,7 +310,7 @@ exports.sendCampaign = async (req, res) => {
             });
         }
 
-        // Get subscribers based on recipient type
+
         const query = recipientType === 'all' ? {} : { subscribed: true };
         const subscribers = await Newsletter.find(query, 'email');
 
@@ -321,34 +321,18 @@ exports.sendCampaign = async (req, res) => {
             });
         }
 
-        // In a real implementation, you would integrate with an email service like SendGrid, Mailgun, etc.
-        // For now, we'll simulate sending emails
+
+
 
         console.log(`Sending campaign "${subject}" to ${subscribers.length} subscribers`);
         console.log('Content preview:', content.substring(0, 100) + '...');
 
-        // Simulate email sending delay
+
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Here you would actually send emails
-        // Example with nodemailer or email service:
-        /*
-        const transporter = nodemailer.createTransporter({
-            // Your email configuration
-        });
 
-        const emailPromises = subscribers.map(subscriber => {
-            return transporter.sendMail({
-                from: process.env.FROM_EMAIL,
-                to: subscriber.email,
-                subject: subject,
-                html: content,
-                text: content.replace(/<[^>]*>/g, '') // Strip HTML for text version
-            });
-        });
 
-        await Promise.all(emailPromises);
-        */
+
 
         res.json({
             success: true,
@@ -366,7 +350,7 @@ exports.sendCampaign = async (req, res) => {
     }
 };
 
-// Welcome email function
+
 const sendWelcomeEmail = async (email, firstName) => {
     const logoUrl = process.env.LOGO_URL;
     const unsubscribeUrl = `${process.env.FRONTEND_URL}/newsletter/unsubscribe?email=${encodeURIComponent(email)}`;
@@ -379,51 +363,51 @@ const sendWelcomeEmail = async (email, firstName) => {
                 <h1 style="margin: 0; font-size: 28px; font-weight: bold;">Welcome to Medhelm Supplies!</h1>
                 <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your trusted healthcare partner</p>
             </div>
-            
+
             <!-- Main Content -->
             <div style="padding: 40px 30px; background: #fff;">
-                <h2 style="color: #2563eb; margin-top: 0;">Hello ${firstName}! 👋</h2>
-                
+                <h2 style="color: #2563eb; margin-top: 0;">Hello ${firstName}! </h2>
+
                 <p style="font-size: 16px; line-height: 1.6; color: #333; margin: 20px 0;">
                     Thank you for subscribing to the Medhelm Supplies newsletter! We're thrilled to have you join our community of healthcare professionals and wellness enthusiasts.
                 </p>
-                
+
                 <div style="background: #f8fafc; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #2563eb;">
                     <h3 style="color: #2563eb; margin-top: 0; font-size: 18px;">What to expect:</h3>
                     <ul style="color: #555; line-height: 1.8; margin: 0; padding-left: 20px;">
-                        <li>🏥 Latest healthcare products and medical supplies</li>
-                        <li>💡 Health tips and wellness advice from experts</li>
-                        <li>🎯 Exclusive promotions and early access to new products</li>
-                        <li>📚 Industry insights and medical equipment guides</li>
+                        <li> Latest healthcare products and medical supplies</li>
+                        <li> Health tips and wellness advice from experts</li>
+                        <li> Exclusive promotions and early access to new products</li>
+                        <li> Industry insights and medical equipment guides</li>
                     </ul>
                 </div>
-                
+
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="${process.env.FRONTEND_URL}/products" 
+                    <a href="${process.env.FRONTEND_URL}/products"
                        style="display: inline-block; background: #2563eb; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
                         Browse Our Products
                     </a>
                 </div>
-                
+
                 <p style="font-size: 14px; color: #666; margin: 25px 0;">
                     We respect your privacy and will never share your information. You can update your preferences or unsubscribe at any time.
                 </p>
             </div>
-            
+
             <!-- Footer -->
             <div style="background: #f1f5f9; padding: 25px; border-radius: 0 0 8px 8px; text-align: center;">
                 <p style="margin: 0; color: #666; font-size: 14px;">
                     <strong>${process.env.COMPANY_NAME || 'Medhelm Supplies'}</strong><br>
                     Your Trusted Healthcare Partner<br>
-                    📧 Email: ${process.env.COMPANY_EMAIL || 'info@medhelmsupplies.co.ke'} | 📱 Phone: ${process.env.COMPANY_PHONE || '+254 XXX XXX XXX'}
+                     Email: ${process.env.COMPANY_EMAIL || 'info@Medhelmsupplies.co.ke'} |  Phone: ${process.env.COMPANY_PHONE || '+254 XXX XXX XXX'}
                 </p>
-                
+
                 <div style="margin: 15px 0;">
                     <a href="${unsubscribeUrl}" style="color: #666; font-size: 12px; text-decoration: underline;">
                         Unsubscribe from newsletter
                     </a>
                 </div>
-                
+
                 <p style="margin: 10px 0 0 0; color: #888; font-size: 12px;">
                     &copy; ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'Medhelm Supplies'}. All rights reserved.
                 </p>
@@ -431,10 +415,10 @@ const sendWelcomeEmail = async (email, firstName) => {
         </div>
     `;
 
-    return await sendEmail(email, '🎉 Welcome to Medhelm Supplies Newsletter!', welcomeContent);
+    return await sendEmail(email, ' Welcome to Medhelm Supplies Newsletter!', welcomeContent);
 };
 
-// Update notification preferences
+
 exports.updatePreferences = async (req, res) => {
     try {
         const { email } = req.params;
@@ -449,14 +433,14 @@ exports.updatePreferences = async (req, res) => {
             });
         }
 
-        // Update preferences
+
         if (typeof productUpdates !== 'undefined') subscription.preferences.productUpdates = productUpdates;
         if (typeof healthTips !== 'undefined') subscription.preferences.healthTips = healthTips;
         if (typeof promotions !== 'undefined') subscription.preferences.promotions = promotions;
 
         await subscription.save();
 
-        console.log('📧 Newsletter preferences updated:', {
+        console.log(' Newsletter preferences updated:', {
             email: subscription.email,
             preferences: subscription.preferences,
             timestamp: new Date().toISOString()
@@ -480,7 +464,7 @@ exports.updatePreferences = async (req, res) => {
     }
 };
 
-// Get user preferences
+
 exports.getPreferences = async (req, res) => {
     try {
         const { email } = req.params;
@@ -513,13 +497,13 @@ exports.getPreferences = async (req, res) => {
     }
 };
 
-// Send targeted newsletter based on preferences
+
 exports.sendTargetedNewsletter = async (req, res) => {
     try {
         const {
             subject,
             content,
-            type = 'general', // 'productUpdates', 'healthTips', 'promotions', or 'general'
+            type = 'general',
             testEmail
         } = req.body;
 
@@ -532,12 +516,12 @@ exports.sendTargetedNewsletter = async (req, res) => {
 
         let query = { subscribed: true };
 
-        // Filter by preference type
+
         if (type !== 'general') {
             query[`preferences.${type}`] = true;
         }
 
-        // Get targeted subscribers
+
         const subscribers = testEmail ?
             [{ email: testEmail }] :
             await Newsletter.find(query, 'email firstName');
@@ -549,9 +533,9 @@ exports.sendTargetedNewsletter = async (req, res) => {
             });
         }
 
-        console.log(`📧 Sending ${type} newsletter to ${subscribers.length} subscribers`);
+        console.log(` Sending ${type} newsletter to ${subscribers.length} subscribers`);
 
-        // Send emails (in production, use a queue system)
+
         const emailPromises = subscribers.map(async subscriber => {
             try {
                 const personalizedContent = content.replace(/\{firstName\}/g, subscriber.firstName || 'Valued Customer');
@@ -602,7 +586,7 @@ exports.sendTargetedNewsletter = async (req, res) => {
     }
 };
 
-// Validation middleware
+
 exports.validateSubscription = [
     body('email')
         .isEmail()

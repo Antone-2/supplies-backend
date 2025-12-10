@@ -1,11 +1,6 @@
-/**
- * Production monitoring and metrics collection
- * Provides comprehensive application monitoring and alerting
- */
-
 const config = require('../../config/environment');
 
-// Metrics storage (in production, use Redis or external metrics store)
+
 const metrics = {
     requests: {
         total: 0,
@@ -39,40 +34,38 @@ const metrics = {
     }
 };
 
-/**
- * Request metrics middleware
- */
+
 const requestMetrics = (req, res, next) => {
     const startTime = Date.now();
 
-    // Track request
+
     metrics.requests.total++;
 
-    // Track by endpoint
+
     const endpoint = req.route?.path || req.path;
     metrics.requests.byEndpoint[endpoint] = (metrics.requests.byEndpoint[endpoint] || 0) + 1;
 
-    // Override res.end to capture response metrics
+
     const originalEnd = res.end;
     res.end = function (...args) {
         const responseTime = Date.now() - startTime;
 
-        // Track response time
+
         metrics.requests.responseTimeSum += responseTime;
         metrics.requests.responseTimeCount++;
 
-        // Track status codes
+
         const statusCode = res.statusCode;
         metrics.requests.byStatusCode[statusCode] = (metrics.requests.byStatusCode[statusCode] || 0) + 1;
 
-        // Track success/error
+
         if (statusCode >= 200 && statusCode < 400) {
             metrics.requests.successful++;
         } else {
             metrics.requests.errors++;
         }
 
-        // Track slow requests
+
         if (responseTime > 5000) {
             recordAlert('slow_request', {
                 endpoint: req.path,
@@ -88,9 +81,7 @@ const requestMetrics = (req, res, next) => {
     next();
 };
 
-/**
- * Authentication metrics tracking
- */
+
 const trackAuthentication = {
     login: (success = false) => {
         if (success) {
@@ -98,7 +89,7 @@ const trackAuthentication = {
         } else {
             metrics.authentication.failures++;
 
-            // Alert on high failure rate
+
             const recentFailures = metrics.authentication.failures;
             const recentLogins = metrics.authentication.logins;
             const failureRate = recentFailures / (recentFailures + recentLogins);
@@ -114,9 +105,7 @@ const trackAuthentication = {
     }
 };
 
-/**
- * Payment metrics tracking
- */
+
 const trackPayment = {
     initiated: (amount) => {
         metrics.payments.initiated++;
@@ -130,7 +119,7 @@ const trackPayment = {
     failed: (amount, reason) => {
         metrics.payments.failed++;
 
-        // Alert on high payment failure rate
+
         const failureRate = metrics.payments.failed / metrics.payments.initiated;
         if (failureRate > 0.3 && metrics.payments.initiated > 5) {
             recordAlert('high_payment_failure_rate', {
@@ -143,16 +132,14 @@ const trackPayment = {
     }
 };
 
-/**
- * Error tracking
- */
+
 const trackError = (error, context = {}) => {
     metrics.errors.total++;
 
     const errorType = error.name || 'Unknown';
     metrics.errors.byType[errorType] = (metrics.errors.byType[errorType] || 0) + 1;
 
-    // Keep recent errors (last 100)
+
     const errorEntry = {
         timestamp: new Date().toISOString(),
         message: error.message,
@@ -166,9 +153,9 @@ const trackError = (error, context = {}) => {
         metrics.errors.recent.pop();
     }
 
-    // Alert on error spikes
+
     const recentErrors = metrics.errors.recent.filter(e =>
-        Date.now() - new Date(e.timestamp).getTime() < 300000 // Last 5 minutes
+        Date.now() - new Date(e.timestamp).getTime() < 300000
     ).length;
 
     if (recentErrors > 10) {
@@ -176,9 +163,7 @@ const trackError = (error, context = {}) => {
     }
 };
 
-/**
- * System alerts
- */
+
 const recordAlert = (type, data) => {
     const alert = {
         type,
@@ -189,31 +174,29 @@ const recordAlert = (type, data) => {
 
     metrics.system.alerts.unshift(alert);
 
-    // Keep only last 50 alerts
+
     if (metrics.system.alerts.length > 50) {
         metrics.system.alerts.pop();
     }
 
-    // Log alert
+
     console.warn(`[ALERT] ${type}:`, data);
 
-    // In production, send to external alerting system
+
     if (config.NODE_ENV === 'production') {
         sendAlert(alert);
     }
 };
 
-/**
- * Send alert to external system (Slack, Email, PagerDuty, etc.)
- */
+
 const sendAlert = async (alert) => {
     try {
-        // Implement your alerting logic here
-        // Examples:
-        // - Send to Slack webhook
-        // - Send email via Brevo
-        // - Send to PagerDuty
-        // - Send to Discord webhook
+
+
+
+
+
+
 
         console.log('Alert would be sent to external system:', alert);
     } catch (error) {
@@ -221,16 +204,14 @@ const sendAlert = async (alert) => {
     }
 };
 
-/**
- * Health monitoring
- */
+
 const monitorHealth = () => {
     setInterval(async () => {
         try {
             const memUsage = process.memoryUsage();
             const memPercentage = (memUsage.heapUsed / memUsage.heapTotal) * 100;
 
-            // Memory usage alert - only in production
+
             if (config.NODE_ENV) {
                 const memoryThreshold = 85;
                 if (memPercentage > memoryThreshold) {
@@ -243,18 +224,16 @@ const monitorHealth = () => {
                 }
             }
 
-            // Update last health check
+
             metrics.system.lastHealthCheck = new Date().toISOString();
 
         } catch (error) {
             console.error('Health monitoring error:', error);
         }
-    }, 60000); // Check every minute
+    }, 60000);
 };
 
-/**
- * Get metrics summary
- */
+
 const getMetrics = () => {
     const uptime = Date.now() - metrics.system.startTime;
     const avgResponseTime = metrics.requests.responseTimeCount > 0
@@ -288,14 +267,12 @@ const getMetrics = () => {
         },
         alerts: {
             total: metrics.system.alerts.length,
-            recent: metrics.system.alerts.slice(0, 5) // Last 5 alerts
+            recent: metrics.system.alerts.slice(0, 5)
         }
     };
 };
 
-/**
- * Reset metrics (useful for testing or periodic resets)
- */
+
 const resetMetrics = () => {
     metrics.requests = {
         total: 0,
@@ -312,7 +289,7 @@ const resetMetrics = () => {
     metrics.system.alerts = [];
 };
 
-// Start health monitoring
+
 if (config.NODE_ENV !== 'test') {
     monitorHealth();
 }

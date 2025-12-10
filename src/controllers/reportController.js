@@ -2,7 +2,7 @@ import Order from '../Database/models/order.model';
 import User from '../Database/models/user.model';
 import Product from '../Database/models/product.model';
 
-// Sales summary: total sales, orders, revenue
+
 export async function getSalesSummary(req, res) {
     try {
         const totalOrders = await Order.countDocuments();
@@ -16,7 +16,7 @@ export async function getSalesSummary(req, res) {
     }
 }
 
-// User growth: total users, new users in last 30 days
+
 export async function getUserGrowth(req, res) {
     try {
         const totalUsers = await User.countDocuments();
@@ -29,7 +29,7 @@ export async function getUserGrowth(req, res) {
     }
 }
 
-// Product performance: top selling products
+
 export async function getTopProducts(req, res) {
     try {
         const topProducts = await Product.find().sort({ numReviews: -1, rating: -1 }).limit(10);

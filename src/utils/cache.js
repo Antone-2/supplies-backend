@@ -1,11 +1,11 @@
 let Redis;
 let redis;
 function getClient() {
-  // ...existing code...
+
 }
 
 async function get(key) {
-  // ...existing code...
+
 }
 
 async function set(key, value, ttlSeconds = 60) {
@@ -14,7 +14,7 @@ async function set(key, value, ttlSeconds = 60) {
     if (!client) return;
     await client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
   } catch (err) {
-    // ignore cache write failures
+
   }
 }
 

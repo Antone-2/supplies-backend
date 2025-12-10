@@ -5,7 +5,7 @@ FROM node:18-alpine AS base
 RUN apk update && apk upgrade && \
     apk add --no-cache dumb-init && \
     addgroup -g 1001 -S nodejs && \
-    adduser -S medhelm -u 1001
+    adduser -S Medhelm -u 1001
 
 # Set working directory
 WORKDIR /app
@@ -34,11 +34,11 @@ FROM base AS production
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy application code with proper ownership
-COPY --chown=medhelm:nodejs . .
+COPY --chown=Medhelm:nodejs . .
 
 # Create necessary directories
 RUN mkdir -p /app/uploads /app/logs && \
-    chown -R medhelm:nodejs /app/uploads /app/logs
+    chown -R Medhelm:nodejs /app/uploads /app/logs
 
 # Remove development files
 RUN rm -rf tests/ *.test.js debug-*.js test-*.js
@@ -48,7 +48,7 @@ RUN rm -f package-lock.json && \
     apk del --no-cache apk-tools
 
 # Switch to non-root user
-USER medhelm
+USER Medhelm
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

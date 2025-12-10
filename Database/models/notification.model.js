@@ -33,14 +33,14 @@ const notificationSchema = new mongoose.Schema({
     recipient: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true // Admin user who should receive this notification
+        required: true
     },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
     metadata: {
-        type: mongoose.Schema.Types.Mixed // Additional data like orderId, productId, etc.
+        type: mongoose.Schema.Types.Mixed
     },
     readAt: {
         type: Date
@@ -49,7 +49,7 @@ const notificationSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Index for efficient queries
+
 notificationSchema.index({ recipient: 1, status: 1, createdAt: -1 });
 notificationSchema.index({ type: 1, createdAt: -1 });
 

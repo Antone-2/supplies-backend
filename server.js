@@ -10,10 +10,10 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import 'dotenv/config';
 
-// Initialize configuration
+
 import config from './config/environment.js';
 
-// Accept either MONGO_URI or legacy MONGODB_URI
+
 process.env.MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 if (!process.env.MONGO_URI) {
     console.error('FATAL: MONGO_URI (or MONGODB_URI) is not set. Please check your environment configuration.');
@@ -23,14 +23,14 @@ if (!process.env.MONGO_URI) {
 import session from 'express-session';
 const app = express();
 
-// Observability: Sentry (if DSN provided) & pino logger
+
 import * as Sentry from '@sentry/node';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
-// Sentry error monitoring is disabled due to missing/invalid DSN
+
 if (process.env.SENTRY_DSN && process.env.SENTRY_DSN !== 'your_sentry_dsn') {
     Sentry.init({
         dsn: process.env.SENTRY_DSN,
@@ -42,24 +42,24 @@ if (process.env.SENTRY_DSN && process.env.SENTRY_DSN !== 'your_sentry_dsn') {
     });
 }
 
-// Preferred port
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PREFERRED_PORT = parseInt(process.env.PORT, 10);
 let PORT = PREFERRED_PORT;
 const MONGO_URI = process.env.MONGO_URI;
 
-// Security & parsing middleware
-app.set('trust proxy', 1); // if behind nginx / load balancer
+
+app.set('trust proxy', 1);
 app.use(helmet());
 
-// CORS configuration - include both www and non-www domains for production
+
 const corsOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()) : [];
 if (process.env.NODE_ENV === 'production') {
-    // Ensure both www and non-www domains are included for production
+
     const requiredOrigins = [
-        'https://medhelmsupplies.co.ke',
-        'https://www.medhelmsupplies.co.ke',
+        'https://Medhelmsupplies.co.ke',
+        'https://www.Medhelmsupplies.co.ke',
     ];
     requiredOrigins.forEach(origin => {
         if (!corsOrigins.includes(origin)) {
@@ -68,39 +68,39 @@ if (process.env.NODE_ENV === 'production') {
     });
 }
 
-// Add localhost for development
+
 if (process.env.NODE_ENV !== 'production') {
     corsOrigins.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080');
 }
 
-// Add admin panel domain for production
+
 if (process.env.NODE_ENV === 'production') {
-    corsOrigins.push('https://admin.medhelmsupplies.co.ke', 'http://admin.medhelmsupplies.co.ke');
+    corsOrigins.push('https://admin.Medhelmsupplies.co.ke', 'http://admin.Medhelmsupplies.co.ke');
 }
 
-// Add additional origins for frontend access
-corsOrigins.push('https://medhelmsupplies.co.ke');
 
-// Log CORS origins for debugging
+corsOrigins.push('https://Medhelmsupplies.co.ke');
+
+
 console.log('CORS Origins configured:', corsOrigins);
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
+
         if (!origin) return callback(null, true);
 
-        // Check if the origin is in our allowed list
+
         if (corsOrigins.includes(origin)) {
             return callback(null, true);
         }
 
-        // Allow localhost origins for development
+
         if (origin.startsWith('http://localhost:')) {
             return callback(null, true);
         }
 
-        // Allow the specific domain
-        if (origin === 'https://medhelmsupplies.co.ke') {
+
+        if (origin === 'https://Medhelmsupplies.co.ke') {
             return callback(null, true);
         }
 
@@ -116,9 +116,9 @@ app.use(cookieParser());
 app.use(mongoSanitize());
 app.use(xssClean());
 
-// Rate limiting (basic global)
+
 const limiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '900000', 10), // 15 minutes default
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '900000', 10),
     max: parseInt(process.env.RATE_LIMIT_MAX || '300', 10),
     standardHeaders: true,
     legacyHeaders: false,
@@ -131,10 +131,10 @@ app.use(session({
     saveUninitialized: false,
 }));
 
-// Structured request logging
+
 app.use(pinoHttp({ logger }));
 
-// Static file serving for uploads with CORS headers
+
 app.use('/uploads', express.static(resolve(__dirname, 'uploads'), {
     setHeaders: (res, path) => {
         res.set('Access-Control-Allow-Origin', '*');
@@ -143,7 +143,7 @@ app.use('/uploads', express.static(resolve(__dirname, 'uploads'), {
     }
 }));
 
-// Routes
+
 import authRoutes from './src/routes/authRoutes.js';
 import passwordRoutes from './src/routes/passwordRoutes.js';
 import productRoutes from './src/routes/productRoutes.js';
@@ -161,7 +161,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/auth', passwordRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/categories', categoryRoutes);
-// Removed socialAuthRoutes to avoid overriding Google OAuth routes
+
 app.use('/api/v1/cart', cartRoutes);
 app.use('/api/v1/wishlist', wishlistRoutes);
 app.use('/api/v1/orders', orderRoutes);
@@ -172,12 +172,12 @@ app.use('/api/v1/pesapal', pesapalRoutes);
 app.use('/api/v1/admin/auth', adminAuthRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
-// Import passport after routes to avoid circular dependency
+
 import passport from './passport.js';
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Health endpoints (primary + alias) placed early to guarantee availability
+
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'Backend is running!', time: new Date().toISOString() });
 });
@@ -185,7 +185,7 @@ app.get('/healthz', (req, res) => {
     res.json({ status: 'ok', message: 'Health alias', time: new Date().toISOString() });
 });
 
-// 404 handler
+
 app.use((req, res, next) => {
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'Not Found' });
@@ -193,8 +193,8 @@ app.use((req, res, next) => {
     next();
 });
 
-// Error handler
-// eslint-disable-next-line no-unused-vars
+
+
 app.use((err, _req, res, _next) => {
     logger.error({ err }, 'Unhandled application error');
     if (process.env.NODE_ENV !== 'production') {
@@ -216,7 +216,7 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
                 .once('error', (err) => {
                     if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
                         logger.warn({ portTried: PORT }, 'Port in use, trying next');
-                        PORT += 1; // increment port
+                        PORT += 1;
                         setTimeout(() => attemptListen(attemptsLeft - 1), 300);
                     } else {
                         logger.error({ err }, 'Failed to bind server port');
@@ -231,7 +231,7 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
         process.exit(1);
     });
 
-// Graceful shutdown
+
 const shutdown = (signal) => {
     logger.warn({ signal }, 'Received shutdown signal');
     Promise.resolve()

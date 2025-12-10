@@ -1,17 +1,19 @@
 import express from 'express';
-import { createPesapalPayment, paymentCallback, getPaymentStatus, refreshPaymentStatus, bulkRefreshPaymentStatus } from '../modules/payment/payment.controller.js';
+import { createPesapalPayment, createOrderAndPayment, paymentCallback, getPaymentStatus, refreshPaymentStatus, bulkRefreshPaymentStatus } from '../modules/payment/payment.controller.js';
+import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
 
 const router = express.Router();
 
 router.post('/initiate', createPesapalPayment);
+router.post('/create-order-and-payment', jwtAuthMiddleware, createOrderAndPayment);
 router.post('/callback', paymentCallback);
 
-// IPN endpoint for PesaPal notifications
+
 router.post('/ipn', paymentCallback);
 
-// Additional IPN endpoint for testing/debugging
+
 router.post('/ipn-test', (req, res) => {
-    console.log('🧪 IPN Test endpoint called:', {
+    console.log(' IPN Test endpoint called:', {
         method: req.method,
         body: req.body,
         query: req.query,
@@ -26,7 +28,7 @@ router.post('/ipn-test', (req, res) => {
     });
 });
 
-// Additional endpoints for payment status management
+
 router.get('/status/:orderId', getPaymentStatus);
 router.post('/refresh-status/:orderId', refreshPaymentStatus);
 router.post('/refresh-status/bulk', bulkRefreshPaymentStatus);

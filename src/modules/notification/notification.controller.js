@@ -1,13 +1,13 @@
 import Notification from '../../../Database/models/notification.model.js';
 import User from '../../../Database/models/user.model.js';
 
-// Get all notifications for the current admin user
+
 export const getNotifications = async (req, res) => {
     try {
         const { page = 1, limit = 20, status, type, priority } = req.query;
         const skip = (page - 1) * limit;
 
-        // Build filter
+
         const filter = { recipient: req.user.id };
         if (status) filter.status = status;
         if (type) filter.type = type;
@@ -33,7 +33,7 @@ export const getNotifications = async (req, res) => {
     }
 };
 
-// Get notification count for header
+
 export const getNotificationCount = async (req, res) => {
     try {
         const count = await Notification.countDocuments({
@@ -48,12 +48,12 @@ export const getNotificationCount = async (req, res) => {
     }
 };
 
-// Create a new notification
+
 export const createNotification = async (req, res) => {
     try {
         const { type, title, message, priority = 'medium', actionUrl, metadata } = req.body;
 
-        // Get all admin users to send notification to all admins
+
         const adminUsers = await User.find({ role: { $in: ['admin', 'super_admin'] } }).distinct('_id');
 
         const notifications = adminUsers.map(adminId => ({
@@ -79,7 +79,7 @@ export const createNotification = async (req, res) => {
     }
 };
 
-// Mark notification as read
+
 export const markAsRead = async (req, res) => {
     try {
         const { id } = req.params;
@@ -101,7 +101,7 @@ export const markAsRead = async (req, res) => {
     }
 };
 
-// Mark multiple notifications as read
+
 export const markMultipleAsRead = async (req, res) => {
     try {
         const { ids } = req.body;
@@ -120,7 +120,7 @@ export const markMultipleAsRead = async (req, res) => {
     }
 };
 
-// Delete notification
+
 export const deleteNotification = async (req, res) => {
     try {
         const { id } = req.params;
@@ -141,7 +141,7 @@ export const deleteNotification = async (req, res) => {
     }
 };
 
-// Delete multiple notifications
+
 export const deleteMultipleNotifications = async (req, res) => {
     try {
         const { ids } = req.body;
@@ -160,7 +160,7 @@ export const deleteMultipleNotifications = async (req, res) => {
     }
 };
 
-// Mark all notifications as read
+
 export const markAllAsRead = async (req, res) => {
     try {
         const result = await Notification.updateMany(

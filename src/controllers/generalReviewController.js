@@ -1,14 +1,13 @@
-// generalReviewController.js
 import GeneralReview from '../../Database/models/generalReview.model.js';
 import { sendEmail } from '../services/emailService.js';
 
-// Create a new general review
+
 export const createGeneralReview = async (req, res) => {
     try {
         const { name, email, rating, title, comment } = req.body;
         const userId = req.user ? req.user._id : null;
 
-        // Validate input
+
         if (!name || !email || !rating || !title || !comment) {
             return res.status(400).json({
                 message: 'Name, email, rating, title, and comment are required.'
@@ -21,7 +20,7 @@ export const createGeneralReview = async (req, res) => {
             });
         }
 
-        // Check if user already submitted a general review (if authenticated)
+
         if (userId) {
             const existingReview = await GeneralReview.findOne({ user: userId });
             if (existingReview) {
@@ -31,7 +30,7 @@ export const createGeneralReview = async (req, res) => {
             }
         }
 
-        // Create review
+
         const review = new GeneralReview({
             user: userId,
             name: name.trim(),
@@ -39,17 +38,17 @@ export const createGeneralReview = async (req, res) => {
             rating,
             title: title.trim(),
             comment: comment.trim(),
-            isVerified: !!userId // Mark as verified if user is authenticated
+            isVerified: !!userId
         });
 
         await review.save();
 
-        // Populate user data for response
+
         if (userId) {
             await review.populate('user', 'name email');
         }
 
-        // Send confirmation email
+
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2 style="color: #2563eb;">Thank you for your review!</h2>
@@ -58,7 +57,7 @@ export const createGeneralReview = async (req, res) => {
                 <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                     <h3 style="margin: 0 0 10px 0;">Your Review:</h3>
                     <p><strong>Title:</strong> ${title}</p>
-                    <p><strong>Rating:</strong> ${'⭐'.repeat(rating)} (${rating}/5)</p>
+                    <p><strong>Rating:</strong> ${''.repeat(rating)} (${rating}/5)</p>
                     <p><strong>Comment:</strong> ${comment}</p>
                 </div>
                 <p>Your review will appear on our website after approval (usually within 24 hours).</p>
@@ -70,7 +69,7 @@ export const createGeneralReview = async (req, res) => {
             await sendEmail(email, 'Review Submitted - Medhelm Supplies', html);
         } catch (emailError) {
             console.error('Error sending review confirmation email:', emailError);
-            // Don't fail the review creation if email fails
+
         }
 
         res.status(201).json({
@@ -91,7 +90,7 @@ export const createGeneralReview = async (req, res) => {
     }
 };
 
-// Get all approved general reviews (for homepage display)
+
 export const getGeneralReviews = async (req, res) => {
     try {
         const { page = 1, limit = 20, featured = false } = req.query;
@@ -104,7 +103,7 @@ export const getGeneralReviews = async (req, res) => {
 
         const reviews = await GeneralReview.find(query)
             .populate('user', 'name')
-            .select('-email -user.email') // Don't expose email addresses
+            .select('-email -user.email')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(parseInt(limit))
@@ -112,7 +111,7 @@ export const getGeneralReviews = async (req, res) => {
 
         const total = await GeneralReview.countDocuments(query);
 
-        // Calculate average rating
+
         const ratingStats = await GeneralReview.aggregate([
             { $match: query },
             {
@@ -153,7 +152,7 @@ export const getGeneralReviews = async (req, res) => {
     }
 };
 
-// Get user's own general review
+
 export const getUserGeneralReview = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -179,18 +178,18 @@ export const updateGeneralReview = async (req, res) => {
         const { rating, title, comment } = req.body;
         const userId = req.user._id;
 
-        // Validate input
+
         if (rating && (rating < 1 || rating > 5)) {
             return res.status(400).json({ message: 'Rating must be between 1 and 5.' });
         }
 
-        // Find the user's review
+
         const review = await GeneralReview.findOne({ user: userId });
         if (!review) {
             return res.status(404).json({ message: 'Review not found.' });
         }
 
-        // Update review
+
         if (rating) review.rating = rating;
         if (title) review.title = title.trim();
         if (comment) review.comment = comment.trim();

@@ -4,7 +4,7 @@ import User from './Database/models/user.model.js';
 import dotenv from 'dotenv';
 dotenv.config({ path: './.env' });
 
-// Only initialize Google strategy if credentials are provided
+
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.use(new GoogleStrategy({
         clientID: process.env.GOOGLE_CLIENT_ID,
@@ -15,7 +15,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     },
         async (req, accessToken, refreshToken, profile, done) => {
             try {
-                // Validate Google profile data
+
                 if (!profile || !profile.id || !profile.emails || profile.emails.length === 0) {
                     console.error('Invalid Google profile data:', profile);
                     return done(new Error('Invalid Google profile data'), null);
@@ -25,14 +25,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 const displayName = profile.displayName || profile.name?.givenName + ' ' + profile.name?.familyName || 'Google User';
                 const avatar = profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null;
 
-                // Validate email format
+
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(email)) {
                     console.error('Invalid email format from Google:', email);
                     return done(new Error('Invalid email format'), null);
                 }
 
-                // Find or create user logic with enhanced security
+
                 let user = await User.findOne({
                     $or: [
                         { googleId: profile.id },
@@ -41,7 +41,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 });
 
                 if (!user) {
-                    // Create new user with Google profile data
+
                     user = await User.create({
                         googleId: profile.id,
                         email: email,
@@ -49,7 +49,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                         avatar: avatar,
                         role: 'customer',
                         isEmailVerified: true,
-                        authProvider: 'google', // Google OAuth credentials should be loaded from process.env in strategy config
+                        authProvider: 'google',
                         createdAt: new Date(),
                         lastLogin: new Date()
                     });
@@ -60,7 +60,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Send welcome email to new Google OAuth users
+
                     try {
                         const { sendEmail } = await import('./src/services/emailService.js');
                         const logoUrl = process.env.LOGO_URL;
@@ -71,19 +71,19 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                                         <h2 style="color: #2563eb; margin: 0;">Medhelm Supplies</h2>
                                     </div>
                                     <p>Hello ${user.name},</p>
-                                    <p>🎉 Welcome to Medhelm Supplies! Your account has been successfully created using your Google account. You can now access your orders, wishlist, and enjoy a personalized shopping experience.</p>
+                                    <p> Welcome to Medhelm Supplies! Your account has been successfully created using your Google account. You can now access your orders, wishlist, and enjoy a personalized shopping experience.</p>
                                     <p>With your Google account, you'll have seamless access to:</p>
                                     <ul>
-                                        <li>✅ Order tracking and history</li>
-                                        <li>✅ Personalized product recommendations</li>
-                                        <li>✅ Secure checkout with saved preferences</li>
-                                        <li>✅ Exclusive offers and updates</li>
+                                        <li> Order tracking and history</li>
+                                        <li> Personalized product recommendations</li>
+                                        <li> Secure checkout with saved preferences</li>
+                                        <li> Exclusive offers and updates</li>
                                     </ul>
                                     <hr style="margin: 24px 0; border: none; border-top: 1px solid #eee;" />
                                     <p style="font-size: 12px; color: #888; text-align: center;">&copy; ${new Date().getFullYear()} Medhelm Supplies</p>
                                 </div>
                             `;
-                        await sendEmail(user.email, '🎉 Welcome to Medhelm Supplies', html);
+                        await sendEmail(user.email, ' Welcome to Medhelm Supplies', html);
                     } catch (emailErr) {
                         console.error('Error sending welcome email to Google user:', emailErr);
                     }

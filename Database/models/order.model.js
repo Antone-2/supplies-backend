@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema({
-    orderNumber: { type: String, unique: true }, // Custom order ID from frontend
+    orderNumber: { type: String, unique: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     items: [{
-        productId: { type: mongoose.Schema.Types.Mixed }, // Allow both ObjectId and Number
+        productId: { type: mongoose.Schema.Types.Mixed },
         name: { type: String },
         quantity: { type: Number },
         price: { type: Number }

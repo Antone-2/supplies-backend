@@ -12,23 +12,23 @@ import {
 } from '../modules/product/product.controller.js';
 import { getProductReviews } from '../controllers/reviewController.js';
 
-// Product routes
+
 router.get('/', getProducts);
 router.get('/featured', getFeaturedProducts);
 router.get('/featured/all', getFeaturedProducts);
 router.get('/categories', getCategories);
 router.get('/category/:category', getProductsByCategory);
-router.post('/', createProduct); // Add create product route
+router.post('/', createProduct);
 router.get('/:id', getProductById);
 
-// Admin product management routes
-router.put('/:id', updateProduct); // Update product
-router.delete('/:id', deleteProduct); // Delete product
 
-// Product review routes
+router.put('/:id', updateProduct);
+router.delete('/:id', deleteProduct);
+
+
 router.get('/:productId/reviews', getProductReviews);
 
-// Add review routes to main routes
+
 import reviewRoutes from './reviewRoutes.js';
 router.use('/reviews', reviewRoutes);
 

@@ -1,5 +1,5 @@
 {
-    "name": "medhelm-backend",
+    "name": "Medhelm-backend",
     "version": "1.0.0",
     "description": "Medhelm Supplies Backend API",
     "main": "server.js",

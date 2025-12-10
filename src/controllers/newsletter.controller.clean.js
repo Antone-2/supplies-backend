@@ -1,15 +1,15 @@
 const Newsletter = require('../../Database/models/newsletter.model');
 const { body, validationResult } = require('express-validator');
 
-// Subscribe to newsletter
+
 exports.subscribe = async (req, res) => {
     try {
-        console.log('📧 Newsletter subscription request:', req.body);
+        console.log(' Newsletter subscription request:', req.body);
 
-        // Validate request
+
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            console.log('❌ Validation errors:', errors.array());
+            console.log(' Validation errors:', errors.array());
             return res.status(400).json({
                 success: false,
                 message: 'Validation failed',
@@ -19,7 +19,7 @@ exports.subscribe = async (req, res) => {
 
         const { email, firstName, lastName, source = 'website' } = req.body;
 
-        // Check if already subscribed
+
         const existingSubscription = await Newsletter.findOne({ email: email.toLowerCase() });
 
         if (existingSubscription) {
@@ -29,7 +29,7 @@ exports.subscribe = async (req, res) => {
                     message: 'Email is already subscribed to our newsletter'
                 });
             } else {
-                // Reactivate subscription
+
                 existingSubscription.subscribed = true;
                 existingSubscription.subscribedAt = new Date();
                 existingSubscription.unsubscribedAt = null;
@@ -42,7 +42,7 @@ exports.subscribe = async (req, res) => {
             }
         }
 
-        // Create new subscription
+
         const subscription = new Newsletter({
             email: email.toLowerCase(),
             firstName: firstName || '',
@@ -60,7 +60,7 @@ exports.subscribe = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('📧❌ Newsletter subscription error:', error);
+        console.error(' Newsletter subscription error:', error);
         console.error('Error details:', {
             name: error.name,
             message: error.message,
@@ -68,7 +68,7 @@ exports.subscribe = async (req, res) => {
             code: error.code
         });
 
-        // Handle specific MongoDB errors
+
         if (error.name === 'ValidationError') {
             return res.status(400).json({
                 success: false,
@@ -90,7 +90,7 @@ exports.subscribe = async (req, res) => {
     }
 };
 
-// Unsubscribe from newsletter
+
 exports.unsubscribe = async (req, res) => {
     try {
         const { email } = req.params;
@@ -129,7 +129,7 @@ exports.unsubscribe = async (req, res) => {
     }
 };
 
-// Get newsletter statistics (admin only)
+
 exports.getStats = async (req, res) => {
     try {
         const [totalSubscribers, activeSubscribers, recentSubscribers] = await Promise.all([
@@ -137,7 +137,7 @@ exports.getStats = async (req, res) => {
             Newsletter.countDocuments({ subscribed: true }),
             Newsletter.countDocuments({
                 subscribed: true,
-                subscribedAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // Last 30 days
+                subscribedAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
             })
         ]);
 
@@ -146,7 +146,7 @@ exports.getStats = async (req, res) => {
             { $group: { _id: '$source', count: { $sum: 1 } } }
         ]);
 
-        // Get daily subscription trend for last 7 days
+
         const subscriptionTrend = [];
         for (let i = 6; i >= 0; i--) {
             const date = new Date();
@@ -191,7 +191,7 @@ exports.getStats = async (req, res) => {
     }
 };
 
-// Get all subscribers (admin only)
+
 exports.getAllSubscribers = async (req, res) => {
     try {
         const { page = 1, limit = 50, status = 'active' } = req.query;
@@ -229,12 +229,12 @@ exports.getAllSubscribers = async (req, res) => {
     }
 };
 
-// Send newsletter campaign (admin only)
+
 exports.sendCampaign = async (req, res) => {
     try {
         const { subject, content, recipientType = 'active' } = req.body;
 
-        // Validate required fields
+
         if (!subject || !content) {
             return res.status(400).json({
                 success: false,
@@ -242,7 +242,7 @@ exports.sendCampaign = async (req, res) => {
             });
         }
 
-        // Get subscribers based on recipient type
+
         const query = recipientType === 'all' ? {} : { subscribed: true };
         const subscribers = await Newsletter.find(query, 'email');
 
@@ -253,13 +253,13 @@ exports.sendCampaign = async (req, res) => {
             });
         }
 
-        // In a real implementation, you would integrate with an email service like SendGrid, Mailgun, etc.
-        // For now, we'll simulate sending emails
+
+
 
         console.log(`Sending campaign "${subject}" to ${subscribers.length} subscribers`);
         console.log('Content preview:', content.substring(0, 100) + '...');
 
-        // Simulate email sending delay
+
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         res.json({
@@ -278,7 +278,7 @@ exports.sendCampaign = async (req, res) => {
     }
 };
 
-// Validation middleware
+
 exports.validateSubscription = [
     body('email')
         .isEmail()

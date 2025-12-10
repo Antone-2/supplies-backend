@@ -1,34 +1,33 @@
-// SMS service using Brevo (Sendinblue) API
 import SibApiV3Sdk from 'sib-api-v3-sdk';
 import config from '../../config/environment.js';
 
-// Brevo setup for SMS
+
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
 const apiKey = defaultClient.authentications['api-key'];
 apiKey.apiKey = config.EMAIL.BREVO_API_KEY;
 
-// Send SMS using Brevo
+
 const sendSMS = async (phoneNumber, message) => {
     try {
-        // Check if Brevo API key is configured
+
         if (!process.env.BREVO_API_KEY ||
             process.env.BREVO_API_KEY.includes('xyz')) {
-            console.log('⚠️ Brevo API key not configured for SMS');
+            console.log('️ Brevo API key not configured for SMS');
             return { success: false, error: 'SMS service not configured' };
         }
 
-        console.log('📱 Attempting to send SMS via Brevo to:', phoneNumber);
+        console.log(' Attempting to send SMS via Brevo to:', phoneNumber);
 
         const apiInstance = new SibApiV3Sdk.TransactionalSMSApi();
         const sendTransacSms = new SibApiV3Sdk.SendTransacSms();
 
         sendTransacSms.sender = process.env.SMS_SENDER || 'Medhelm';
-        sendTransacSms.recipient = phoneNumber; // Should be in international format
+        sendTransacSms.recipient = phoneNumber;
         sendTransacSms.content = message;
         sendTransacSms.type = 'transactional';
 
         const result = await apiInstance.sendTransacSms(sendTransacSms);
-        console.log('✅ SMS sent successfully via Brevo:', result);
+        console.log(' SMS sent successfully via Brevo:', result);
 
         return {
             success: true,
@@ -38,11 +37,11 @@ const sendSMS = async (phoneNumber, message) => {
         };
 
     } catch (error) {
-        console.error('❌ Brevo SMS failed:', error.message, error.response?.body);
+        console.error(' Brevo SMS failed:', error.message, error.response?.body);
 
-        // Development fallback - just log the SMS
+
         if (process.env.NODE_ENV === 'development') {
-            console.log('📱 SMS (Development Mode):');
+            console.log(' SMS (Development Mode):');
             console.log(`To: ${phoneNumber}`);
             console.log(`Message: ${message}`);
             return { success: true, provider: 'development-log' };
@@ -56,7 +55,7 @@ const sendSMS = async (phoneNumber, message) => {
     }
 };
 
-// Order confirmation SMS
+
 const sendOrderConfirmationSMS = async (phoneNumber, orderData) => {
     const { name, orderId, totalAmount } = orderData;
 

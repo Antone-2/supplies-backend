@@ -1,33 +1,33 @@
 import Category from '../../../Database/models/category.model.js';
 import Product from '../../../Database/models/product.model.js';
 
-// Get all categories with product counts
+
 const getCategoriesWithCounts = async (req, res) => {
     try {
-        console.log('🔍 Fetching categories with counts...');
+        console.log(' Fetching categories with counts...');
 
-        // Get all categories without filtering by isActive to show all categories in admin
+
         const categories = await Category.find({})
             .populate('parentCategory', 'name')
             .sort({ displayOrder: 1, name: 1 })
-            .limit(100); // Add reasonable limit to prevent performance issues
+            .limit(100);
 
-        console.log(`📊 Found ${categories.length} categories in database`);
+        console.log(` Found ${categories.length} categories in database`);
 
-        // Get product counts for each category
+
         const categoriesWithCounts = await Promise.all(
             categories.map(async (category) => {
-                // Handle both ObjectId and string category references
+
                 const productCount = await Product.countDocuments({
                     $or: [
                         { category: category._id },
                         { category: category._id.toString() },
                         { category: category.name },
-                        { category: { $regex: new RegExp(`^${category.name}$`, 'i') } } // Case-insensitive name match
+                        { category: { $regex: new RegExp(`^${category.name}$`, 'i') } }
                     ]
                 });
 
-                console.log(`📦 Category "${category.name}": ${productCount} products`);
+                console.log(` Category "${category.name}": ${productCount} products`);
 
                 return {
                     _id: category._id,
@@ -47,7 +47,7 @@ const getCategoriesWithCounts = async (req, res) => {
             })
         );
 
-        console.log(`✅ Returning ${categoriesWithCounts.length} categories with product counts`);
+        console.log(` Returning ${categoriesWithCounts.length} categories with product counts`);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const getCategoriesWithCounts = async (req, res) => {
             total: categoriesWithCounts.length
         });
     } catch (err) {
-        console.error('❌ Error fetching categories:', err);
+        console.error(' Error fetching categories:', err);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch categories',
@@ -64,10 +64,10 @@ const getCategoriesWithCounts = async (req, res) => {
     }
 };
 
-// Get category tree
+
 const getCategoryTree = async (req, res) => {
     try {
-        // Placeholder
+
         res.json({
             success: true,
             categories: []
@@ -82,7 +82,7 @@ const getCategoryTree = async (req, res) => {
     }
 };
 
-// Get category by ID
+
 const getCategoryById = async (req, res) => {
     try {
         const category = await Category.findById(req.params.id);
@@ -104,7 +104,7 @@ const getCategoryById = async (req, res) => {
     }
 };
 
-// Create category
+
 const createCategory = async (req, res) => {
     try {
         const category = new Category(req.body);
@@ -124,7 +124,7 @@ const createCategory = async (req, res) => {
     }
 };
 
-// Update category
+
 const updateCategory = async (req, res) => {
     try {
         const category = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -147,12 +147,12 @@ const updateCategory = async (req, res) => {
     }
 };
 
-// Delete category
+
 const deleteCategory = async (req, res) => {
     try {
         const categoryId = req.params.id;
 
-        // Check if category exists
+
         const category = await Category.findById(categoryId);
         if (!category) {
             return res.status(404).json({
@@ -161,7 +161,7 @@ const deleteCategory = async (req, res) => {
             });
         }
 
-        // Check if category has products (handle both ObjectId and string references)
+
         const productCount = await Product.countDocuments({
             $or: [
                 { category: categoryId },
@@ -177,7 +177,7 @@ const deleteCategory = async (req, res) => {
             });
         }
 
-        // Check if category has subcategories
+
         const subcategoryCount = await Category.countDocuments({ parentCategory: categoryId });
         if (subcategoryCount > 0) {
             return res.status(400).json({
@@ -187,7 +187,7 @@ const deleteCategory = async (req, res) => {
             });
         }
 
-        // Safe to delete
+
         await Category.findByIdAndDelete(categoryId);
 
         res.json({

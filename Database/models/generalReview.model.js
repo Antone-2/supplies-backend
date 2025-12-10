@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
 
-// General reviews schema for homepage testimonials/reviews
+
 const generalReviewSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: false  // Allow guest reviews
+        required: false
     },
     name: {
         type: String,
@@ -39,17 +39,17 @@ const generalReviewSchema = new mongoose.Schema({
     },
     isApproved: {
         type: Boolean,
-        default: true // Auto-approve for now, can be changed to false for moderation
+        default: true
     },
     isFeatured: {
         type: Boolean,
-        default: false // For featuring on homepage
+        default: false
     }
 }, {
     timestamps: true
 });
 
-// Index for better query performance
+
 generalReviewSchema.index({ createdAt: -1 });
 generalReviewSchema.index({ isApproved: 1, isFeatured: 1 });
 

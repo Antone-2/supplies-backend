@@ -1,15 +1,14 @@
-// reviewController.js
 import Review from '../../Database/models/review.model.js';
 import Product from '../../Database/models/product.model.js';
 import { sendEmail } from '../services/emailService.js';
 
-// Create a new review and send notification
+
 export async function createReview(req, res) {
     try {
         const { productId, rating, comment } = req.body;
         const userId = req.user._id;
 
-        // Validate input
+
         if (!productId || !rating || !comment) {
             return res.status(400).json({ message: 'Product ID, rating, and comment are required.' });
         }
@@ -18,13 +17,13 @@ export async function createReview(req, res) {
             return res.status(400).json({ message: 'Rating must be between 1 and 5.' });
         }
 
-        // Check if product exists
+
         const product = await Product.findById(productId);
         if (!product) {
             return res.status(404).json({ message: 'Product not found.' });
         }
 
-        // Check if user has successfully placed an order for this product
+
         const Order = (await import('../../Database/models/order.model.js')).default;
         const userOrder = await Order.findOne({
             user: userId,
@@ -41,20 +40,20 @@ export async function createReview(req, res) {
             });
         }
 
-        // Additional validation: Check if the order was delivered (preferred) or at least processed
+
         const isDelivered = userOrder.orderStatus === 'delivered';
         const isShipped = userOrder.orderStatus === 'shipped';
         const isFulfilled = userOrder.orderStatus === 'fulfilled';
 
-        // Allow reviews for delivered orders immediately, shipped orders after 12 hours, fulfilled orders after 6 hours
-        let minimumOrderAge = 0; // Delivered orders can be reviewed immediately
+
+        let minimumOrderAge = 0;
 
         if (isShipped) {
-            minimumOrderAge = 12 * 60 * 60 * 1000; // 12 hours for shipped orders
+            minimumOrderAge = 12 * 60 * 60 * 1000;
         } else if (isFulfilled) {
-            minimumOrderAge = 6 * 60 * 60 * 1000; // 6 hours for fulfilled orders
+            minimumOrderAge = 6 * 60 * 60 * 1000;
         } else if (userOrder.orderStatus === 'processing') {
-            minimumOrderAge = 24 * 60 * 60 * 1000; // 24 hours for processing orders
+            minimumOrderAge = 24 * 60 * 60 * 1000;
         }
 
         if (minimumOrderAge > 0) {
@@ -74,13 +73,13 @@ export async function createReview(req, res) {
             }
         }
 
-        // Check if user already reviewed this product
+
         const existingReview = await Review.findOne({ product: productId, user: userId });
         if (existingReview) {
             return res.status(400).json({ message: 'You have already reviewed this product.' });
         }
 
-        // Create review
+
         const review = new Review({
             product: productId,
             user: userId,
@@ -89,10 +88,10 @@ export async function createReview(req, res) {
         });
         await review.save();
 
-        // Populate user data for response
+
         await review.populate('user', 'name email');
 
-        // Send notification to user
+
         const userEmail = req.user.email;
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -102,7 +101,7 @@ export async function createReview(req, res) {
                 <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                     <h3 style="margin: 0 0 10px 0;">Your Review:</h3>
                     <p><strong>Product:</strong> ${product.name}</p>
-                    <p><strong>Rating:</strong> ${'⭐'.repeat(rating)} (${rating}/5)</p>
+                    <p><strong>Rating:</strong> ${''.repeat(rating)} (${rating}/5)</p>
                     <p><strong>Comment:</strong> ${comment}</p>
                 </div>
                 <p>Thank you for choosing Medhelm Supplies!</p>
@@ -113,7 +112,7 @@ export async function createReview(req, res) {
             await sendEmail(userEmail, 'Review Submitted - Medhelm Supplies', html);
         } catch (emailError) {
             console.error('Error sending review notification email:', emailError);
-            // Don't fail the review creation if email fails
+
         }
 
         res.status(201).json({
@@ -140,7 +139,7 @@ export async function createReview(req, res) {
     }
 };
 
-// Get reviews for a specific product
+
 export async function getProductReviews(req, res) {
     try {
         const { productId } = req.params;
@@ -172,7 +171,7 @@ export async function getProductReviews(req, res) {
     }
 };
 
-// Get reviews by current user
+
 export async function getUserReviews(req, res) {
     try {
         const userId = req.user._id;
@@ -204,30 +203,30 @@ export async function getUserReviews(req, res) {
     }
 };
 
-// Update a review
+
 export async function updateReview(req, res) {
     try {
         const { reviewId } = req.params;
         const { rating, comment } = req.body;
         const userId = req.user._id;
 
-        // Validate input
+
         if (rating && (rating < 1 || rating > 5)) {
             return res.status(400).json({ message: 'Rating must be between 1 and 5.' });
         }
 
-        // Find the review
+
         const review = await Review.findById(reviewId);
         if (!review) {
             return res.status(404).json({ message: 'Review not found.' });
         }
 
-        // Check ownership
+
         if (review.user.toString() !== userId.toString()) {
             return res.status(403).json({ message: 'You can only update your own reviews.' });
         }
 
-        // Update review
+
         if (rating) review.rating = rating;
         if (comment) review.comment = comment.trim();
 
@@ -244,19 +243,19 @@ export async function updateReview(req, res) {
     }
 };
 
-// Delete a review
+
 export async function deleteReview(req, res) {
     try {
         const { reviewId } = req.params;
         const userId = req.user._id;
 
-        // Find the review
+
         const review = await Review.findById(reviewId);
         if (!review) {
             return res.status(404).json({ message: 'Review not found.' });
         }
 
-        // Check ownership
+
         if (review.user.toString() !== userId.toString()) {
             return res.status(403).json({ message: 'You can only delete your own reviews.' });
         }

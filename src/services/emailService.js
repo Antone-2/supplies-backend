@@ -1,32 +1,31 @@
-// Enhanced email service with Brevo (Sendinblue) and fallback options
 import SibApiV3Sdk from 'sib-api-v3-sdk';
 import nodemailer from 'nodemailer';
 
-// Brevo setup
+
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
 const apiKey = defaultClient.authentications['api-key'];
 apiKey.apiKey = process.env.BREVO_API_KEY;
 
-// Nodemailer fallback setup
+
 const createTransporter = () => {
     return nodemailer.createTransport({
         host: process.env.EMAIL_HOST,
         port: process.env.EMAIL_PORT || 587,
-        secure: false, // Use STARTTLS
+        secure: false,
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
         },
         tls: {
-            // Don't fail on invalid certificates (for development)
+
             rejectUnauthorized: false
         },
-        debug: process.env.NODE_ENV === 'development', // Enable debug in development
-        logger: process.env.NODE_ENV === 'development'  // Enable logging in development
+        debug: process.env.NODE_ENV === 'development',
+        logger: process.env.NODE_ENV === 'development'
     });
 };
 
-// Base email template
+
 const getEmailTemplate = (title, content) => {
     const logoUrl = process.env.LOGO_URL;
     return `
@@ -66,15 +65,15 @@ const getEmailTemplate = (title, content) => {
     `;
 };
 
-// Send email with Brevo, fallback to Nodemailer
+
 const sendEmail = async (toEmail, subject, htmlContent) => {
     try {
-        // Try Brevo first - only if API key is valid (not placeholder)
+
         if (process.env.BREVO_API_KEY &&
             process.env.BREVO_API_KEY &&
             !process.env.BREVO_API_KEY.includes('xyz') &&
             process.env.BREVO_API_KEY.startsWith('xkeysib-')) {
-            console.log('🔑 Attempting Brevo API with key:', process.env.BREVO_API_KEY.substring(0, 20) + '...');
+            console.log(' Attempting Brevo API with key:', process.env.BREVO_API_KEY.substring(0, 20) + '...');
             try {
                 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
                 const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
@@ -82,27 +81,27 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
                 sendSmtpEmail.htmlContent = htmlContent;
                 sendSmtpEmail.sender = { name: process.env.COMPANY_NAME || 'Medhelm Supplies', email: process.env.EMAIL_FROM };
                 sendSmtpEmail.to = [{ email: toEmail }];
-                console.log('📧 Sending email via Brevo API to:', toEmail);
+                console.log(' Sending email via Brevo API to:', toEmail);
                 const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
-                console.log('✅ Brevo email sent successfully!', result);
+                console.log(' Brevo email sent successfully!', result);
                 return { success: true, provider: 'brevo', messageId: result.messageId };
             } catch (brevoError) {
-                console.error('❌ Brevo API error:', brevoError.message);
+                console.error(' Brevo API error:', brevoError.message);
                 if (brevoError.code === 'unauthorized') {
-                    console.log('⚠️ Brevo API key appears to be invalid or expired');
+                    console.log('️ Brevo API key appears to be invalid or expired');
                 }
             }
         } else {
-            console.log('⚠️ Brevo API key not configured or invalid');
+            console.log('️ Brevo API key not configured or invalid');
         }
     } catch (error) {
-        console.error('❌ Brevo email failed:', error.message, error.response?.body);
+        console.error(' Brevo email failed:', error.message, error.response?.body);
     }
 
-    // Try SMTP/Nodemailer (if configured)
+
     if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         try {
-            console.log('📧 Attempting to send email via SMTP...');
+            console.log(' Attempting to send email via SMTP...');
             const transporter = createTransporter();
 
             const mailOptions = {
@@ -113,31 +112,31 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
             };
 
             const result = await transporter.sendMail(mailOptions);
-            console.log('✅ Email sent successfully via SMTP:', result.messageId);
+            console.log(' Email sent successfully via SMTP:', result.messageId);
             return { success: true, provider: 'nodemailer', messageId: result.messageId };
 
         } catch (error) {
-            console.error('❌ SMTP email failed:', error.message);
+            console.error(' SMTP email failed:', error.message);
             if (error.code === 'EAUTH') {
-                console.log('⚠️ SMTP authentication failed - check EMAIL_USER and EMAIL_PASS');
+                console.log('️ SMTP authentication failed - check EMAIL_USER and EMAIL_PASS');
             }
-            // Continue to development fallback
+
         }
     }
 
-    // Development fallback - just log the email
+
     if (process.env.NODE_ENV === 'development') {
-        console.log('📧 EMAIL (Development Mode):');
+        console.log(' EMAIL (Development Mode):');
         console.log(`To: ${toEmail}`);
         console.log(`Subject: ${subject}`);
         console.log(`Content: ${htmlContent.substring(0, 200)}...`);
         return { success: true, provider: 'development-log' };
     }
 
-    // Production fallback - try to send via SMTP even if Brevo fails
+
     if (process.env.NODE_ENV === 'production' && process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         try {
-            console.log('📧 Attempting production fallback via SMTP...');
+            console.log(' Attempting production fallback via SMTP...');
             const transporter = createTransporter();
 
             const mailOptions = {
@@ -148,18 +147,18 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
             };
 
             const result = await transporter.sendMail(mailOptions);
-            console.log('✅ Email sent successfully via SMTP fallback:', result.messageId);
+            console.log(' Email sent successfully via SMTP fallback:', result.messageId);
             return { success: true, provider: 'smtp-fallback', messageId: result.messageId };
 
         } catch (error) {
-            console.error('❌ SMTP fallback also failed:', error.message);
+            console.error(' SMTP fallback also failed:', error.message);
         }
     }
 
     return { success: false, error: 'No email providers configured' };
 };
 
-// Order confirmation email
+
 const sendOrderConfirmation = async (orderData) => {
     const { email, name, orderId, items, totalAmount, shippingAddress } = orderData;
 
@@ -175,14 +174,14 @@ const sendOrderConfirmation = async (orderData) => {
         <h2>Order Confirmation</h2>
         <p>Dear ${name},</p>
         <p>Thank you for your order! We've received your order and are preparing it for shipment.</p>
-        
+
         <h3>Order Details</h3>
         <p><strong>Order ID:</strong> ${orderId}</p>
         <p><strong>Total Amount:</strong> KES ${totalAmount.toLocaleString()}</p>
-        
+
         <h3>Items Ordered</h3>
         ${itemsHtml}
-        
+
         <h3>Shipping Address</h3>
         <p>
             ${shippingAddress.fullName}<br>
@@ -190,7 +189,7 @@ const sendOrderConfirmation = async (orderData) => {
             ${shippingAddress.city}, ${shippingAddress.county}<br>
             Phone: ${shippingAddress.phone}
         </p>
-        
+
         <p>We'll send you tracking information once your order ships.</p>
         <a href="${process.env.FRONTEND_URL}/orders" class="button">View Order</a>
     `;
@@ -199,7 +198,7 @@ const sendOrderConfirmation = async (orderData) => {
     return await sendEmail(email, `Order Confirmation - ${orderId}`, html);
 };
 
-// Shipping notification
+
 const sendShippingNotification = async (orderData) => {
     const { email, name, orderId, trackingNumber } = orderData;
 
@@ -218,7 +217,7 @@ const sendShippingNotification = async (orderData) => {
     return await sendEmail(email, `Your Order Has Shipped - ${orderId}`, html);
 };
 
-// Payment confirmation notification
+
 const sendPaymentConfirmation = async (orderData) => {
     const { email, name, orderId, totalAmount, paymentMethod, trackingNumber } = orderData;
 
@@ -246,7 +245,7 @@ const sendPaymentConfirmation = async (orderData) => {
     return await sendEmail(email, `Payment Confirmed - ${orderId}`, html);
 };
 
-// Order status update notification
+
 const sendOrderStatusUpdate = async (orderData) => {
     const { email, name, orderId, status, trackingNumber, note } = orderData;
 
@@ -275,7 +274,7 @@ const sendOrderStatusUpdate = async (orderData) => {
     return await sendEmail(email, `Order Update - ${orderId}`, html);
 };
 
-// Delivery notification
+
 const sendDeliveryNotification = async (orderData) => {
     const { email, name, orderId, deliveryDate } = orderData;
 
@@ -298,7 +297,7 @@ const sendDeliveryNotification = async (orderData) => {
     return await sendEmail(email, `Order Delivered - ${orderId}`, html);
 };
 
-// Issue/delay notification
+
 const sendIssueNotification = async (orderData) => {
     const { email, name, orderId, issueType, description, expectedResolution } = orderData;
 
@@ -326,7 +325,7 @@ const sendIssueNotification = async (orderData) => {
     return await sendEmail(email, `Order Update - ${orderId}`, html);
 };
 
-// Legacy function for backward compatibility
+
 const sendOrderEmail = async (toEmail, subject, htmlContent) => {
     const result = await sendEmail(toEmail, subject, htmlContent);
     return result.success;

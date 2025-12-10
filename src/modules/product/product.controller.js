@@ -5,46 +5,45 @@ import Order from '../../../Database/models/order.model.js';
 import Cart from '../../../Database/models/cart.model.js';
 import Wishlist from '../../../Database/models/wishlist.model.js';
 
-// Get all products
 const getProducts = async (req, res) => {
     try {
         console.log('getProducts called with query:', req.query);
         const { page = 1, limit = 12, category, sortBy = 'name', sortOrder = 'asc', inStock, admin, showAll, includeInactive } = req.query;
-        // Direct database queries - no Redis caching for maximum reliability
-        console.log('🔄 Fetching products directly from database');
 
-        // Allow admin access to all products or inactive products if specified
+        console.log(' Fetching products directly from database');
+
+
         let query = {};
         if (admin === 'true' || showAll === 'true' || includeInactive === 'true') {
-            // Admin can see all products (including inactive)
+
             query = {};
         } else {
-            // Public API only shows active products
+
             query = { isActive: true };
         }
         if (category) {
-            // Handle category - if it's a string, find the category ObjectId
-            if (typeof category === 'string') {
-                console.log('🔍 Searching for category:', category);
 
-                // First try to find by name (case-insensitive)
+            if (typeof category === 'string') {
+                console.log(' Searching for category:', category);
+
+
                 let categoryDoc = await Category.findOne({
                     name: { $regex: new RegExp(`^${category}$`, 'i') }
                 });
 
                 if (categoryDoc) {
                     query.category = categoryDoc._id;
-                    console.log('✅ Found category by name:', categoryDoc.name, 'ID:', categoryDoc._id);
+                    console.log(' Found category by name:', categoryDoc.name, 'ID:', categoryDoc._id);
                 } else {
-                    // If not found by name, check if it's a valid ObjectId
+
                     if (mongoose.Types.ObjectId.isValid(category)) {
                         const categoryById = await Category.findById(category);
                         if (categoryById) {
                             query.category = categoryById._id;
-                            console.log('✅ Found category by ID:', categoryById.name, 'ID:', categoryById._id);
+                            console.log(' Found category by ID:', categoryById.name, 'ID:', categoryById._id);
                         } else {
-                            console.log('❌ Category ID not found:', category);
-                            // If category not found, return empty results
+                            console.log(' Category ID not found:', category);
+
                             return res.json({
                                 products: [],
                                 page: parseInt(page),
@@ -54,8 +53,8 @@ const getProducts = async (req, res) => {
                             });
                         }
                     } else {
-                        console.log('❌ Invalid category format:', category);
-                        // If category not found, return empty results
+                        console.log(' Invalid category format:', category);
+
                         return res.json({
                             products: [],
                             page: parseInt(page),
@@ -76,11 +75,11 @@ const getProducts = async (req, res) => {
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Run both queries in parallel with timeout for better performance
+
         const [products, total] = await Promise.race([
             Promise.all([
                 Product.find(query, {
-                    // Only select necessary fields for performance
+
                     name: 1,
                     price: 1,
                     image: 1,
@@ -103,7 +102,7 @@ const getProducts = async (req, res) => {
                 Product.countDocuments(query)
             ]),
             new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Database query timeout')), 3000) // Reduced to 3 seconds for much faster feedback
+                setTimeout(() => reject(new Error('Database query timeout')), 3000)
             )
         ]);
 
@@ -115,13 +114,13 @@ const getProducts = async (req, res) => {
             total,
             totalPages: Math.ceil(total / parseInt(limit))
         };
-        // Skip Redis caching - return response directly from database
-        console.log('✅ Products fetched directly from database');
+
+        console.log(' Products fetched directly from database');
         res.json(response);
     } catch (err) {
         console.error('Error fetching products:', err);
 
-        // If it's a timeout error, try a simpler query
+
         if (err.message === 'Database query timeout') {
             console.log('Database timeout, trying simplified query...');
             try {
@@ -150,7 +149,7 @@ const getProducts = async (req, res) => {
                     totalPages: Math.ceil((total || 0) / 20)
                 };
 
-                console.log('✅ Fallback query successful, returning', products.length, 'products');
+                console.log(' Fallback query successful, returning', products.length, 'products');
                 return res.json(response);
             } catch (fallbackErr) {
                 console.error('Fallback query also failed:', fallbackErr);
@@ -232,7 +231,7 @@ const getFeaturedProducts = async (req, res) => {
         const { limit = 8 } = req.query;
 
         // Direct database queries - no Redis caching for maximum reliability
-        console.log('🔄 Fetching featured products directly from database');
+        console.log(' Fetching featured products directly from database');
         console.log('Querying database for featured products...');
 
         // Optimized query with selected fields only - add timeout protection
@@ -301,7 +300,7 @@ const getFeaturedProducts = async (req, res) => {
         const response = { products: formattedProducts };
 
         // Skip Redis caching - return featured products directly from database
-        console.log('✅ Featured products fetched directly from database');
+        console.log(' Featured products fetched directly from database');
 
         res.json(response);
     } catch (err) {
@@ -324,13 +323,35 @@ const getFeaturedProducts = async (req, res) => {
                     )
                 ]);
 
-                console.log('✅ Fallback featured products query successful, returning', products.length, 'products');
+                console.log(' Fallback featured products query successful, returning', products.length, 'products');
 
-                const response = { products: products.map(productService.transformProduct) };
+                const response = {
+                    products: products.map(product => ({
+                        id: product._id,
+                        name: product.name,
+                        description: product.description,
+                        price: product.price,
+                        originalPrice: product.originalPrice,
+                        category: product.category?.name || product.category,
+                        brand: product.brand,
+                        countInStock: product.countInStock,
+                        image: product.image,
+                        images: product.images,
+                        isFeatured: product.isFeatured,
+                        featured: product.featured,
+                        discount: product.discount,
+                        rating: product.rating,
+                        numReviews: product.numReviews,
+                        isActive: product.isActive,
+                        sku: product.sku,
+                        createdAt: product.createdAt,
+                        updatedAt: product.updatedAt
+                    }))
+                };
                 return res.json(response);
             } catch (fallbackErr) {
                 console.error('Fallback featured products query also failed:', fallbackErr);
-                // Return empty array instead of error
+
                 return res.json({ products: [] });
             }
         }
@@ -339,7 +360,7 @@ const getFeaturedProducts = async (req, res) => {
     }
 };
 
-// Get product by ID
+
 const getProductById = async (req, res) => {
     try {
         const product = await Product.findOne({ _id: req.params.id, isActive: true }).populate('category');
@@ -351,14 +372,14 @@ const getProductById = async (req, res) => {
     }
 };
 
-// Create product (Admin only)
+
 const createProduct = async (req, res) => {
     try {
         let productData;
 
-        // Handle request body - check raw body first for text/plain content
+
         if (req.headers['content-type']?.includes('text/plain')) {
-            // For text/plain, the body might be a string that needs parsing
+
             if (typeof req.body === 'string' && req.body.trim()) {
                 try {
                     productData = JSON.parse(req.body);
@@ -373,7 +394,7 @@ const createProduct = async (req, res) => {
                     });
                 }
             } else {
-                // Empty or invalid text/plain body
+
                 return res.status(400).json({
                     success: false,
                     message: 'Empty request body',
@@ -381,10 +402,10 @@ const createProduct = async (req, res) => {
                 });
             }
         } else if (typeof req.body === 'object' && req.body !== null && Object.keys(req.body).length > 0) {
-            // Standard JSON body
+
             productData = req.body;
         } else {
-            // Fallback for other cases
+
             console.error('Unsupported request format:', {
                 contentType: req.headers['content-type'],
                 bodyType: typeof req.body,
@@ -399,7 +420,7 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // Validate required fields
+
         if (!productData.name || !productData.price || !productData.category) {
             return res.status(400).json({
                 success: false,
@@ -407,39 +428,39 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // Handle category - ensure it's a valid ObjectId from the dropdown
+
         let categoryId = productData.category;
-        console.log('🔄 Processing category input:', categoryId, typeof categoryId);
+        console.log(' Processing category input:', categoryId, typeof categoryId);
 
         if (typeof categoryId === 'string') {
-            console.log('🔍 Category is string, checking if ObjectId or name...');
+            console.log(' Category is string, checking if ObjectId or name...');
 
-            // First check if it's a valid ObjectId
+
             if (mongoose.Types.ObjectId.isValid(categoryId)) {
-                console.log('✅ Valid ObjectId format, looking up by ID...');
+                console.log(' Valid ObjectId format, looking up by ID...');
                 const category = await Category.findById(categoryId);
                 if (category) {
                     categoryId = category._id;
-                    console.log('✅ Category found by ID:', category.name);
+                    console.log(' Category found by ID:', category.name);
                 } else {
-                    console.log('❌ Category ID not found in database');
+                    console.log(' Category ID not found in database');
                     return res.status(400).json({
                         success: false,
                         message: `Category with ID "${categoryId}" does not exist. Please select a valid category from the dropdown.`
                     });
                 }
             } else {
-                // Try to find by name (case-insensitive)
-                console.log('🔍 Not a valid ObjectId, trying to find by name...');
+
+                console.log(' Not a valid ObjectId, trying to find by name...');
                 const category = await Category.findOne({
                     name: { $regex: new RegExp(`^${categoryId}$`, 'i') }
                 });
 
                 if (category) {
                     categoryId = category._id;
-                    console.log('✅ Category found by name:', category.name);
+                    console.log(' Category found by name:', category.name);
                 } else {
-                    console.log('❌ Category name not found in database');
+                    console.log(' Category name not found in database');
                     return res.status(400).json({
                         success: false,
                         message: `Category "${categoryId}" does not exist. Please select a valid category from the dropdown.`
@@ -447,11 +468,11 @@ const createProduct = async (req, res) => {
                 }
             }
         } else if (categoryId && typeof categoryId === 'object' && categoryId._id) {
-            // If it's already an object with _id, use the _id
+
             categoryId = categoryId._id;
-            console.log('✅ Category provided as object with _id');
+            console.log(' Category provided as object with _id');
         } else {
-            console.log('❌ Invalid category format provided');
+            console.log(' Invalid category format provided');
             return res.status(400).json({
                 success: false,
                 message: 'Category is required. Please select a category from the dropdown.'
@@ -462,104 +483,101 @@ const createProduct = async (req, res) => {
         let processedImages = [];
         let primaryImage = '';
 
-        console.log('🔍 Processing images for product:', productData.name);
-        console.log('📸 Raw image data:', { image: productData.image, images: productData.images });
+        console.log(' Processing images for product:', productData.name);
+        console.log(' Raw image data:', { image: productData.image, images: productData.images });
 
         if (productData.images && Array.isArray(productData.images)) {
             // Process images array - handle different formats
             processedImages = productData.images.map((img, index) => {
-                console.log(`🖼️ Processing image ${index}:`, img, typeof img);
+                console.log(`️ Processing image ${index}:`, img, typeof img);
 
                 if (typeof img === 'string') {
                     // If it's a string, it could be a URL or file path
                     if (img.startsWith('http://') || img.startsWith('https://')) {
-                        console.log(`✅ Image ${index} is already a full URL`);
+                        console.log(` Image ${index} is already a full URL`);
                         return img;
                     } else if (img.startsWith('/uploads/') || img.startsWith('uploads/')) {
-                        // Convert relative upload paths to full URLs
+
                         const baseUrl = 'https://supplies-backend.onrender.com';
                         const fullUrl = img.startsWith('/') ? `${baseUrl}${img}` : `${baseUrl}/${img}`;
-                        console.log(`🔄 Converted upload path ${index}:`, img, '→', fullUrl);
+                        console.log(` Converted upload path ${index}:`, img, '→', fullUrl);
                         return fullUrl;
                     } else if (img.startsWith('data:')) {
-                        // Handle base64 data URLs
-                        console.log(`📷 Image ${index} is base64 data URL`);
+
+                        console.log(` Image ${index} is base64 data URL`);
                         return img;
                     } else {
-                        // Assume it's a filename that needs full URL construction
-                        const baseUrl = 'https://supplies-backend.onrender.com/uploads';
+
+                        const baseUrl = 'https://supplies-backend.onrender.com';
                         const fullUrl = `${baseUrl}/${img}`;
-                        console.log(`🔄 Constructed URL for ${index}:`, img, '→', fullUrl);
+                        console.log(` Constructed URL for ${index}:`, img, '→', fullUrl);
                         return fullUrl;
                     }
                 } else if (typeof img === 'object' && img !== null) {
                     // Handle object format { url: string, alt?: string }
                     if (img.url) {
                         if (img.url.startsWith('http://') || img.url.startsWith('https://')) {
-                            console.log(`✅ Image ${index} object has full URL`);
+                            console.log(` Image ${index} object has full URL`);
                             return img.url;
                         } else if (img.url.startsWith('/uploads/') || img.url.startsWith('uploads/')) {
                             const baseUrl = 'https://supplies-backend.onrender.com';
                             const fullUrl = img.url.startsWith('/') ? `${baseUrl}${img.url}` : `${baseUrl}/${img.url}`;
-                            console.log(`🔄 Converted object upload path ${index}:`, img.url, '→', fullUrl);
+                            console.log(` Converted object upload path ${index}:`, img.url, '→', fullUrl);
                             return fullUrl;
                         } else {
-                            const baseUrl = 'https://supplies-backend.onrender.com/uploads';
+                            const baseUrl = 'https://supplies-backend.onrender.com';
                             const fullUrl = `${baseUrl}/${img.url}`;
-                            console.log(`🔄 Constructed object URL for ${index}:`, img.url, '→', fullUrl);
+                            console.log(` Constructed object URL for ${index}:`, img.url, '→', fullUrl);
                             return fullUrl;
                         }
                     }
                 }
+            }).filter(img => img !== null);
 
-                console.log(`⚠️ Unrecognized image format ${index}, skipping`);
-                return null;
-            }).filter(img => img !== null); // Remove null entries
+            console.log(' Processed images array:', processedImages);
 
-            console.log('📸 Processed images array:', processedImages);
 
-            // Set primary image from first processed image
-            if (processedImages.length > 0) {
-                primaryImage = processedImages[0];
-                console.log('🏷️ Set primary image from array:', primaryImage);
-            }
         }
 
-        // Handle single image field as fallback
+        if (processedImages.length > 0) {
+            primaryImage = processedImages[0];
+            console.log('️ Set primary image from array:', primaryImage);
+        }
+
         if (!primaryImage && productData.image) {
-            console.log('🔄 Processing single image field:', productData.image);
+            console.log(' Processing single image field:', productData.image);
 
             if (productData.image.startsWith('http://') || productData.image.startsWith('https://')) {
                 primaryImage = productData.image;
-                console.log('✅ Single image is already full URL');
+                console.log(' Single image is already full URL');
             } else if (productData.image.startsWith('/uploads/') || productData.image.startsWith('uploads/')) {
                 const baseUrl = 'https://supplies-backend.onrender.com';
                 primaryImage = productData.image.startsWith('/') ? `${baseUrl}${productData.image}` : `${baseUrl}/${productData.image}`;
-                console.log('🔄 Converted single image upload path:', productData.image, '→', primaryImage);
+                console.log(' Converted single image upload path:', productData.image, '→', primaryImage);
             } else if (productData.image.startsWith('data:')) {
                 primaryImage = productData.image;
-                console.log('📷 Single image is base64 data URL');
+                console.log(' Single image is base64 data URL');
             } else {
-                const baseUrl = 'https://supplies-backend.onrender.com/uploads';
+                const baseUrl = 'https://supplies-backend.onrender.com';
                 primaryImage = `${baseUrl}/${productData.image}`;
-                console.log('🔄 Constructed single image URL:', productData.image, '→', primaryImage);
+                console.log(' Constructed single image URL:', productData.image, '→', primaryImage);
             }
 
             // Add to processed images if not already there
             if (primaryImage && !processedImages.includes(primaryImage)) {
                 processedImages.unshift(primaryImage);
-                console.log('📸 Added primary image to processed images array');
+                console.log(' Added primary image to processed images array');
             }
         }
 
         // Ensure we have at least a placeholder if no images
         if (!primaryImage) {
-            primaryImage = 'https://via.placeholder.com/400x400?text=No+Image';
+            primaryImage = 'https://supplies-backend.onrender.com/uploads/placeholder.jpg';
             processedImages = [primaryImage];
-            console.log('⚠️ No images provided, using placeholder');
+            console.log('️ No images provided, using placeholder');
         }
 
-        console.log('✅ Final image processing result:', {
+        console.log(' Final image processing result:', {
             primaryImage,
             imagesCount: processedImages.length,
             images: processedImages
@@ -585,10 +603,10 @@ const createProduct = async (req, res) => {
 
         await product.save();
 
-        // Populate category for response
+
         await product.populate('category');
 
-        // Create admin notification for successful product creation
+
         try {
             const { createAdminNotification } = await import('../../controllers/adminNotificationController.js');
             await createAdminNotification(
@@ -599,10 +617,10 @@ const createProduct = async (req, res) => {
             );
         } catch (notificationError) {
             console.warn('Failed to create admin notification for product creation:', notificationError);
-            // Don't fail the product creation if notification fails
+
         }
 
-        console.log('✅ Product created successfully:', {
+        console.log(' Product created successfully:', {
             id: product._id,
             name: product.name,
             category: product.category?.name || product.category,
@@ -651,13 +669,13 @@ const createProduct = async (req, res) => {
     }
 };
 
-// Update product (Admin only)
+
 const updateProduct = async (req, res) => {
     try {
         const productId = req.params.id;
         const updates = req.body;
 
-        // Handle category update - if it's a string, find the category ObjectId
+
         if (updates.category && typeof updates.category === 'string') {
             // First check if it's a valid ObjectId
             if (mongoose.Types.ObjectId.isValid(updates.category)) {
@@ -671,7 +689,7 @@ const updateProduct = async (req, res) => {
                     });
                 }
             } else {
-                // If not a valid ObjectId, treat as category name and find existing category
+
                 const category = await Category.findOne({ name: updates.category });
                 if (category) {
                     updates.category = category._id;
@@ -684,7 +702,7 @@ const updateProduct = async (req, res) => {
             }
         }
 
-        // Handle images array - convert string URLs to objects if needed
+
         if (updates.images && Array.isArray(updates.images)) {
             updates.images = updates.images.map(img => {
                 if (typeof img === 'string') {
@@ -718,19 +736,19 @@ const updateProduct = async (req, res) => {
     }
 };
 
-// Delete product (Admin only) - PERMANENT DELETE
+
 const deleteProduct = async (req, res) => {
     try {
         const productId = req.params.id;
         console.log('Permanently deleting product with ID:', productId);
 
-        // Check if product exists
+
         const product = await Product.findById(productId);
         if (!product) {
             return res.status(404).json({ message: 'Product not found' });
         }
 
-        // Check if product is referenced in any orders
+
         const orderCount = await Order.countDocuments({
             'items.productId': productId
         });
@@ -742,13 +760,13 @@ const deleteProduct = async (req, res) => {
             });
         }
 
-        // Check if product is in any carts
+
         const cartCount = await Cart.countDocuments({
             'items.productId': productId
         });
 
         if (cartCount > 0) {
-            // Remove product from all carts
+
             await Cart.updateMany(
                 { 'items.productId': productId },
                 { $pull: { items: { productId: productId } } }
@@ -756,13 +774,13 @@ const deleteProduct = async (req, res) => {
             console.log(`Removed product from ${cartCount} cart(s)`);
         }
 
-        // Check if product is in any wishlists
+
         const wishlistCount = await Wishlist.countDocuments({
             products: productId
         });
 
         if (wishlistCount > 0) {
-            // Remove product from all wishlists
+
             await Wishlist.updateMany(
                 { products: productId },
                 { $pull: { products: productId } }
@@ -770,7 +788,7 @@ const deleteProduct = async (req, res) => {
             console.log(`Removed product from ${wishlistCount} wishlist(s)`);
         }
 
-        // PERMANENT DELETE - Remove from database completely
+
         await Product.findByIdAndDelete(productId);
 
         console.log('Product permanently deleted from database and cleaned up from all references');
@@ -791,21 +809,21 @@ const deleteProduct = async (req, res) => {
     }
 };
 
-// Get all products for admin (no pagination, all fields)
+
 const getAllProducts = async (req, res) => {
     try {
         console.log('getAllProducts called for admin');
 
-        // Check if MongoDB is connected
+
         if (mongoose.connection.readyState !== 1) {
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
         }
 
-        // Admin should see all products, including inactive ones
-        // Use mongoose with validation disabled to handle mixed category types
+
+
         console.log('getAllProducts called for admin - checking database connection');
 
-        // Check if MongoDB is connected
+
         if (mongoose.connection.readyState !== 1) {
             console.log('MongoDB not connected, attempting to connect...');
             return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
@@ -824,7 +842,7 @@ const getAllProducts = async (req, res) => {
             categoryName: p.category?.name
         })));
 
-        // Format products for admin view
+
         const formattedProducts = products.map(product => ({
             id: product._id,
             name: product.name,
@@ -834,6 +852,7 @@ const getAllProducts = async (req, res) => {
             category: product.category?.name || product.category,
             brand: product.brand,
             countInStock: product.countInStock,
+            inStock: product.countInStock > 0,
             image: product.image,
             images: product.images,
             isFeatured: product.isFeatured,
@@ -859,7 +878,7 @@ const getAllProducts = async (req, res) => {
         console.error('Error details:', err.message);
         console.error('MongoDB connection state:', mongoose.connection.readyState);
 
-        // If that fails, try raw MongoDB query
+
         try {
             const db = mongoose.connection.db;
             const productsCollection = db.collection('products');
@@ -876,6 +895,7 @@ const getAllProducts = async (req, res) => {
                 category: product.category || 'Uncategorized',
                 brand: product.brand,
                 countInStock: product.countInStock,
+                inStock: product.countInStock > 0,
                 image: product.image,
                 images: product.images,
                 isFeatured: product.isFeatured,

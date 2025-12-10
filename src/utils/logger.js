@@ -1,7 +1,7 @@
 const pino = require('pino');
 const pinoHttp = require('pino-http');
 
-// Create logger instance
+
 const logger = pino({
     level: process.env.LOG_LEVEL || 'info',
     transport: process.env.NODE_ENV ? {
@@ -21,7 +21,7 @@ const logger = pino({
     redact: ['req.headers.authorization', 'password', 'token']
 });
 
-// HTTP request logger
+
 const httpLogger = pinoHttp({
     logger,
     serializers: {
@@ -48,7 +48,7 @@ const httpLogger = pinoHttp({
     }
 });
 
-// Security event logger
+
 const logSecurityEvent = (event, details, req) => {
     logger.warn({
         type: 'SECURITY_EVENT',
@@ -62,7 +62,7 @@ const logSecurityEvent = (event, details, req) => {
     });
 };
 
-// Business event logger
+
 const logBusinessEvent = (event, details, userId) => {
     logger.info({
         type: 'BUSINESS_EVENT',
@@ -72,7 +72,7 @@ const logBusinessEvent = (event, details, userId) => {
     });
 };
 
-// Error logger with context
+
 const logError = (error, context = {}) => {
     logger.error({
         type: 'APPLICATION_ERROR',

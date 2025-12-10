@@ -1,8 +1,3 @@
-/**
- * Production-grade security middleware
- * Enhanced security measures for production deployment
- */
-
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
@@ -12,7 +7,7 @@ const compression = require('compression');
 const validator = require('validator');
 const config = require('../config/environment');
 
-// Enhanced rate limiting configuration
+
 const createRateLimiter = (windowMs, max, message, options = {}) => {
     return rateLimit({
         windowMs,
@@ -40,15 +35,15 @@ const createRateLimiter = (windowMs, max, message, options = {}) => {
     });
 };
 
-// Different rate limits for different endpoints
-const generalLimiter = createRateLimiter(15 * 60 * 1000, 100); // 100 requests per 15 minutes
-const authLimiter = createRateLimiter(15 * 60 * 1000, 5); // 5 login attempts per 15 minutes
-const paymentLimiter = createRateLimiter(60 * 1000, 3); // 3 payment attempts per minute
-const apiLimiter = createRateLimiter(1 * 60 * 1000, 60); // 60 API calls per minute
 
-// Security middleware setup
+const generalLimiter = createRateLimiter(15 * 60 * 1000, 100);
+const authLimiter = createRateLimiter(15 * 60 * 1000, 5);
+const paymentLimiter = createRateLimiter(60 * 1000, 3);
+const apiLimiter = createRateLimiter(1 * 60 * 1000, 60);
+
+
 const setupSecurity = (app) => {
-    // Basic security headers
+
     app.use(helmet({
         contentSecurityPolicy: {
             directives: {
@@ -63,13 +58,13 @@ const setupSecurity = (app) => {
         crossOriginEmbedderPolicy: false
     }));
 
-    // Data sanitization against NoSQL query injection
+
     app.use(mongoSanitize());
 
-    // Data sanitization against XSS attacks
+
     app.use(xss());
 
-    // Apply rate limiting
+
     app.use('/api/v1/auth/login', authLimiter);
     app.use('/api/v1/auth/register', authLimiter);
     app.use('/api/v1/payment/', paymentLimiter);
@@ -77,11 +72,9 @@ const setupSecurity = (app) => {
     app.use(generalLimiter);
 };
 
-// Enhanced input validation middleware
+
 const validateInput = {
-    /**
-     * Validate email format
-     */
+
     email: (req, res, next) => {
         const { email } = req.body;
         if (email && !validator.isEmail(email)) {
@@ -93,9 +86,7 @@ const validateInput = {
         next();
     },
 
-    /**
-     * Validate phone number format
-     */
+
     phone: (req, res, next) => {
         const { phone } = req.body;
         if (phone && !validator.isMobilePhone(phone, 'any', { strictMode: false })) {
@@ -107,9 +98,7 @@ const validateInput = {
         next();
     },
 
-    /**
-     * Validate password strength
-     */
+
     password: (req, res, next) => {
         const { password } = req.body;
         if (password) {
@@ -129,9 +118,7 @@ const validateInput = {
         next();
     },
 
-    /**
-     * Validate MongoDB ObjectId format
-     */
+
     objectId: (paramName) => (req, res, next) => {
         const id = req.params[paramName] || req.body[paramName];
         if (id && !validator.isMongoId(id)) {
@@ -143,9 +130,7 @@ const validateInput = {
         next();
     },
 
-    /**
-     * Validate amount format for payments
-     */
+
     amount: (req, res, next) => {
         const { amount } = req.body;
         if (amount !== undefined) {
@@ -161,32 +146,32 @@ const validateInput = {
     }
 };
 
-// Error handling middleware
+
 const errorHandler = (err, req, res, next) => {
     console.error('Error Stack:', err.stack);
 
     let error = { ...err };
     error.message = err.message;
 
-    // Mongoose bad ObjectId
+
     if (err.name === 'CastError') {
         const message = 'Resource not found';
         error = { message, statusCode: 404 };
     }
 
-    // Mongoose duplicate key
+
     if (err.code === 11000) {
         const message = 'Duplicate field value entered';
         error = { message, statusCode: 400 };
     }
 
-    // Mongoose validation error
+
     if (err.name === 'ValidationError') {
         const message = Object.values(err.errors).map(val => val.message);
         error = { message: message.join(', '), statusCode: 400 };
     }
 
-    // JWT errors
+
     if (err.name === 'JsonWebTokenError') {
         const message = 'Invalid token';
         error = { message, statusCode: 401 };
@@ -204,7 +189,7 @@ const errorHandler = (err, req, res, next) => {
     });
 };
 
-// 404 handler
+
 const notFound = (req, res, next) => {
     const error = new Error(`Route not found - ${req.originalUrl}`);
     res.status(404);

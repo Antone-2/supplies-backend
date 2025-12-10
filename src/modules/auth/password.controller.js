@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import User from '../../../Database/models/user.model.js';
 import * as emailService from '../../services/emailService.js';
 
-// POST /api/v1/auth/forgot-password
+
 export async function forgotPassword(req, res) {
     try {
         const { email } = req.body;
@@ -12,13 +12,13 @@ export async function forgotPassword(req, res) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Generate reset token
+
         const resetToken = crypto.randomBytes(32).toString('hex');
         user.resetPasswordToken = resetToken;
-        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+        user.resetPasswordExpires = Date.now() + 3600000;
         await user.save();
 
-        // Send reset email - use admin reset URL for admin users
+
         const resetPath = (user.role === 'admin' || user.role === 'super_admin') ? '/admin/reset-password' : '/reset-password';
         const resetUrl = `${process.env.FRONTEND_URL}${resetPath}?token=${resetToken}`;
         const logoUrl = process.env.LOGO_URL;
@@ -45,7 +45,7 @@ export async function forgotPassword(req, res) {
     }
 }
 
-// POST /api/v1/auth/reset-password
+
 export async function resetPassword(req, res) {
     try {
         const { token, newPassword } = req.body;
@@ -62,7 +62,7 @@ export async function resetPassword(req, res) {
             return res.status(400).json({ message: 'Invalid or expired token' });
         }
 
-        // Hash new password
+
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         user.password = hashedPassword;
         user.resetPasswordToken = undefined;

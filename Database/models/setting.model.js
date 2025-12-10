@@ -24,7 +24,7 @@ const settingSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Index for efficient lookups
+
 settingSchema.index({ key: 1 });
 
 const Setting = mongoose.model('Setting', settingSchema);

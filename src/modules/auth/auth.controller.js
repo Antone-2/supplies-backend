@@ -44,14 +44,14 @@ const register = async function register(req, res) {
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 6 * 60 * 60 * 1000, 
+            maxAge: 6 * 60 * 60 * 1000,
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
 
         res.status(201).json({
             message: 'Registration successful! You are now logged in. Please check your email to verify your account.',
-            token: token, 
+            token: token,
             user: {
                 id: user._id,
                 email: user.email,
@@ -63,7 +63,7 @@ const register = async function register(req, res) {
         });
     } catch (err) {
         console.log('Registration error:', err);
-        // Handle duplicate email error
+
         if (err.code === 11000 && err.keyValue && err.keyValue.email) {
             return res.status(400).json({ message: 'Email already exists. Please use a different email or log in.' });
         }
@@ -71,7 +71,7 @@ const register = async function register(req, res) {
     }
 };
 
-// Email verification endpoint (moved out of register)
+
 const verifyEmail = async function verifyEmail(req, res) {
     try {
         const { token } = req.query;
@@ -91,7 +91,7 @@ const verifyEmail = async function verifyEmail(req, res) {
         res.redirect(`${process.env.FRONTEND_URL}/account-verified?error=server_error`);
     }
 };
-// Email verification endpoint
+
 
 const login = async function login(req, res) {
     try {
@@ -109,26 +109,26 @@ const login = async function login(req, res) {
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
         const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        // Set HTTP-only cookies
+
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 6 * 60 * 60 * 1000, // 6 hours
+            maxAge: 6 * 60 * 60 * 1000,
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            maxAge: 7 * 24 * 60 * 60 * 1000,
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
 
         res.json({
-            token: token, // Include token in response for localStorage backup
-            refreshToken: refreshToken, // Include refresh token for localStorage backup
+            token: token,
+            refreshToken: refreshToken,
             user: {
                 id: user._id,
                 email: user.email,
@@ -144,26 +144,26 @@ const login = async function login(req, res) {
 };
 
 const logout = async function logout(req, res) {
-    // Clear the token cookie
+
     res.clearCookie('token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
-        domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+        domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
     });
     res.json({ message: 'Logged out successfully' });
 };
 
 const me = async function me(req, res) {
     try {
-        // Check for token in multiple places for cross-domain compatibility
+
         let token = req.cookies.token;
 
-        // If no cookie token, check Authorization header
+
         if (!token && req.headers.authorization) {
             const authHeader = req.headers.authorization;
             if (authHeader.startsWith('Bearer ')) {
-                token = authHeader.substring(7); // Remove 'Bearer ' prefix
+                token = authHeader.substring(7);
             }
         }
 
@@ -193,18 +193,18 @@ const me = async function me(req, res) {
 
 const refreshToken = async function refreshToken(req, res) {
     try {
-        // Get refresh token from cookie, Authorization header, or request body
+
         let refreshToken = req.cookies.refreshToken;
 
-        // If no cookie refresh token, check Authorization header
+
         if (!refreshToken && req.headers.authorization) {
             const authHeader = req.headers.authorization;
             if (authHeader.startsWith('Bearer ')) {
-                refreshToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+                refreshToken = authHeader.substring(7);
             }
         }
 
-        // If still no refresh token, check request body (for admin refresh)
+
         if (!refreshToken && req.body.refreshToken) {
             refreshToken = req.body.refreshToken;
         }
@@ -213,7 +213,7 @@ const refreshToken = async function refreshToken(req, res) {
             return res.status(401).json({ message: 'Refresh token missing' });
         }
 
-        // Verify refresh token
+
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
         const user = await User.findById(decoded.id).select('-password');
 
@@ -221,35 +221,35 @@ const refreshToken = async function refreshToken(req, res) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Check if user has admin role for admin routes
+
         if (req.originalUrl.includes('/admin/') && user.role !== 'admin' && user.role !== 'super_admin') {
             return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
         }
 
-        // Generate new tokens
+
         const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '6h' });
         const newRefreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        // Set new cookies
+
         res.cookie('token', newToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 6 * 60 * 60 * 1000, // 6 hours
+            maxAge: 6 * 60 * 60 * 1000,
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
 
         res.cookie('refreshToken', newRefreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            maxAge: 7 * 24 * 60 * 60 * 1000,
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
 
         res.json({
-            token: newToken, // Include in response for localStorage backup
-            refreshToken: newRefreshToken, // Include in response for localStorage backup
+            token: newToken,
+            refreshToken: newRefreshToken,
             user: {
                 id: user._id,
                 email: user.email,
@@ -261,18 +261,18 @@ const refreshToken = async function refreshToken(req, res) {
         });
     } catch (err) {
         console.error('Refresh token error:', err);
-        // Clear cookies on refresh failure
+
         res.clearCookie('token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
         res.clearCookie('refreshToken', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.medhelmsupplies.co.ke' : undefined
+            domain: process.env.NODE_ENV === 'production' ? '.Medhelmsupplies.co.ke' : undefined
         });
         res.status(500).json({ message: 'Failed to refresh token' });
     }
@@ -286,13 +286,13 @@ const forgotPassword = async function forgotPassword(req, res) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Generate reset token
+
         const resetToken = crypto.randomBytes(32).toString('hex');
         user.resetPasswordToken = resetToken;
-        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+        user.resetPasswordExpires = Date.now() + 3600000;
         await user.save();
 
-        // Send reset email
+
         const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
         const logoUrl = process.env.LOGO_URL;
         const html = `
@@ -333,7 +333,7 @@ const resetPassword = async function resetPassword(req, res) {
             return res.status(400).json({ message: 'Invalid or expired token' });
         }
 
-        // Hash new password
+
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         user.password = hashedPassword;
         user.resetPasswordToken = undefined;

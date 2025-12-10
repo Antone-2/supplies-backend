@@ -47,7 +47,7 @@ export const deleteNotification = async (req, res) => {
     }
 };
 
-// Internal function for creating notifications programmatically
+
 export const createAdminNotification = async (type, message, title, priority = 'medium') => {
     try {
         const notification = new AdminNotification({

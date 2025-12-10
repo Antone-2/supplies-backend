@@ -1,11 +1,11 @@
 const AdminAudit = require('../../Database/models/adminAudit.model');
 
-// Log an admin action
+
 exports.logAction = async (adminId, action, details = {}) => {
     await AdminAudit.create({ admin: adminId, action, details });
 };
 
-// Get audit log (paginated)
+
 exports.getAuditLog = async (req, res) => {
     const { page = 1, limit = 50 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);

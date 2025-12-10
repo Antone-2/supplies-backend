@@ -1,8 +1,7 @@
-// Comprehensive notification service for Medhelm Supplies
 import Notification from '../../Database/models/notification.model.js';
 import { sendEmail, getEmailTemplate } from './emailService.js';
 
-// Create in-app notification
+
 const createNotification = async (userId, title, message, type = 'general', data = {}, priority = 'medium') => {
     try {
         const notification = new Notification({
@@ -22,7 +21,7 @@ const createNotification = async (userId, title, message, type = 'general', data
     }
 };
 
-// Get user notifications
+
 const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = false) => {
     try {
         const query = { user: userId };
@@ -53,7 +52,7 @@ const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = f
     }
 };
 
-// Mark notification as read
+
 const markAsRead = async (notificationId, userId) => {
     try {
         const notification = await Notification.findOneAndUpdate(
@@ -68,7 +67,7 @@ const markAsRead = async (notificationId, userId) => {
     }
 };
 
-// Mark all notifications as read
+
 const markAllAsRead = async (userId) => {
     try {
         const result = await Notification.updateMany(
@@ -82,11 +81,11 @@ const markAllAsRead = async (userId) => {
     }
 };
 
-// Send order-related notifications
+
 const notifyOrderCreated = async (userId, email, orderData) => {
     const { orderId, totalAmount } = orderData;
 
-    // In-app notification
+
     if (userId) {
         await createNotification(
             userId,
@@ -98,7 +97,7 @@ const notifyOrderCreated = async (userId, email, orderData) => {
         );
     }
 
-    // Email notification (already handled in order controller)
+
     console.log(`Order confirmation sent for ${orderId}`);
 };
 
@@ -130,7 +129,7 @@ const notifyOrderStatusChange = async (userId, email, orderData) => {
             message = `Your order ${orderId} status has been updated to ${status}.`;
     }
 
-    // In-app notification
+
     if (userId) {
         await createNotification(
             userId,
@@ -142,7 +141,7 @@ const notifyOrderStatusChange = async (userId, email, orderData) => {
         );
     }
 
-    // Email notification for important status changes
+
     if (status === 'delivered' && email) {
         try {
             const content = `
@@ -161,7 +160,7 @@ const notifyOrderStatusChange = async (userId, email, orderData) => {
     }
 };
 
-// Send promotional notifications
+
 const sendPromotionalNotification = async (userIds, title, message, data = {}) => {
     try {
         const notifications = userIds.map(userId => ({
@@ -181,7 +180,7 @@ const sendPromotionalNotification = async (userIds, title, message, data = {}) =
     }
 };
 
-// Clean up old notifications
+
 const cleanupOldNotifications = async () => {
     try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -198,7 +197,7 @@ const cleanupOldNotifications = async () => {
     }
 };
 
-// System health notifications for admins
+
 const notifySystemIssue = async (adminUserIds, title, message, priority = 'urgent') => {
     try {
         const notifications = adminUserIds.map(userId => ({

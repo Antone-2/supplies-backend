@@ -1,4 +1,3 @@
-// newsletterController.js
 import Newsletter from '../../Database/models/newsletter.model.js';
 import { sendEmail } from '../services/emailService.js';
 
@@ -18,7 +17,7 @@ const subscribe = async (req, res) => {
         } else {
             subscriber = await Newsletter.create({ email });
         }
-        // Send welcome email (non-blocking)
+
         const logoUrl = process.env.LOGO_URL;
         const welcomeHtml = `
             <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; border: 1px solid #eee; border-radius: 8px; padding: 24px;">
@@ -53,7 +52,7 @@ const unsubscribe = async (req, res) => {
         subscriber.subscribed = false;
         subscriber.unsubscribedAt = new Date();
         await subscriber.save();
-        // Send goodbye email
+
         const logoUrl = process.env.LOGO_URL;
         const goodbyeHtml = `
             <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; border: 1px solid #eee; border-radius: 8px; padding: 24px;">

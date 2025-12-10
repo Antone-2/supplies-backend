@@ -1,7 +1,7 @@
 const Sentry = require('@sentry/node');
 const { nodeProfilingIntegration } = require('@sentry/profiling-node');
 
-// Initialize Sentry
+
 const initSentry = () => {
     if (process.env.SENTRY_DSN && process.env.NODE_ENV) {
         Sentry.init({
@@ -10,12 +10,12 @@ const initSentry = () => {
             integrations: [
                 nodeProfilingIntegration(),
             ],
-            // Performance Monitoring
+
             tracesSampleRate: 1.0,
-            // Profiling
+
             profilesSampleRate: 1.0,
             beforeSend(event) {
-                // Filter out sensitive information
+
                 if (event.request) {
                     delete event.request.cookies;
                     if (event.request.headers) {
@@ -33,11 +33,11 @@ const initSentry = () => {
     }
 };
 
-// Capture exception with context
+
 const captureException = (error, context = {}) => {
     if (process.env.SENTRY_DSN) {
         Sentry.withScope(scope => {
-            // Add context
+
             if (context.user) {
                 scope.setUser({ id: context.user.id, email: context.user.email });
             }
@@ -54,11 +54,11 @@ const captureException = (error, context = {}) => {
         });
     }
 
-    // Always log locally as well
+
     console.error('Error captured:', error.message, context);
 };
 
-// Capture custom message
+
 const captureMessage = (message, level = 'info', context = {}) => {
     if (process.env.SENTRY_DSN) {
         Sentry.withScope(scope => {
@@ -76,10 +76,10 @@ const captureMessage = (message, level = 'info', context = {}) => {
     }
 };
 
-// Express error handler for Sentry
+
 const sentryErrorHandler = Sentry.Handlers.errorHandler();
 
-// Express request handler for Sentry
+
 const sentryRequestHandler = Sentry.Handlers.requestHandler();
 
 module.exports = {

@@ -25,11 +25,11 @@ import notificationRoutes from './notificationRoutes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Multer setup for product image uploads
+
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadPath = path.join(__dirname, '../../uploads');
-        // Ensure uploads directory exists
+
         fs.mkdirSync(uploadPath, { recursive: true });
         cb(null, uploadPath);
     },
@@ -42,11 +42,11 @@ const upload = multer({ storage });
 
 const router = express.Router();
 
-// Apply admin middleware to all routes
+
 router.use(jwtAuthMiddleware);
 router.use(admin);
 
-// User management with enhanced actions
+
 router.get('/users', getUsers);
 router.post('/users', createUser);
 router.put('/users/:id', updateUser);
@@ -54,7 +54,7 @@ router.delete('/users/:id', deleteUser);
 router.delete('/users/bulk', bulkDeleteUsers);
 router.put('/users/bulk', bulkUpdateUsers);
 
-// Additional user management actions
+
 router.post('/users/:id/activate', async (req, res) => {
     try {
         const { id } = req.params;
@@ -113,7 +113,7 @@ router.post('/users/:id/reset-password', async (req, res) => {
     }
 });
 
-// Order management
+
 router.get('/orders', orderController.getAllOrders);
 router.put('/orders/:id', orderController.updateOrder);
 router.delete('/orders/:id', orderController.deleteOrder);
@@ -121,21 +121,21 @@ router.post('/orders/:id/notes', orderController.addOrderNote);
 router.delete('/orders/bulk', orderController.bulkDeleteOrders);
 router.put('/orders/bulk', orderController.bulkUpdateOrders);
 
-// Payment status refresh endpoints
+
 router.post('/orders/:id/refresh-payment-status', orderController.refreshPaymentStatus);
 router.post('/orders/refresh-payment-status/bulk', orderController.bulkRefreshPaymentStatus);
 
-// Individual order actions
+
 router.put('/orders/:id/status', orderController.updateOrderStatus);
 
-// Order processing workflow endpoints
+
 router.post('/orders/:id/process', orderController.processOrder);
 router.post('/orders/:id/fulfill', orderController.fulfillOrder);
 router.post('/orders/:id/ship', orderController.shipOrder);
 router.post('/orders/:id/deliver', orderController.deliverOrder);
 router.post('/orders/:id/cancel', orderController.cancelOrder);
 
-// Additional order workflow actions for frontend action icons
+
 router.post('/orders/:id/ready', async (req, res) => {
     try {
         const { id } = req.params;
@@ -200,7 +200,7 @@ router.post('/orders/:id/pickup', async (req, res) => {
     }
 });
 
-// Test endpoint for admin actions
+
 router.get('/test', (req, res) => {
     res.json({
         message: 'Admin API endpoints are working',
@@ -311,42 +311,42 @@ router.get('/test', (req, res) => {
     });
 });
 
-// Analytics
+
 router.get('/analytics', orderController.getOrderAnalytics);
 
-// Dashboard stats
+
 router.get('/dashboard/stats', orderController.getDashboardStats);
 
-// Payment status refresh endpoints
+
 router.post('/orders/:id/refresh-payment-status', orderController.refreshPaymentStatus);
 router.post('/orders/bulk-refresh-payment-status', orderController.bulkRefreshPaymentStatus);
 
-// Product management
+
 router.get('/products', getAllProducts);
 router.post('/products', createProduct);
 router.put('/products/:id', updateProduct);
 router.delete('/products/:id', deleteProduct);
 
-// Image upload endpoint
+
 router.post('/products/upload-image', upload.single('file'), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        // Return the uploaded file path - ensure it starts with /
+
         const imageUrl = `/uploads/${req.file.filename}`;
         console.log('Image uploaded successfully:', imageUrl);
         console.log('Full URL would be:', `${req.protocol}://${req.get('host')}${imageUrl}`);
 
-        // Return the full URL that the frontend can use directly
+
         const fullUrl = `${req.protocol}://${req.get('host')}${imageUrl}`;
         console.log('Returning full URL to frontend:', fullUrl);
 
         res.json({
-            imageUrl: fullUrl, // Use full URL as primary
+            imageUrl: fullUrl,
             fullUrl: fullUrl,
-            relativeUrl: imageUrl // Keep relative for reference
+            relativeUrl: imageUrl
         });
     } catch (error) {
         console.error('Image upload error:', error);
@@ -354,7 +354,7 @@ router.post('/products/upload-image', upload.single('file'), (req, res) => {
     }
 });
 
-// Test endpoint for debugging
+
 router.get('/products/test', (req, res) => {
     res.json({
         message: 'Products endpoint is working',
@@ -363,17 +363,17 @@ router.get('/products/test', (req, res) => {
     });
 });
 
-// Category management
+
 router.get('/categories', getCategoriesWithCounts);
 router.post('/categories', createCategory);
 router.put('/categories/:id', updateCategory);
 router.delete('/categories/:id', deleteCategory);
 
-// Settings management
+
 router.get('/settings', getSettings);
 router.put('/settings/:key', updateSetting);
 
-// Notification management
+
 router.use('/notifications', notificationRoutes);
 
 export default router;

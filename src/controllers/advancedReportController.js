@@ -2,7 +2,7 @@ const Order = require('../../Database/models/order.model');
 const User = require('../../Database/models/user.model');
 const Product = require('../../Database/models/product.model');
 
-// Get summary stats for dashboard
+
 exports.getSummary = async (req, res) => {
     try {
         const [totalOrders, totalProducts, totalUsers] = await Promise.all([
@@ -22,7 +22,7 @@ exports.getSummary = async (req, res) => {
     }
 };
 
-// Revenue by period
+
 exports.getRevenueByPeriod = async (req, res) => {
     const { start, end } = req.query;
     const match = {};
@@ -35,7 +35,7 @@ exports.getRevenueByPeriod = async (req, res) => {
     res.json({ revenue: agg[0]?.total || 0 });
 };
 
-// Top customers
+
 exports.getTopCustomers = async (req, res) => {
     const agg = await Order.aggregate([
         { $group: { _id: '$user', totalSpent: { $sum: '$total' }, orders: { $sum: 1 } } },
@@ -45,7 +45,7 @@ exports.getTopCustomers = async (req, res) => {
     res.json({ topCustomers: agg });
 };
 
-// Inventory alerts (low stock)
+
 exports.getInventoryAlerts = async (req, res) => {
     const lowStock = await Product.find({ countInStock: { $lt: 10 } });
     res.json({ lowStock });
