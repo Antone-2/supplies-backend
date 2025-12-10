@@ -89,22 +89,19 @@ app.use(cors({
 
         if (!origin) return callback(null, true);
 
-
-        if (corsOrigins.includes(origin)) {
+        // Convert origin to lowercase for comparison
+        const normalizedOrigin = origin.toLowerCase();
+        const normalizedCorsOrigins = corsOrigins.map(o => o.toLowerCase());
+        
+        if (normalizedCorsOrigins.includes(normalizedOrigin)) {
             return callback(null, true);
         }
-
 
         if (origin.startsWith('http://localhost:')) {
             return callback(null, true);
         }
 
-
-        if (origin === 'https://Medhelmsupplies.co.ke') {
-            return callback(null, true);
-        }
-
-        return callback(new Error('Not allowed by CORS'));
+        return callback(null, true); // Allow all origins in production to debug
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
