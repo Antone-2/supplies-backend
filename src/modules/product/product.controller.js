@@ -8,6 +8,13 @@ import Wishlist from '../../../Database/models/wishlist.model.js';
 const getProducts = async (req, res) => {
     try {
         console.log('getProducts called with query:', req.query);
+
+        // Check database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected, readyState:', mongoose.connection.readyState);
+            return res.status(503).json({ message: 'Database connection unavailable. Please try again later.' });
+        }
+
         const { page = 1, limit = 12, category, sortBy = 'name', sortOrder = 'asc', inStock, admin, showAll, includeInactive } = req.query;
 
         console.log(' Fetching products directly from database');
@@ -226,9 +233,9 @@ const getProductsByCategory = async (req, res) => {
 
 // Get featured products with caching and optimization
 const getFeaturedProducts = async (req, res) => {
+    const { limit = 8 } = req.query;
     try {
         console.log('getFeaturedProducts called with query:', req.query);
-        const { limit = 8 } = req.query;
 
         // Direct database queries - no Redis caching for maximum reliability
         console.log(' Fetching featured products directly from database');

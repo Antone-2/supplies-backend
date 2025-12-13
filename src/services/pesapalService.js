@@ -119,7 +119,15 @@ async function getIPNID(callbackUrl) {
 async function submitOrder(orderId, amount, description, callbackUrl, notificationId, email, phone) {
     try {
         const token = await getAccessToken();
-        const ipnId = '';
+
+        // Try to get IPN ID, but don't fail if it doesn't work
+        let ipnId = null;
+        try {
+            ipnId = await getIPNID(callbackUrl);
+            logger.info('IPN registered successfully:', ipnId);
+        } catch (ipnError) {
+            logger.warn('IPN registration failed, proceeding without IPN:', ipnError.message);
+        }
 
         const orderData = {
             id: orderId,
@@ -276,7 +284,20 @@ async function queryPaymentStatus(orderId) {
 
 async function initiatePesapalPayment(orderId, amount, phone, email, description = 'Order Payment') {
     const callbackUrl = config.PESAPAL.CALLBACK_URL;
-    return await submitOrder(orderId, amount, description, callbackUrl, null, email, phone);
+
+    try {
+        return await submitOrder(orderId, amount, description, callbackUrl, null, email, phone);
+    } catch (error) {
+        // Fallback for development when PesaPal is unavailable
+        if (process.env.NODE_ENV === 'development' && error.message.includes('PesaPal servers are currently unavailable')) {
+            console.log('Development mode: Using mock payment due to PesaPal unavailability');
+            return {
+                paymentUrl: `http://localhost:5173/payment-success?orderId=${orderId}&mock=true`,
+                orderTrackingId: `MOCK-${Date.now()}`
+            };
+        }
+        throw error;
+    }
 }
 
 export { initiatePesapalPayment, getAccessToken, getIPNID, submitOrder, getTransactionStatus, queryPaymentStatus };
