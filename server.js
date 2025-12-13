@@ -58,8 +58,8 @@ const corsOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',
 if (process.env.NODE_ENV === 'production') {
 
     const requiredOrigins = [
-        'https://Medhelmsupplies.co.ke',
-        'https://www.Medhelmsupplies.co.ke',
+        'https://medhelmsupplies.co.ke',
+        'https://www.medhelmsupplies.co.ke',
     ];
     requiredOrigins.forEach(origin => {
         if (!corsOrigins.includes(origin)) {
@@ -75,11 +75,11 @@ if (process.env.NODE_ENV !== 'production') {
 
 
 if (process.env.NODE_ENV === 'production') {
-    corsOrigins.push('https://admin.Medhelmsupplies.co.ke', 'http://admin.Medhelmsupplies.co.ke');
+    corsOrigins.push('https://admin.medhelmsupplies.co.ke', 'http://admin.medhelmsupplies.co.ke');
 }
 
 
-corsOrigins.push('https://Medhelmsupplies.co.ke');
+corsOrigins.push('https://www.medhelmsupplies.co.ke');
 
 
 console.log('CORS Origins configured:', corsOrigins);
@@ -100,7 +100,7 @@ app.use(cors({
         }
 
 
-        if (origin === 'https://Medhelmsupplies.co.ke') {
+        if (origin === 'https://medhelmsupplies.co.ke' || origin === 'https://www.medhelmsupplies.co.ke') {
             return callback(null, true);
         }
 
