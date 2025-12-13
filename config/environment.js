@@ -51,6 +51,7 @@ const config = {
     PESAPAL: {
         CONSUMER_KEY: process.env.PESAPAL_CONSUMER_KEY,
         CONSUMER_SECRET: process.env.PESAPAL_CONSUMER_SECRET,
+        IPN_ID: process.env.PESAPAL_IPN_ID,
         CALLBACK_URL: process.env.PESAPAL_CALLBACK_URL,
         REDIRECT_URL: process.env.PESAPAL_REDIRECT_URL,
         CANCEL_URL: process.env.PESAPAL_CANCEL_URL,

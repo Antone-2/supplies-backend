@@ -116,17 +116,23 @@ async function getIPNID(callbackUrl) {
     }
 }
 
-async function submitOrder(orderId, amount, description, callbackUrl, notificationId, email, phone) {
+async function submitOrder(orderId, amount, description, callbackUrl, email, phone) {
     try {
         const token = await getAccessToken();
 
-        // Try to get IPN ID, but don't fail if it doesn't work
-        let ipnId = null;
-        try {
-            ipnId = await getIPNID(callbackUrl);
-            logger.info('IPN registered successfully:', ipnId);
-        } catch (ipnError) {
-            logger.warn('IPN registration failed, proceeding without IPN:', ipnError.message);
+        // Use pre-configured IPN ID if available, otherwise try to register one
+        let ipnId = config.PESAPAL.IPN_ID || null;
+
+        if (!ipnId) {
+            try {
+                ipnId = await getIPNID(callbackUrl);
+                logger.info('IPN registered successfully:', ipnId);
+            } catch (ipnError) {
+                logger.warn('IPN registration failed, proceeding without IPN:', ipnError.message);
+                ipnId = null;
+            }
+        } else {
+            logger.info('Using pre-configured IPN ID:', ipnId);
         }
 
         const orderData = {
@@ -286,7 +292,7 @@ async function initiatePesapalPayment(orderId, amount, phone, email, description
     const callbackUrl = config.PESAPAL.CALLBACK_URL;
 
     try {
-        return await submitOrder(orderId, amount, description, callbackUrl, null, email, phone);
+        return await submitOrder(orderId, amount, description, callbackUrl, email, phone);
     } catch (error) {
         // Fallback for development when PesaPal is unavailable
         if (process.env.NODE_ENV === 'development' && error.message.includes('PesaPal servers are currently unavailable')) {
