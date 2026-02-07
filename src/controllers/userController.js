@@ -114,7 +114,7 @@ export async function request2FA(req, res) {
     await transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: user.email,
-        subject: 'Your Medhelm 2FA Code',
+        subject: 'Your Medhelm Supplies 2FA Code',
         html: `<p>Your verification code is <b>${otp}</b>. It expires in 10 minutes.</p>`
     });
     res.json({ message: 'OTP sent to email' });

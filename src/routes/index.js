@@ -26,5 +26,6 @@ router.use('/docs', require('./swaggerRoutes'));
 router.use('/general-reviews', require('./generalReviewRoutes'));
 router.use('/reviews', require('./reviewRoutes'));
 router.use('/newsletter', require('./newsletterRoutes'));
+router.use('/keep-alive', require('./keepAliveRoutes'));
 
 module.exports = router;

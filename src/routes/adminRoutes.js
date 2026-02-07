@@ -334,13 +334,15 @@ router.post('/products/upload-image', upload.single('file'), (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-
         const imageUrl = `/uploads/${req.file.filename}`;
         console.log('Image uploaded successfully:', imageUrl);
-        console.log('Full URL would be:', `${req.protocol}://${req.get('host')}${imageUrl}`);
 
+        // Use environment variable for production, or fall back to request headers
+        const host = process.env.API_HOST || req.get('x-forwarded-host') || req.get('host') || 'supplies-backend.onrender.com';
+        const protocol = req.get('x-forwarded-proto')?.split(',')[0].trim() || req.protocol || 'https';
 
-        const fullUrl = `${req.protocol}://${req.get('host')}${imageUrl}`;
+        // Construct the full URL
+        const fullUrl = `${protocol}://${host}${imageUrl}`;
         console.log('Returning full URL to frontend:', fullUrl);
 
         res.json({
