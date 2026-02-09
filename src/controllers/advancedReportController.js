@@ -1,6 +1,6 @@
-const Order = require('../../../Database/models/order.model');
-const User = require('../../../Database/models/user.model');
-const Product = require('../../../Database/models/product.model');
+const Order = require('../../Database/models/order.model');
+const User = require('../../Database/models/user.model');
+const Product = require('../../Database/models/product.model');
 
 
 exports.getSummary = async (req, res) => {

@@ -1,4 +1,4 @@
-const AdminAudit = require('../../../Database/models/adminAudit.model');
+const AdminAudit = require('../../Database/models/adminAudit.model');
 
 
 exports.logAction = async (adminId, action, details = {}) => {

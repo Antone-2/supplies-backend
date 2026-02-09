@@ -1,5 +1,5 @@
-const User = require('../../../Database/models/user.model');
-const Order = require('../../../Database/models/order.model');
+const User = require('../../Database/models/user.model');
+const Order = require('../../Database/models/order.model');
 
 exports.exportUserData = async (req, res) => {
     try {
