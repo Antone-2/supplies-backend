@@ -1,4 +1,4 @@
-import GeneralReview from '../../../Database/models/generalReview.model.js';
+import GeneralReview from '../../supplies-backend/Database/models/generalReview.model.js';
 import { sendEmail } from '../services/emailService.js';
 
 

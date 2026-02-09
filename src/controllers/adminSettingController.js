@@ -1,4 +1,4 @@
-import Setting from '../../../Database/models/setting.model.js';
+import Setting from '../../supplies-backend/Database/models/setting.model.js';
 
 export const getSettings = async (req, res) => {
     try {
