@@ -1,5 +1,5 @@
-import Category from '../../../supplies-backend/Database/models/category.model.js';
-import Product from '../../../supplies-backend/Database/models/product.model.js';
+import Category from '../../Database/models/category.model.js';
+import Product from '../../Database/models/product.model.js';
 
 
 const getCategoriesWithCounts = async (req, res) => {

@@ -1,6 +1,6 @@
-import Order from '../../supplies-backend/Database/models/order.model.js';
-import User from '../../supplies-backend/Database/models/user.model.js';
-import Product from '../../supplies-backend/Database/models/product.model.js';
+import Order from '../Database/models/order.model.js';
+import User from '../Database/models/user.model.js';
+import Product from '../Database/models/product.model.js';
 
 
 export async function getSalesSummary(req, res) {
