@@ -3,7 +3,7 @@ import * as generalReviewController from '../controllers/generalReviewController
 import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
 import jwt from 'jsonwebtoken';
 import config from '../../config/index.js';
-import User from '../../Database/models/user.model.js';
+import User from '../../../Database/models/user.model.js';
 
 const router = express.Router();
 
