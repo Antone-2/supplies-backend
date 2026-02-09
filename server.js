@@ -137,9 +137,10 @@ app.use(pinoHttp({ logger }));
 
 app.use('/uploads', express.static(resolve(__dirname, 'uploads'), {
     setHeaders: (res, path) => {
-        res.set('Access-Control-Allow-Origin', '*');
-        res.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-        res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.set('Access-Control-Allow-Origin', 'https://medhelmsupplies.co.ke');
+        res.set('Access-Control-Allow-Credentials', 'true');
+        res.set('Cross-Origin-Resource-Policy', 'same-origin');
+        res.set('Cross-Origin-Embedder-Policy', 'require-corp');
     }
 }));
 
@@ -157,6 +158,14 @@ import newsletterRoutes from './src/routes/newsletterRoutes.js';
 import pesapalRoutes from './src/routes/pesapalRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import adminAuthRoutes from './src/routes/adminAuthRoutes.js';
+import keepAliveRoutes from './src/routes/keepAliveRoutes.js';
+import invoiceRoutes from './src/routes/invoiceRoutes.js';
+import ipnRoutes from './src/routes/ipnRoutes.js';
+import refundRoutes from './src/routes/refundRoutes.js';
+import inventoryRoutes from './src/routes/inventoryRoutes.js';
+import reminderRoutes from './src/routes/reminderRoutes.js';
+import { startScheduler } from './src/utils/scheduler.js';
+
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/auth', passwordRoutes);
 app.use('/api/v1/products', productRoutes);
@@ -169,7 +178,13 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/general-reviews', generalReviewRoutes);
 app.use('/api/v1/newsletter', newsletterRoutes);
 app.use('/api/v1/pesapal', pesapalRoutes);
+app.use('/api/v1/invoices', invoiceRoutes);
+app.use('/api/v1/payments', ipnRoutes);
+app.use('/api/v1/refunds', refundRoutes);
+app.use('/api/v1/inventory', inventoryRoutes);
+app.use('/api/v1/reminders', reminderRoutes);
 app.use('/api/v1/admin/auth', adminAuthRoutes);
+app.use('/api/v1', keepAliveRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
 
@@ -208,6 +223,10 @@ let server;
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => {
         logger.info('Connected to MongoDB');
+
+        startScheduler();
+        logger.info('Cron scheduler started');
+
         const attemptListen = (attemptsLeft = 5) => {
             server = app.listen(PORT)
                 .once('listening', () => {

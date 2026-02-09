@@ -193,9 +193,13 @@ export async function getUsers(req, res) {
 
             const userOrders = await Order.find({ user: user._id });
             const totalOrders = userOrders.length;
-            const totalSpent = userOrders
-                .filter(order => order.paymentStatus === 'paid')
-                .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+            // Calculate total spent from ALL orders (regardless of payment status)
+            // This shows the actual amount spent by the customer
+            const totalSpent = userOrders.reduce((sum, order) => {
+                // Use grandTotal if available, otherwise use totalAmount
+                const amount = order.grandTotal || order.totalAmount || 0;
+                return sum + amount;
+            }, 0);
 
 
             const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
