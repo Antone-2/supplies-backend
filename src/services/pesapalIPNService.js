@@ -1,6 +1,6 @@
 import axios from 'axios';
 import mongoose from 'mongoose';
-import Order from '../../../Database/models/order.model.js';
+import Order from '../../Database/models/order.model.js';
 import { getTransactionStatus } from './pesapalService.js';
 import { notifyPaymentReceived, notifyOrderStatusChange } from './enhancedNotificationService.js';
 

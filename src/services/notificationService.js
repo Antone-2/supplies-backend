@@ -1,4 +1,4 @@
-import Notification from '../../../Database/models/notification.model.js';
+import Notification from '../../Database/models/notification.model.js';
 import { sendEmail, getEmailTemplate } from './emailService.js';
 
 
