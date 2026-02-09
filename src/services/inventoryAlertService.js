@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import Product from '../../Database/models/product.model.js';
-import User from '../../Database/models/user.model.js';
+import Product from '../../../supplies-backend/Database/models/product.model.js';
+import User from '../../../supplies-backend/Database/models/user.model.js';
 import { notifyLowStock } from './enhancedNotificationService.js';
 
 

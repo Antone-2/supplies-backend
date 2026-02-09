@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { initiatePesapalPayment, getAccessToken, getTransactionStatus } from '../../services/pesapalService.js';
-import Order from '../../Database/models/order.model.js';
+import Order from '../../../supplies-backend/Database/models/order.model.js';
 import { validatePesapalPayment } from './payment.validation.js';
 import { sendPaymentConfirmation } from '../../services/emailService.js';
 

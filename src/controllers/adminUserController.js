@@ -1,4 +1,4 @@
-const AdminUser = require('../../Database/models/adminUser.model');
+const AdminUser = require('../../../supplies-backend/Database/models/adminUser.model');
 
 exports.inviteAdmin = async (req, res) => {
     try {

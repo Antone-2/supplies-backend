@@ -1,5 +1,5 @@
-import Notification from '../../Database/models/notification.model.js';
-import User from '../../Database/models/user.model.js';
+import Notification from '../../../supplies-backend/Database/models/notification.model.js';
+import User from '../../../supplies-backend/Database/models/user.model.js';
 import { sendEmail, getEmailTemplate } from './emailService.js';
 import { sendSMS } from './smsService.js';
 

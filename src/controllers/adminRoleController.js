@@ -1,4 +1,4 @@
-const AdminRole = require('../../Database/models/adminRole.model');
+const AdminRole = require('../../../supplies-backend/Database/models/adminRole.model');
 
 exports.createRole = async (req, res) => {
     try {
