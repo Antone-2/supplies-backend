@@ -1,16 +1,12 @@
 import mongoose from 'mongoose';
-import Product from '../../../Database/models/product.model.js';
-import User from '../../../Database/models/user.model.js';
+import Product from '../../Database/models/product.model.js';
+import User from '../../Database/models/user.model.js';
 import { notifyLowStock } from './enhancedNotificationService.js';
 
-// ============================================
-// INVENTORY ALERT SERVICE
-// ============================================
 
 const DEFAULT_REORDER_LEVEL = 10;
 const DEFAULT_REORDER_QUANTITY = 50;
 
-// Get low stock products
 const getLowStockProducts = async (threshold = null) => {
     try {
         const reorderLevel = threshold || DEFAULT_REORDER_LEVEL;

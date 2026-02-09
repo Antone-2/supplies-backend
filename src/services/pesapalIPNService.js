@@ -1,12 +1,10 @@
 import axios from 'axios';
 import mongoose from 'mongoose';
-import Order from '../../../Database/models/order.model.js';
+import Order from '../../Database/models/order.model.js';
 import { getTransactionStatus } from './pesapalService.js';
 import { notifyPaymentReceived, notifyOrderStatusChange } from './enhancedNotificationService.js';
 
-// ============================================
-// PESAPAL IPN HANDLER
-// ============================================
+
 
 const PESAPAL_BASE_URL = process.env.PESAPAL_TEST_MODE === 'true'
     ? 'https://pay.pesapal.com/v3/api'
@@ -15,7 +13,6 @@ const PESAPAL_BASE_URL = process.env.PESAPAL_TEST_MODE === 'true'
 const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY;
 const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
 
-// Get access token for PesaPal API
 const getAccessToken = async () => {
     try {
         const response = await axios.post(
