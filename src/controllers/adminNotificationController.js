@@ -1,4 +1,4 @@
-import AdminNotification from '../Database/models/adminNotification.model.js';
+import AdminNotification from '../../Database/models/adminNotification.model.js';
 
 export const getNotifications = async (req, res) => {
     try {
