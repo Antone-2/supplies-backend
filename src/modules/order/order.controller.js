@@ -1,8 +1,8 @@
-import orderModel from '../../Database/models/order.model.js';
+import orderModel from '../../../Database/models/order.model.js';
 import mongoose from 'mongoose';
-import User from '../../Database/models/user.model.js';
-import Product from '../../Database/models/product.model.js';
-import Category from '../../Database/models/category.model.js';
+import User from '../../../Database/models/user.model.js';
+import Product from '../../../Database/models/product.model.js';
+import Category from '../../../Database/models/category.model.js';
 import { sendOrderEmail, sendOrderConfirmation } from '../../services/emailService.js';
 import { sendOrderConfirmationSMS } from '../../services/smsService.js';
 import { initiatePesapalPayment, getTransactionStatus } from '../../services/pesapalService.js';

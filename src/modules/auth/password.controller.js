@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import User from '../../Database/models/user.model.js';
+import User from '../../../Database/models/user.model.js';
 import * as emailService from '../../services/emailService.js';
 
 

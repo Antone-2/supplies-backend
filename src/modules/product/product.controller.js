@@ -1,9 +1,9 @@
-import Product from '../../Database/models/product.model.js';
-import Category from '../../Database/models/category.model.js';
+import Product from '../../../Database/models/product.model.js';
+import Category from '../../../Database/models/category.model.js';
 import mongoose from 'mongoose';
-import Order from '../../Database/models/order.model.js';
-import Cart from '../../Database/models/cart.model.js';
-import Wishlist from '../../Database/models/wishlist.model.js';
+import Order from '../../../Database/models/order.model.js';
+import Cart from '../../../Database/models/cart.model.js';
+import Wishlist from '../../../Database/models/wishlist.model.js';
 
 const getProducts = async (req, res) => {
     try {
