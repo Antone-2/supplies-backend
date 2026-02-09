@@ -1,5 +1,5 @@
-import Wishlist from '../../../Database/models/wishlist.model.js';
-import Product from '../../../Database/models/product.model.js';
+import Wishlist from '../../supplies-backend/Database/models/wishlist.model.js';
+import Product from '../../supplies-backend/Database/models/product.model.js';
 
 const wishlistController = {
     getUserWishlist: async (req, res) => {
