@@ -1,8 +1,8 @@
+import express from 'express';
+import { runDayBasedReminders, runWeeklyReminders, sendPendingOrderReminders, sendAbandonedCartReminders } from '../services/cartAbandonmentService.js';
+import { logger } from '../utils/logger.js';
 
-const express = require('express');
 const router = express.Router();
-const { runDayBasedReminders, runWeeklyReminders, sendPendingOrderReminders, sendAbandonedCartReminders } = require('../services/cartAbandonmentService.js');
-const { logger } = require('../utils/logger.js');
 
 /**
  * @route   POST /api/v1/reminders/run-day-based
@@ -154,4 +154,4 @@ router.get('/status', async (req, res) => {
     });
 });
 
-module.exports = router;
+export default router;

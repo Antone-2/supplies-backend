@@ -1,7 +1,6 @@
-
-const cron = require('node-cron');
-const { runDayBasedReminders } = require('../services/cartAbandonmentService.js');
-const { logger } = require('../utils/logger.js');
+import cron from 'node-cron';
+import { runDayBasedReminders } from '../services/cartAbandonmentService.js';
+import { logger } from '../utils/logger.js';
 
 const scheduledJobs = new Map();
 
@@ -85,7 +84,7 @@ const triggerJob = async (jobName, days = 3) => {
     }
 };
 
-module.exports = {
+export {
     initializeScheduler,
     startScheduler,
     stopScheduler,

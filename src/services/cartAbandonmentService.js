@@ -1,8 +1,7 @@
-
-const Order = require('../Database/models/order.model.js');
-const User = require('../Database/models/user.model.js');
-const { sendOrderReminderEmail, sendCartReminderEmail } = require('./enhancedNotificationService.js');
-const { logger } = require('../utils/logger.js');
+import Order from '../../Database/models/order.model.js';
+import User from '../../Database/models/user.model.js';
+import { sendOrderReminderEmail, sendCartReminderEmail } from './enhancedNotificationService.js';
+import { logger } from '../utils/logger.js';
 
 
 // Helper function to calculate days ago (calendar days)
@@ -16,7 +15,6 @@ const getDaysAgo = (days) => {
 
 const findUsersWithPendingOrders = async (days = 3) => {
     try {
-        // Calculate the date X days ago (calendar days)
         const cutoffDate = getDaysAgo(days);
 
         logger.info(`Finding pending orders older than ${days} days (before ${cutoffDate.toISOString()})`);
@@ -59,7 +57,7 @@ const findUsersWithPendingOrders = async (days = 3) => {
     } catch (error) {
         logger.error('Error finding users with pending orders:', error);
         return [];
-    }
+    };
 };
 
 
@@ -98,7 +96,7 @@ const findUsersWithAbandonedCarts = async (days = 3) => {
     } catch (error) {
         logger.error('Error finding users with abandoned carts:', error);
         return [];
-    }
+    };
 };
 
 
@@ -146,7 +144,7 @@ const sendPendingOrderReminders = async (days = 3) => {
     } catch (error) {
         logger.error('Error in sendPendingOrderReminders:', error);
         return { sentCount: 0, failedCount: 0, error: error.message };
-    }
+    };
 };
 
 
@@ -192,7 +190,7 @@ const sendAbandonedCartReminders = async (days = 3) => {
     } catch (error) {
         logger.error('Error in sendAbandonedCartReminders:', error);
         return { sentCount: 0, failedCount: 0, error: error.message };
-    }
+    };
 };
 
 
@@ -220,7 +218,7 @@ const runDayBasedReminders = async (days = 3) => {
     } catch (error) {
         logger.error('Error in runDayBasedReminders:', error);
         return { error: error.message };
-    }
+    };
 };
 
 
@@ -230,7 +228,7 @@ const runWeeklyReminders = async () => {
 };
 
 
-module.exports = {
+export {
     sendPendingOrderReminders,
     sendAbandonedCartReminders,
     runDayBasedReminders,
