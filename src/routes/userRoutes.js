@@ -13,7 +13,7 @@ import {
     uploadAvatar
 } from '../controllers/userController.js';
 import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
-import { createReview, getUserReviews, updateReview, deleteReview, checkDeliveredPurchase } from '../controllers/reviewController.js';
+import { createReview, getUserReviews, updateReview, deleteReview, checkDeliveredPurchase, checkGeneralReviewEligibility } from '../controllers/reviewController.js';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -71,5 +71,10 @@ router.delete('/reviews/:reviewId', jwtAuthMiddleware, deleteReview);
 
 // Check if user has a delivered purchase for a product
 router.get('/purchase-verification/:productId', jwtAuthMiddleware, checkDeliveredPurchase);
+
+
+// Check if user can write a general review (has any delivered order)
+router.get('/general-review-eligibility', jwtAuthMiddleware, checkGeneralReviewEligibility);
+
 
 export default router;

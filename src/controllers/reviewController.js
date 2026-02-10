@@ -301,4 +301,29 @@ export async function checkDeliveredPurchase(req, res) {
         console.error('Error checking purchase status:', error);
         res.status(500).json({ message: 'Failed to check purchase status.', error: error.message });
     }
+}
+
+
+// Check if user can write a general review (has any delivered order)
+export async function checkGeneralReviewEligibility(req, res) {
+    try {
+        const userId = req.user._id;
+
+        const Order = (await import('../../Database/models/order.model.js')).default;
+
+        // Check if user has any delivered and paid order
+        const deliveredOrder = await Order.findOne({
+            user: userId,
+            orderStatus: 'delivered',
+            paymentStatus: 'paid'
+        });
+
+        res.json({
+            canReview: !!deliveredOrder,
+            orderNumber: deliveredOrder?.orderNumber || null
+        });
+    } catch (error) {
+        console.error('Error checking general review eligibility:', error);
+        res.status(500).json({ message: 'Failed to check review eligibility.', error: error.message });
+    }
 };
