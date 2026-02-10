@@ -1,6 +1,6 @@
 
-const Order = require('../../../supplies-backend/Database/models/order.model.js');
-const User = require('../../../supplies-backend/Database/models/user.model.js');
+const Order = require('../../Database/models/order.model.js');
+const User = require('../../Database/models/user.model.js');
 const { sendOrderReminderEmail, sendCartReminderEmail } = require('./enhancedNotificationService.js');
 const { logger } = require('../utils/logger.js');
 

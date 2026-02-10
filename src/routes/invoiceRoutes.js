@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import Order from '../../../supplies-backend/Database/models/order.model.js';
+import Order from '../../Database/models/order.model.js';
 import { generateInvoicePDF, generateInvoiceHTML } from '../services/invoiceService.js';
 import { sendEmail, getEmailTemplate } from '../services/emailService.js';
 import { sendSMS } from '../services/smsService.js';

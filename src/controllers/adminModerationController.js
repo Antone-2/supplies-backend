@@ -1,6 +1,6 @@
-const Review = require('../../../supplies-backend/Database/models/review.model');
-const Notification = require('../../../supplies-backend/Database/models/notification.model');
-const Newsletter = require('../../../supplies-backend/Database/models/newsletter.model');
+const Review = require('../../Database/models/review.model');
+const Notification = require('../../Database/models/notification.model');
+const Newsletter = require('../../Database/models/newsletter.model');
 
 
 exports.getAllReviews = async (req, res) => {

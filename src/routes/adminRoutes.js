@@ -14,8 +14,8 @@ import {
     bulkUpdateUsers
 } from '../controllers/userController.js';
 import orderController from '../modules/order/order.controller.js';
-import orderModel from '../../../supplies-backend/Database/models/order.model.js';
-import User from '../../../supplies-backend/Database/models/user.model.js';
+import orderModel from '../../Database/models/order.model.js';
+import User from '../../Database/models/user.model.js';
 import bcrypt from 'bcrypt';
 import { getAllProducts, createProduct, updateProduct, deleteProduct } from '../modules/product/product.controller.js';
 import { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory } from '../modules/category/category.controller.js';

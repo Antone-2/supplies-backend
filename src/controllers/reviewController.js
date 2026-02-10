@@ -1,5 +1,5 @@
-import Review from '../../../supplies-backend/Database/models/review.model.js';
-import Product from '../../../supplies-backend/Database/models/product.model.js';
+import Review from '../../Database/models/review.model.js';
+import Product from '../../Database/models/product.model.js';
 import { sendEmail } from '../services/emailService.js';
 
 
@@ -24,7 +24,7 @@ export async function createReview(req, res) {
         }
 
 
-        const Order = (await import('../../../supplies-backend/Database/models/order.model.js')).default;
+        const Order = (await import('../../Database/models/order.model.js')).default;
         const userOrder = await Order.findOne({
             user: userId,
             'items.productId': productId,
