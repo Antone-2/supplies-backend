@@ -1,5 +1,5 @@
-const pino = require('pino');
-const pinoHttp = require('pino-http');
+import pino from 'pino';
+import pinoHttp from 'pino-http';
 
 
 const logger = pino({
@@ -85,7 +85,8 @@ const logError = (error, context = {}) => {
     });
 };
 
-module.exports = {
+
+export {
     logger,
     httpLogger,
     logSecurityEvent,
