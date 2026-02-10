@@ -1,5 +1,5 @@
-import Notification from '../../Database/models/notification.model.js';
-import User from '../../Database/models/user.model.js';
+import Notification from '../../../Database/models/notification.model.js';
+import User from '../../../Database/models/user.model.js';
 
 
 export const getNotifications = async (req, res) => {

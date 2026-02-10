@@ -1,6 +1,6 @@
-const Product = require('../../Database/models/product.model');
-const User = require('../../Database/models/user.model');
-const Order = require('../../Database/models/order.model');
+const Product = require('../Database/models/product.model');
+const User = require('../Database/models/user.model');
+const Order = require('../Database/models/order.model');
 const csv = require('fast-csv');
 const fs = require('fs');
 
