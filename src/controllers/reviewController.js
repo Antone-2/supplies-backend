@@ -24,7 +24,7 @@ export async function createReview(req, res) {
         }
 
 
-        const Order = (await import('../Database/models/order.model.js')).default;
+        const Order = (await import('../../Database/models/order.model.js')).default;
         const userOrder = await Order.findOne({
             user: userId,
             'items.productId': productId,
@@ -266,5 +266,39 @@ export async function deleteReview(req, res) {
     } catch (error) {
         console.error('Error deleting review:', error);
         res.status(500).json({ message: 'Failed to delete review.' });
+    }
+};
+
+
+export async function checkDeliveredPurchase(req, res) {
+    try {
+        const { productId } = req.params;
+        const userId = req.user._id;
+
+        const Order = (await import('../../Database/models/order.model.js')).default;
+
+        // Check for both string and ObjectId matches since items.productId is Mixed type
+        const userOrder = await Order.findOne({
+            user: userId,
+            $or: [
+                { 'items.productId': productId },
+                { 'items.productId': { $in: [productId] } }
+            ],
+            orderStatus: 'delivered',
+            paymentStatus: 'paid'
+        });
+
+        res.json({
+            hasPurchased: !!userOrder,
+            orderNumber: userOrder?.orderNumber || null,
+            debug: {
+                productId,
+                userId,
+                orderFound: !!userOrder
+            }
+        });
+    } catch (error) {
+        console.error('Error checking purchase status:', error);
+        res.status(500).json({ message: 'Failed to check purchase status.', error: error.message });
     }
 };

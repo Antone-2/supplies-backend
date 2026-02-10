@@ -1,10 +1,11 @@
-const express = require('express');
+import express from 'express';
+import { getNotifications, markAsRead, createNotification, deleteNotification } from '../controllers/adminNotificationController.js';
+
 const router = express.Router();
-const adminNotificationController = require('../controllers/adminNotificationController');
 
-router.get('/', adminNotificationController.getNotifications);
-router.post('/', adminNotificationController.createNotification);
-router.put('/:id/read', adminNotificationController.markAsRead);
-router.delete('/:id', adminNotificationController.deleteNotification);
+router.get('/', getNotifications);
+router.post('/', createNotification);
+router.put('/:id/read', markAsRead);
+router.delete('/:id', deleteNotification);
 
-module.exports = router;
+export default router;

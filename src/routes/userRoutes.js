@@ -13,7 +13,7 @@ import {
     uploadAvatar
 } from '../controllers/userController.js';
 import jwtAuthMiddleware from '../middleware/jwtAuthMiddleware.js';
-import { createReview, getUserReviews, updateReview, deleteReview } from '../controllers/reviewController.js';
+import { createReview, getUserReviews, updateReview, deleteReview, checkDeliveredPurchase } from '../controllers/reviewController.js';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -67,5 +67,9 @@ router.post('/reviews', jwtAuthMiddleware, createReview);
 router.get('/reviews', jwtAuthMiddleware, getUserReviews);
 router.put('/reviews/:reviewId', jwtAuthMiddleware, updateReview);
 router.delete('/reviews/:reviewId', jwtAuthMiddleware, deleteReview);
+
+
+// Check if user has a delivered purchase for a product
+router.get('/purchase-verification/:productId', jwtAuthMiddleware, checkDeliveredPurchase);
 
 export default router;

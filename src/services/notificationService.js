@@ -2,10 +2,10 @@ import Notification from '../../Database/models/notification.model.js';
 import { sendEmail, getEmailTemplate } from './emailService.js';
 
 
-const createNotification = async (userId, title, message, type = 'general', data = {}, priority = 'medium') => {
+const createNotification = async (recipientId, title, message, type = 'general', data = {}, priority = 'medium') => {
     try {
         const notification = new Notification({
-            user: userId,
+            recipient: recipientId,
             title,
             message,
             type,
@@ -22,10 +22,10 @@ const createNotification = async (userId, title, message, type = 'general', data
 };
 
 
-const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = false) => {
+const getUserNotifications = async (recipientId, page = 1, limit = 20, unreadOnly = false) => {
     try {
-        const query = { user: userId };
-        if (unreadOnly) query.isRead = false;
+        const query = { recipient: recipientId };
+        if (unreadOnly) query.status = 'unread';
 
         const skip = (page - 1) * limit;
         const notifications = await Notification.find(query)
@@ -34,7 +34,7 @@ const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = f
             .limit(limit);
 
         const total = await Notification.countDocuments(query);
-        const unreadCount = await Notification.countDocuments({ user: userId, isRead: false });
+        const unreadCount = await Notification.countDocuments({ recipient: recipientId, status: 'unread' });
 
         return {
             notifications,
@@ -53,11 +53,11 @@ const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = f
 };
 
 
-const markAsRead = async (notificationId, userId) => {
+const markAsRead = async (notificationId, recipientId) => {
     try {
         const notification = await Notification.findOneAndUpdate(
-            { _id: notificationId, user: userId },
-            { isRead: true },
+            { _id: notificationId, recipient: recipientId },
+            { status: 'read', readAt: new Date() },
             { new: true }
         );
         return notification;
@@ -68,11 +68,11 @@ const markAsRead = async (notificationId, userId) => {
 };
 
 
-const markAllAsRead = async (userId) => {
+const markAllAsRead = async (recipientId) => {
     try {
         const result = await Notification.updateMany(
-            { user: userId, isRead: false },
-            { isRead: true }
+            { recipient: recipientId, status: 'unread' },
+            { status: 'read', readAt: new Date() }
         );
         return result.modifiedCount;
     } catch (error) {
@@ -82,13 +82,13 @@ const markAllAsRead = async (userId) => {
 };
 
 
-const notifyOrderCreated = async (userId, email, orderData) => {
+const notifyOrderCreated = async (recipientId, email, orderData) => {
     const { orderId, totalAmount } = orderData;
 
 
-    if (userId) {
+    if (recipientId) {
         await createNotification(
-            userId,
+            recipientId,
             'Order Confirmed',
             `Your order ${orderId} has been confirmed and is being processed.`,
             'order',
@@ -101,7 +101,7 @@ const notifyOrderCreated = async (userId, email, orderData) => {
     console.log(`Order confirmation sent for ${orderId}`);
 };
 
-const notifyOrderStatusChange = async (userId, email, orderData) => {
+const notifyOrderStatusChange = async (recipientId, email, orderData) => {
     const { orderId, status, trackingNumber } = orderData;
 
     let title, message;
@@ -130,9 +130,9 @@ const notifyOrderStatusChange = async (userId, email, orderData) => {
     }
 
 
-    if (userId) {
+    if (recipientId) {
         await createNotification(
-            userId,
+            recipientId,
             title,
             message,
             'order',
@@ -161,10 +161,10 @@ const notifyOrderStatusChange = async (userId, email, orderData) => {
 };
 
 
-const sendPromotionalNotification = async (userIds, title, message, data = {}) => {
+const sendPromotionalNotification = async (recipientIds, title, message, data = {}) => {
     try {
-        const notifications = userIds.map(userId => ({
-            user: userId,
+        const notifications = recipientIds.map(recipientId => ({
+            recipient: recipientId,
             title,
             message,
             type: 'promotion',
@@ -186,7 +186,7 @@ const cleanupOldNotifications = async () => {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const result = await Notification.deleteMany({
             createdAt: { $lt: thirtyDaysAgo },
-            isRead: true
+            status: 'read'
         });
 
         console.log(`Cleaned up ${result.deletedCount} old notifications`);
@@ -200,8 +200,8 @@ const cleanupOldNotifications = async () => {
 
 const notifySystemIssue = async (adminUserIds, title, message, priority = 'urgent') => {
     try {
-        const notifications = adminUserIds.map(userId => ({
-            user: userId,
+        const notifications = adminUserIds.map(recipientId => ({
+            recipient: recipientId,
             title,
             message,
             type: 'system',

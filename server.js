@@ -163,6 +163,7 @@ import invoiceRoutes from './src/routes/invoiceRoutes.js';
 import ipnRoutes from './src/routes/ipnRoutes.js';
 import inventoryRoutes from './src/routes/inventoryRoutes.js';
 import reminderRoutes from './src/routes/reminderRoutes.js';
+import notificationRoutes from './src/routes/notificationRoutes.js';
 import { startScheduler } from './src/utils/scheduler.js';
 
 app.use('/api/v1/auth', authRoutes);
@@ -181,6 +182,7 @@ app.use('/api/v1/invoices', invoiceRoutes);
 app.use('/api/v1/payments', ipnRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
 app.use('/api/v1/reminders', reminderRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/admin/auth', adminAuthRoutes);
 app.use('/api/v1', keepAliveRoutes);
 app.use('/api/v1/admin', adminRoutes);
