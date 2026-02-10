@@ -1,5 +1,5 @@
-import Review from '../Database/models/review.model.js';
-import Product from '../Database/models/product.model.js';
+import Review from '../../Database/models/review.model.js';
+import Product from '../../Database/models/product.model.js';
 import { sendEmail } from '../services/emailService.js';
 
 
