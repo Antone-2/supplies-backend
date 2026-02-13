@@ -598,6 +598,7 @@ const createProduct = async (req, res) => {
             category: categoryId,
             brand: productData.brand || undefined,
             countInStock: Number(productData.countInStock) || 0,
+            inStock: (Number(productData.countInStock) || 0) > 0,
             image: primaryImage,
             images: processedImages.map(img => ({ url: img, alt: '' })),
             isFeatured: productData.isFeatured || false,
@@ -649,6 +650,7 @@ const createProduct = async (req, res) => {
                 category: product.category,
                 brand: product.brand,
                 countInStock: product.countInStock,
+                inStock: product.inStock,
                 image: product.image,
                 images: product.images,
                 isFeatured: product.isFeatured,
@@ -717,6 +719,11 @@ const updateProduct = async (req, res) => {
                 }
                 return img;
             });
+        }
+
+        // Recalculate inStock based on countInStock if countInStock is being updated
+        if (updates.countInStock !== undefined) {
+            updates.inStock = updates.countInStock > 0;
         }
 
         const product = await Product.findByIdAndUpdate(

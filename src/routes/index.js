@@ -27,5 +27,6 @@ router.use('/general-reviews', require('./generalReviewRoutes'));
 router.use('/reviews', require('./reviewRoutes'));
 router.use('/newsletter', require('./newsletterRoutes'));
 router.use('/keep-alive', require('./keepAliveRoutes'));
+router.use('/search', require('./searchRoutes'));
 
 module.exports = router;

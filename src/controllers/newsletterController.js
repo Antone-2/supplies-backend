@@ -7,7 +7,7 @@ const subscribe = async (req, res) => {
         if (!email) return res.status(400).json({ message: 'Email is required.' });
         let subscriber = await Newsletter.findOne({ email });
         if (subscriber && subscriber.subscribed) {
-            return res.status(200).json({ message: 'Already subscribed.' });
+            return res.status(200).json({ success: true, message: 'Already subscribed.', alreadySubscribed: true });
         }
         if (subscriber) {
             subscriber.subscribed = true;
