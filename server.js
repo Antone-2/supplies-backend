@@ -136,11 +136,13 @@ app.use(pinoHttp({ logger }));
 
 
 app.use('/uploads', express.static(resolve(__dirname, 'uploads'), {
-    setHeaders: (res, path) => {
-        res.set('Access-Control-Allow-Origin', 'https://medhelmsupplies.co.ke');
+    setHeaders: (res) => {
+        const allowedOrigin = process.env.NODE_ENV === 'production'
+            ? 'https://medhelmsupplies.co.ke'
+            : '*';
+        res.set('Access-Control-Allow-Origin', allowedOrigin);
         res.set('Access-Control-Allow-Credentials', 'true');
-        res.set('Cross-Origin-Resource-Policy', 'same-origin');
-        res.set('Cross-Origin-Embedder-Policy', 'require-corp');
+        res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     }
 }));
 
