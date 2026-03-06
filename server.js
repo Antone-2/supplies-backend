@@ -69,9 +69,6 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 
-if (process.env.NODE_ENV !== 'production') {
-    corsOrigins.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080');
-}
 
 
 if (process.env.NODE_ENV === 'production') {

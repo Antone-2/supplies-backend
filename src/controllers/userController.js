@@ -193,9 +193,24 @@ export async function getUsers(req, res) {
 
             const userOrders = await Order.find({ user: user._id });
             const totalOrders = userOrders.length;
+            // Also find orders by shipping email for guest checkouts that might belong to this user
+            const guestOrders = await Order.find({
+                $or: [
+                    { user: user._id },
+                    { 'shippingAddress.email': user.email },
+                    { 'shippingAddress.email': user.email.toLowerCase() }
+                ]
+            });
+            // Combine orders (avoid duplicates by using a Map)
+            const allOrdersMap = new Map();
+            guestOrders.forEach(order => {
+                allOrdersMap.set(order._id.toString(), order);
+            });
+            const allOrders = Array.from(allOrdersMap.values());
+
             // Calculate total spent from ALL orders (regardless of payment status)
             // This shows the actual amount spent by the customer
-            const totalSpent = userOrders.reduce((sum, order) => {
+            const totalSpent = allOrders.reduce((sum, order) => {
                 // Use grandTotal if available, otherwise use totalAmount
                 const amount = order.grandTotal || order.totalAmount || 0;
                 return sum + amount;

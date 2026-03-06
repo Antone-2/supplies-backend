@@ -21,6 +21,7 @@ import { getAllProducts, createProduct, updateProduct, deleteProduct } from '../
 import { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory } from '../modules/category/category.controller.js';
 import { getSettings, updateSetting } from '../controllers/adminSettingController.js';
 import notificationRoutes from './notificationRoutes.js';
+import adminNotificationRoutes from './adminNotificationRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -376,6 +377,60 @@ router.get('/settings', getSettings);
 router.put('/settings/:key', updateSetting);
 
 
-router.use('/notifications', notificationRoutes);
+router.use('/notifications', adminNotificationRoutes);
+
+// Debug endpoint to check orders by email
+router.get('/debug/orders-by-email/:email', async (req, res) => {
+    try {
+        const { email } = req.params;
+        const Order = (await import('../../Database/models/order.model.js')).default;
+        const User = (await import('../../Database/models/user.model.js')).default;
+
+        // Find user by email
+        const user = await User.findOne({ email: email.toLowerCase() });
+
+        if (!user) {
+            return res.json({
+                message: 'User not found with this email',
+                email: email
+            });
+        }
+
+        // Find orders by user ID
+        const ordersByUserId = await Order.find({ user: user._id });
+
+        // Find orders by shipping email
+        const ordersByShippingEmail = await Order.find({ 'shippingAddress.email': email.toLowerCase() });
+
+        res.json({
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            },
+            ordersByUserId: ordersByUserId.map(o => ({
+                orderNumber: o.orderNumber,
+                totalAmount: o.totalAmount,
+                paymentStatus: o.paymentStatus,
+                orderStatus: o.orderStatus,
+                createdAt: o.createdAt
+            })),
+            ordersByShippingEmail: ordersByShippingEmail.map(o => ({
+                orderNumber: o.orderNumber,
+                totalAmount: o.totalAmount,
+                paymentStatus: o.paymentStatus,
+                orderStatus: o.orderStatus,
+                user: o.user,
+                createdAt: o.createdAt
+            })),
+            summary: {
+                totalByUserId: ordersByUserId.reduce((sum, o) => sum + (o.totalAmount || 0), 0),
+                totalByShippingEmail: ordersByShippingEmail.reduce((sum, o) => sum + (o.totalAmount || 0), 0)
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 export default router;
