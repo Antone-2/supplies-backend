@@ -2,13 +2,42 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
 import xssClean from 'xss-clean';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import 'dotenv/config';
+
+/**
+ * ================================================
+ * ENHANCED SECURITY MIDDLEWARE IMPORTS
+ * ================================================
+ * Import our custom security middleware with:
+ * - User-based rate limiting
+ * - Strict input validation
+ * - OWASP-compliant security headers
+ */
+import {
+    // Rate limiters
+    generalLimiter,
+    authLimiter,
+    userRateLimiter,
+    paymentLimiter,
+    searchLimiter,
+    passwordResetLimiter,
+
+    // Security headers
+    helmetConfig,
+
+    // Sanitization
+    sanitizeBody,
+    sanitizeQueryParams,
+
+    // Additional security
+    securityLogger,
+    suspiciousRequestDetector,
+    preventHPP
+} from './src/middleware/enhancedSecurity.js';
 
 
 import config from './config/environment.js';
@@ -51,7 +80,18 @@ const MONGO_URI = process.env.MONGO_URI;
 
 
 app.set('trust proxy', 1);
-app.use(helmet());
+
+// ================================================
+// SECURITY HEADERS (OWASP RECOMMENDATIONS)
+// ================================================
+// Use enhanced helmet configuration with strict CSP
+app.use(helmetConfig);
+
+// Security logging for all requests
+app.use(securityLogger);
+
+// Detect suspicious requests
+app.use(suspiciousRequestDetector);
 
 
 const corsOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()) : [];
@@ -113,14 +153,43 @@ app.use(cookieParser());
 app.use(mongoSanitize());
 app.use(xssClean());
 
+// Prevent HTTP Parameter Pollution
+app.use(preventHPP);
 
-const limiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '900000', 10),
-    max: parseInt(process.env.RATE_LIMIT_MAX || '300', 10),
-    standardHeaders: true,
-    legacyHeaders: false,
-});
-app.use('/api', limiter);
+// Additional body sanitization
+app.use(sanitizeBody);
+app.use(sanitizeQueryParams);
+
+
+// ================================================
+// RATE LIMITING (IP + USER-BASED)
+// ================================================
+// Using enhanced rate limiters with better granularity:
+// - General API limiter: 100 req/15min per IP
+// - Auth limiter: 5 req/15min per IP (prevents brute force)
+// - Payment limiter: 3 req/min per IP (prevents payment abuse)
+// - User-based limiter: 200 req/15min per user
+
+// General API rate limiting
+app.use('/api', generalLimiter);
+
+// Strict rate limiting for authentication endpoints
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/register', authLimiter);
+app.use('/api/v1/auth/forgot-password', passwordResetLimiter);
+app.use('/api/v1/auth/reset-password', passwordResetLimiter);
+
+// Strict rate limiting for payment endpoints
+app.use('/api/v1/pesapal', paymentLimiter);
+app.use('/api/v1/payments', paymentLimiter);
+app.use('/api/v1/orders/create', paymentLimiter);
+app.use('/api/v1/orders/initiate-payment', paymentLimiter);
+
+// User-based rate limiting for authenticated endpoints
+app.use('/api/v1/users', userRateLimiter);
+app.use('/api/v1/cart', userRateLimiter);
+app.use('/api/v1/wishlist', userRateLimiter);
+app.use('/api/v1/orders', userRateLimiter);
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'keyboard cat',
@@ -190,6 +259,149 @@ app.use('/api/v1/admin', adminRoutes);
 import passport from './passport.js';
 app.use(passport.initialize());
 app.use(passport.session());
+
+
+// ================================================
+// SEO: SITEMAP AND ROBOTS.TXT
+// ================================================
+
+/**
+ * XML Sitemap Endpoint
+ * Provides search engines with a list of all available pages
+ * Cached for 1 hour for performance
+ */
+app.get('/sitemap.xml', (req, res) => {
+    const baseUrl = process.env.FRONTEND_URL || 'https://medhelmsupplies.co.ke';
+
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>${baseUrl}/</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>1.0</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/shop</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/products</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/categories</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/cart</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/checkout</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/orders</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/auth</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.5</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/about</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/contact</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/privacy-policy</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.3</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/terms-of-service</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.3</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/returns</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.3</priority>
+    </url>
+</urlset>`;
+
+    res.header('Content-Type', 'application/xml');
+    res.send(sitemap);
+});
+
+/**
+ * Robots.txt Endpoint
+ * Tells search engines which pages they can crawl
+ */
+app.get('/robots.txt', (req, res) => {
+    const baseUrl = process.env.FRONTEND_URL || 'https://medhelmsupplies.co.ke';
+
+    const robots = `# Robots.txt for Medhelm Supplies
+# https://www.medhelmsupplies.co.ke
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: ${baseUrl}/sitemap.xml
+
+# Disallow sensitive endpoints
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /orders/
+Disallow: /*?*
+
+# Crawl-delay for politeness
+Crawl-delay: 1
+
+# Googlebot specific rules
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+# Bingbot specific rules
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /admin/`;
+
+    res.header('Content-Type', 'text/plain');
+    res.send(robots);
+});
 
 
 app.get('/api/health', (req, res) => {
